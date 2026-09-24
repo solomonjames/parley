@@ -49,14 +49,18 @@ function collect(v: unknown, path: Path, out: { path: Path; size: number }[]) {
   }
 }
 
-/** Where elision is allowed per reply kind. Effects, summaries and hashes are never elided. */
-function roots(r: Reply): Path[] {
+/**
+ * Where elision is allowed per reply kind. `deep` roots may be elided anywhere inside;
+ * `list` roots only by dropping whole trailing items, so effects, summaries and hashes of
+ * what remains are never altered. Deep roots are elided before lists.
+ */
+function roots(r: Reply): { deep: Path[]; list: Path[] } {
   switch (r.kind) {
-    case "ANSWER": return [["data"]];
-    case "BRIEF": return [["capabilities"]];
-    case "PROPOSALS": return [["proposals"], ...r.proposals.map((_, i) => ["proposals", i, "data"])];
-    case "RECEIPT": return [["receipt", "result"]];
-    default: return [];
+    case "ANSWER": return { deep: [["data"]], list: [] };
+    case "BRIEF": return { deep: [], list: [["capabilities"]] };
+    case "PROPOSALS": return { deep: r.proposals.map((_, i) => ["proposals", i, "data"]), list: [["proposals"]] };
+    case "RECEIPT": return { deep: [["receipt", "result"]], list: [] };
+    default: return { deep: [], list: [] };
   }
 }
 
@@ -84,11 +88,17 @@ export function fit<R extends Reply>(reply: R, budget: number, store: HandleStor
     const more = [...baseMore, ...moreFor(false)];
     const text = lens({ ...r, more: more.length ? more : undefined });
     if (est(text) <= budget) break;
-    const cands: { path: Path; size: number }[] = [];
-    for (const root of roots(r)) {
+    const { deep, list } = roots(r);
+    let cands: { path: Path; size: number }[] = [];
+    for (const root of deep) {
       const v = getAt(r, root);
       if (v !== undefined) collect(v, root, cands);
     }
+    if (!cands.length)
+      for (const root of list) {
+        const v = getAt(r, root);
+        if (Array.isArray(v) && v.length) cands.push({ path: root, size: JSON.stringify(v).length });
+      }
     if (!cands.length) break;
     const pick = cands.reduce((a, b) => (b.size > a.size ? b : a));
     const cur = getAt(r, pick.path);

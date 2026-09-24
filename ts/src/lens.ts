@@ -125,10 +125,23 @@ function moreLines(more: More[] | undefined): string[] {
   return (more ?? []).map((m) => `… ${m.remaining} more at ${m.path} — EXPAND ${m.handle} (~${m.est} tokens)`);
 }
 
-function proposalLines(p: Proposal): string[] {
-  const out = [`[${p.id}] ${p.summary}`, ...p.effects.map((e) => "  " + effectLine(e))];
-  out.push(`  cost: ${fmtMoney(p.cost)} · risk: ${p.risk} · undo: ${p.undo ? fmtDuration(p.undo.window) : "never"} · expires: ${fmtTime(p.expires)}`);
-  if (p.data !== undefined) out.push(...entry("data", p.data, 1));
+const ATTRS: [string, (p: Proposal) => string][] = [
+  ["cost", (p) => fmtMoney(p.cost)],
+  ["risk", (p) => p.risk],
+  ["undo", (p) => (p.undo ? fmtDuration(p.undo.window) : "never")],
+  ["expires", (p) => fmtTime(p.expires)],
+];
+
+function proposalsLines(ps: Proposal[]): string[] {
+  // Attributes identical across all (N ≥ 2) proposals are stated once, in the header.
+  const shared = ps.length >= 2 ? ATTRS.filter(([, f]) => ps.every((p) => f(p) === f(ps[0]))) : [];
+  const own = ATTRS.filter((a) => !shared.includes(a));
+  const out = [`${ps.length} proposal${ps.length === 1 ? "" : "s"}${shared.length ? " — " + shared.map(([k, f]) => `${k}: ${f(ps[0])}`).join(" · ") : ""}:`];
+  for (const p of ps) {
+    out.push(`[${p.id}] ${p.summary}`, ...p.effects.map((e) => "  " + effectLine(e)));
+    if (own.length) out.push("  " + own.map(([k, f]) => `${k}: ${f(p)}`).join(" · "));
+    if (p.data !== undefined) out.push(...entry("data", p.data, 1));
+  }
   return out;
 }
 
@@ -137,15 +150,15 @@ export function lens(r: Reply): string {
   const out: string[] = [];
   switch (r.kind) {
     case "BRIEF":
-      out.push(`# ${r.service.name} (${r.service.id})`, r.service.summary);
-      for (const c of r.capabilities) out.push(`${c.kind} ${c.name}${paramList(c.params)} — ${c.summary}${c.risk ? ` [risk:${c.risk}]` : ""}`);
+      out.push(`# ${r.service.name} (${r.service.id})`);
+      if (r.service.summary) out.push(r.service.summary);
+      for (const c of r.capabilities) out.push(`${c.kind} ${c.name}${paramList(c.params)}${c.summary ? ` — ${c.summary}` : ""}${c.risk ? ` [risk:${c.risk}]` : ""}`);
       break;
     case "ANSWER":
       out.push(lean(r.data));
       break;
     case "PROPOSALS":
-      out.push(`${r.proposals.length} proposal${r.proposals.length === 1 ? "" : "s"}:`);
-      for (const p of r.proposals) out.push(...proposalLines(p));
+      out.push(...proposalsLines(r.proposals));
       break;
     case "CLARIFY":
       out.push(`? ${r.question}`, ...r.options.map((o, i) => `  ${i + 1}. ${o.label}`));
@@ -153,9 +166,10 @@ export function lens(r: Reply): string {
     case "RECEIPT": {
       const rc = r.receipt;
       const tag = `(receipt ${rc.id})${r.replay ? " (replay)" : ""}`;
-      out.push(rc.undoes ? `↶ undid ${rc.undoes}: ${rc.summary} ${tag}` : `✓ ${rc.summary} ${tag}`);
-      out.push(...rc.effects.map((e) => "  " + effectLine(e)));
-      out.push(rc.undo ? `  undo: until ${fmtTime(rc.undo.until)}` : "  undo: never");
+      if (rc.undoes) out.push(`↶ undid ${rc.undoes}: ${rc.summary} ${tag}`);
+      else out.push(`✓ ${rc.summary} ${tag} · ${rc.undo ? `undo until ${fmtTime(rc.undo.until)}` : "irreversible"}`);
+      // The model already saw the effects in the proposal, unless the service auto-committed.
+      if (r.auto) out.push(...rc.effects.map((e) => "  " + effectLine(e)));
       if (rc.result !== undefined) out.push(...entry("result", rc.result, 1));
       break;
     }

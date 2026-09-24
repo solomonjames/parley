@@ -77,7 +77,7 @@ interface FrameBase { parley: 1; id: string }
 export interface RequestBase extends FrameBase { verb: Verb; budget?: number; grants?: string[]; proof?: Proof }
 export interface Hello extends RequestBase { verb: "HELLO"; agent?: { name?: string; key?: string } }
 export interface Ask extends RequestBase { verb: "ASK"; capability: string; params?: Record<string, unknown> }
-export interface Intent extends RequestBase { verb: "INTENT"; capability: string; params?: Record<string, unknown>; goal?: string }
+export interface Intent extends RequestBase { verb: "INTENT"; capability: string; params?: Record<string, unknown>; goal?: string; auto?: boolean }
 export interface Commit extends RequestBase { verb: "COMMIT"; proposal: string; hash: string }
 export interface Undo extends RequestBase { verb: "UNDO"; receipt: string }
 export interface Expand extends RequestBase { verb: "EXPAND"; handle: string }
@@ -88,7 +88,7 @@ export interface Brief extends ReplyBase { kind: "BRIEF"; service: { id: string;
 export interface Answer extends ReplyBase { kind: "ANSWER"; data: unknown; more?: More[] }
 export interface Proposals extends ReplyBase { kind: "PROPOSALS"; proposals: Proposal[]; more?: More[] }
 export interface Clarify extends ReplyBase { kind: "CLARIFY"; question: string; options: { label: string; params: Record<string, unknown> }[] }
-export interface ReceiptReply extends ReplyBase { kind: "RECEIPT"; receipt: Receipt; replay?: boolean }
+export interface ReceiptReply extends ReplyBase { kind: "RECEIPT"; receipt: Receipt; replay?: boolean; auto?: boolean }
 export interface ErrorReply extends ReplyBase {
   kind: "ERROR";
   code: ErrorCode;

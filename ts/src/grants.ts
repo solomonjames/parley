@@ -105,6 +105,21 @@ export type GrantCheck =
 
 const CONSENTABLE = new Set(["per", "spend", "risk"]);
 
+const strList = (v: unknown) => Array.isArray(v) && v.every((x) => typeof x === "string");
+const isLimit = (v: any) => v && typeof v === "object" && Number.isSafeInteger(v.max) && typeof v.currency === "string";
+
+/** Caveats with malformed values fail closed (as a hard failure). */
+function malformed(k: string, v: unknown): string | null {
+  const ok =
+    k === "svc" || k === "verbs" || k === "can" ? strList(v)
+    : k === "exp" || k === "nbf" ? Number.isSafeInteger(v)
+    : k === "per" || k === "spend" ? isLimit(v)
+    : k === "risk" ? typeof v === "string" && v in RISK_ORDER
+    : k === "only" ? typeof v === "string"
+    : true; // unknown keys are handled by the switch
+  return ok ? null : `malformed caveat ${JSON.stringify({ [k]: v })}`;
+}
+
 export function matchCapability(pattern: string, cap: string): boolean {
   return pattern === "*" || pattern === cap || (pattern.endsWith("*") && cap.startsWith(pattern.slice(0, -1)));
 }
@@ -144,8 +159,8 @@ export async function checkGrant(token: string, ctx: CheckContext): Promise<Gran
       const keys = Object.keys(c);
       const k = keys.length === 1 ? keys[0] : "";
       const v = c[k];
-      let why: string | null = null;
-      switch (k) {
+      let why: string | null = malformed(k, v);
+      if (!why) switch (k) {
         case "svc": if (!v.includes(ctx.service)) why = `not valid for service ${ctx.service}`; break;
         case "verbs": if (!v.includes(ctx.verb)) why = `does not allow ${ctx.verb}`; break;
         case "can": if (!v.some((pat: string) => matchCapability(pat, ctx.capability))) why = `does not cover ${ctx.capability}`; break;
@@ -165,7 +180,7 @@ export async function checkGrant(token: string, ctx: CheckContext): Promise<Gran
         case "only": if (ctx.verb === "COMMIT" && p?.hash !== v) why = "grant is bound to a different proposal"; break;
         default: why = `unknown caveat ${JSON.stringify(c)}`;
       }
-      if (why) (CONSENTABLE.has(k) ? soft : hard).push({ c: c as Caveat, why });
+      if (why) (CONSENTABLE.has(k) && !why.startsWith("malformed") ? soft : hard).push({ c: c as Caveat, why });
     }
   }
   if (hard.length) return { ok: false, code: "forbidden", reason: hard.map((h) => h.why).join("; "), iss, need: hard.map((h) => h.c) };

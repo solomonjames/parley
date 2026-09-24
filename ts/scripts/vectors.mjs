@@ -49,6 +49,9 @@ const now = 1790000000;
 const root = await P.issueGrant({ principal, to: agent.public, iat: now - 100, nonce: "n1", caveats: [{ svc: ["shop.example"] }, { can: ["shop.*"] }, { exp: now + 3600 }, { spend: { max: 5000, currency: "USD" } }, { per: { max: 3000, currency: "USD" } }, { risk: "medium" }] });
 const narrowed = await P.delegateGrant(root, { holder: agent, to: sub.public, iat: now - 50, caveats: [{ can: ["shop.search"] }, { verbs: ["ASK", "INTENT"] }] });
 const consent = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n2", caveats: [{ only: "HASH_OK" }, { exp: now + 600 }] });
+const badRisk = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n5", caveats: [{ risk: "extreme" }] });
+const badSvc = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n6", caveats: [{ svc: "shop.example.evil" }] });
+const badExp = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n7", caveats: [{ exp: "tomorrow" }] });
 const unknownCav = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n3", caveats: [{ region: "eu" }] });
 const forged = await P.issueGrant({ principal: mallory, to: agent.public, iat: now, nonce: "n4", caveats: [] });
 const rootBlocks = P.decodeGrant(root);
@@ -74,6 +77,9 @@ const cases = [
   ["delegated: parent holder cannot use it", narrowed, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],
   ["consent: matching hash ok", consent, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(999999, "high", "HASH_OK") }, { ok: true }],
   ["consent: other proposal", consent, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(1, "low", "HASH_OTHER") }, { ok: false, code: "forbidden" }],
+  ["malformed risk level fails closed", badRisk, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(1) }, { ok: false, code: "forbidden" }],
+  ["svc must be a list (no substring match)", badSvc, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "forbidden" }],
+  ["exp must be an integer", badExp, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "forbidden" }],
   ["unknown caveat fails closed", unknownCav, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "forbidden" }],
   ["forged issuer", forged, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],
   ["tampered caveats", tampered, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],
@@ -116,6 +122,12 @@ const replies = [
     { id: "p_3", capability: "shop.order", summary: "Yen", effects: [], cost: { amount: 500, currency: "JPY" }, risk: "high", undo: { window: 90 }, expires: 1790000000, hash: "h3" },
     { id: "p_4", capability: "shop.order", summary: "Refund", effects: [], cost: { amount: -5, currency: "EUR" }, risk: "low", undo: { window: 172800 }, expires: 1790000000, hash: "h4" },
   ], more: [{ handle: "h_abc", path: "proposals", remaining: 3, est: 210 }] })],
+  ["proposals: all attributes shared", r({ kind: "PROPOSALS", proposals: [{ ...baseP, hash: "h1" }, { ...baseP, id: "p_9", summary: "Move to Fri", hash: "h9" }] })],
+  ["proposals: some attributes shared", r({ kind: "PROPOSALS", proposals: [
+    { ...baseP, hash: "h1", cost: { amount: 100, currency: "USD" } },
+    { ...baseP, id: "p_9", summary: "Faster", cost: { amount: 900, currency: "USD" }, risk: "medium", hash: "h9", data: { eta: "noon" } }] })],
+  ["auto receipt shows effects", r({ kind: "RECEIPT", auto: true, receipt: { id: "r_4", proposal: "p_1", capability: "calendar.reschedule", summary: "Moved", at: 1790000100, effects: baseP.effects, cost: null, undo: { until: 1790003700 } } })],
+  ["brief without summaries", r({ kind: "BRIEF", service: { id: "x", name: "X" }, capabilities: [{ name: "x.a", kind: "ask" }] })],
   ["one proposal", r({ kind: "PROPOSALS", proposals: [{ ...baseP, undo: { window: 45 }, hash: "h1" }] })],
   ["clarify", r({ kind: "CLARIFY", question: "Which Ana?", options: [{ label: "Ana Ruiz (design)", params: { event: "e42" } }, { label: "Ana Li (sales)", params: { event: "e77" } }] })],
   ["receipt", r({ kind: "RECEIPT", receipt: { id: "r_1", proposal: "p_1", capability: "calendar.reschedule", summary: "Moved", at: 1790000100, effects: baseP.effects, cost: null, undo: { until: 1790003700 }, result: { event: "e42" } } })],
@@ -124,7 +136,7 @@ const replies = [
   ["answer with more", r({ kind: "ANSWER", data: { events: [{ id: "e1", t: "a" }] }, more: [{ handle: "h_1", path: "data.events", remaining: 12, est: 96 }] })],
   ["error full", r({ kind: "ERROR", code: "invalid_params", message: "`to` must be in the future", fix: [{ say: "use next year", params: { to: "2026-09-24T15:00:00Z" } }, { say: "or ask the user" }], need: [{ can: ["x.*"] }], retry: 3600 })],
   ["error consent", r({ kind: "ERROR", code: "consent_required", message: "cost exceeds per-commit limit", consent: { proposal: "p_2", hash: "h2", principal: "ed25519:x", summary: "Order 2 items", expires: 1790000605 } })],
-  ["event", r({ kind: "EVENT", message: "charging card", progress: 0.425 })],
+  ["event", r({ kind: "EVENT", message: "charging card", progress: 0.42 })],
   ["event plain", r({ kind: "EVENT", message: "started" })],
 ];
 for (const [name, input] of replies) lensCases.push({ name, type: "reply", input, lens: P.lens(input) });

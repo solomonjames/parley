@@ -167,7 +167,26 @@ about intent. `params` carries the structured request. The reply is one of:
 - `CLARIFY` `{ "question": string, "options": [{ "label": string, "params": object }] }`: the intent is ambiguous. Each option carries a params **merge patch** (RFC 7396) that resolves it. To pick option *k*, re-send the `INTENT` with its `params` merged in.
 - `ERROR`
 
-`INTENT` MUST NOT change principal-observable state. It MAY place internal holds.
+`INTENT` MUST NOT change principal-observable state, except as described in §4.3.1. It MAY place internal holds.
+
+#### 4.3.1 Policy-gated auto-commit
+
+An `INTENT` MAY carry `"auto": true`. The service then MUST commit the **first**
+proposal in the same round trip if, and only if, both of these hold:
+
+1. one of the request's grants authorizes a `COMMIT` of that proposal outright (§6.3), with no consent needed; and
+2. the proposal is undoable (`undo` is not `null`).
+
+The reply is then a `RECEIPT` with `"auto": true` on the reply frame. In every other
+case the service replies exactly as it would without `auto`.
+
+The principal's grant, not the agent, decides what may skip the preview. Low-risk,
+reversible actions inside the policy take one round trip. Anything costlier, riskier or
+irreversible still stops for review.
+
+For an auto `INTENT`, the proof target is `auto:{capability}:{frame id}` (§6.5). A service
+MUST remember `(proof.key, frame id)` for auto requests for at least 600 seconds and
+answer a repeat with the original reply (`"replay": true` on receipts), never committing twice.
 
 ### 4.4 `COMMIT` — make it happen
 
@@ -247,7 +266,7 @@ absent, clients render Lens locally (§9).
 - `cost`: `null` or `{"amount": int, "currency": "USD"}`. `amount` is in **minor units** (cents).
 - `risk`: `low` | `medium` | `high`, as assessed by the service.
 - `undo`: `null` if irreversible, else `{"window": seconds}` counted from commit.
-- `expires`: unix seconds after which the proposal cannot be committed.
+- `expires`: unix seconds after which the proposal cannot be committed. Services SHOULD use whole minutes (the reference implementation rounds up: `ceil(t/60)*60`).
 - `hash`: `b64url(sha256(canonical(proposal without "hash" and "data")))` (§10). The hash binds everything a human is shown: summary, effects, cost, risk, undo and expiry. Numbers inside hashed fields MUST be integers.
 - `data`: OPTIONAL extra structured detail. It is not covered by the hash and MUST NOT describe effects.
 
@@ -293,7 +312,12 @@ Token encoding: `"pg1." + b64url(utf8(canonical(blocks)))`.
 ### 6.3 Caveats
 
 Each caveat is a single-key object. A request is authorized by a grant only if **every
-caveat in every block** is satisfied. **Unknown caveats MUST fail closed.**
+caveat in every block** is satisfied. **Unknown caveats, and caveats whose value is
+malformed, MUST fail closed** as a hard (`forbidden`) failure. Well-formed values are:
+`svc`, `verbs` and `can` take arrays of strings; `exp` and `nbf` take integers;
+`per` and `spend` take `{max: int, currency: string}`; `risk` takes one of `low`,
+`medium` or `high`; `only` takes a string. For example, `{"svc": "a.example"}` (a string,
+not a list) and `{"risk": "extreme"}` both fail.
 
 | Caveat | Satisfied when |
 |---|---|
@@ -336,6 +360,7 @@ A leaked grant alone is useless. Requests with grants carry
 | `COMMIT` | the proposal hash |
 | `UNDO` | the receipt id |
 | `ASK`, `INTENT` | the capability name |
+| `INTENT` with `auto` | `auto:{capability}:{frame id}` |
 | `EXPAND` | the handle |
 
 Services MUST reject proofs with `|now − ts| > 300`.
@@ -402,9 +427,16 @@ elides part of it and adds a `More` entry:
 - `remaining`: the number of elided array items, or characters for strings
 - `est`: estimated tokens to fetch the remainder
 
-**Reference fitting algorithm** (informative): repeatedly halve the longest array
-(keeping its first items) or truncate the longest string over 200 characters, until the
-reply fits or nothing more can be elided.
+**What may be elided.** Services MUST NOT alter any part of a proposal other than
+`data`, or any part of a capability entry. They may only drop whole trailing items of
+`PROPOSALS.proposals` and `BRIEF.capabilities` ("list roots"). Anything inside
+`ANSWER.data`, a proposal's `data` and `RECEIPT.receipt.result` may be elided ("deep roots").
+
+**Reference fitting algorithm** (informative): while the reply is over budget, pick the
+largest candidate by serialized size among the deep roots: any non-empty array (halve it,
+keeping the first items) or any string over 200 characters (keep
+`max(200, floor(len/2))` characters and append `…`). Only when no deep candidate remains,
+halve the largest list root. Stop when the reply fits or nothing can be elided.
 
 `EXPAND` of a handle for an array returns `{"data": {"items": [...]}}`. For a string it
 returns `{"data": {"text": "..."}}`. Both may carry a further `more`.
@@ -446,6 +478,8 @@ A top-level object renders its entries at indent 0. A top-level array renders as
 
 - Times (fields `expires`, `at`, `until`) render as UTC `YYYY-MM-DDTHH:MMZ`, with `:SS` inserted when seconds ≠ 0.
 - Durations render in the largest of `d`/`h`/`m`/`s` that divides them exactly.
+- Compact JSON (used in `fix`, `need` and non-scalar list items) is exactly ECMAScript
+  `JSON.stringify(v)`: insertion order, no whitespace, numbers per `Number::toString`.
 - Money renders as `amount/100` with two decimals (negative amounts get a leading `-`) and the currency (`12.50 USD`). Zero-decimal currencies (JPY, KRW, VND, CLP, ISK, UGX, XAF, XOF) render without decimals.
 
 **Effect line:** `SYM op target[.field][: from → to][ — detail]`, where SYM is `+` create, `~` update, `-` delete, `>` send, `$` charge, `*` other. `from → to` appears when either is present. A missing side renders as `-`.
@@ -456,16 +490,25 @@ A top-level object renders its entries at indent 0. A top-level array renders as
 {summary}
 {kind} {name}({p1}: {type1}, {p2?}: {type2}) — {summary}[ [risk:{risk}]]
 ```
+Services SHOULD provide summaries. A missing service summary omits its line, and a
+missing capability summary omits ` — {summary}`.
 One line per capability. The parameter list renders as `()` if `params` is absent.
 Nested param objects render recursively as `{k: type, …}`.
 
-**PROPOSALS** (first line is `1 proposal:` or `{N} proposals:`)
+**PROPOSALS**
 ```
-{N} proposals:
+{N} proposals[ — {shared attributes}]:
 [{id}] {summary}
   {effect line}…
-  cost: {money|free} · risk: {risk} · undo: {duration|never} · expires: {time}
+  {own attributes}
 ```
+The attributes, in this fixed order, are `cost: {money|free}`, `risk: {risk}`,
+`undo: {duration|never}` and `expires: {time}`, joined with ` · `. When N ≥ 2, every
+attribute whose rendered value is identical across all proposals is **shared**. Shared
+attributes appear once on the header after ` — `, and the rest appear on each proposal's
+attribute line. The attribute line is omitted when it would be empty. When N = 1 the
+header is `1 proposal:` and all attributes are the proposal's own. When nothing is
+shared, the header is `{N} proposals:`.
 If a proposal has `data`, it renders after the cost line under `  data:` in lean notation at indent 2.
 
 **CLARIFY**
@@ -477,11 +520,13 @@ If a proposal has `data`, it renders after the cost line under `  data:` in lean
 
 **RECEIPT**
 ```
-✓ {summary} (receipt {id})
-  {effect line}…
-  undo: until {time}   |   undo: never
+✓ {summary} (receipt {id})[ (replay)] · {undo until {time} | irreversible}
+  {effect line}…            (only when the reply has "auto": true)
+  result: …                 (lean, as a `result` entry at indent 1, when present)
 ```
-For a replay, `(replay)` follows the receipt id. For an undo receipt, the first line is `↶ undid {undoes}: {summary} (receipt {id})`. If there is `result`, it renders after the undo line under `  result:` in lean notation at indent 2.
+Effects are shown only for auto-commits, because otherwise the model has already read
+them in the proposal. For an undo receipt, the first line is
+`↶ undid {undoes}: {summary} (receipt {id})[ (replay)]`, followed by the result, if any.
 
 **ANSWER:** the lean rendering of `data`.
 

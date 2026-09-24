@@ -13,26 +13,18 @@ import type { ErrorReply } from "./types.js";
 const VERSION = "0.1.0";
 type Json = Record<string, any>;
 
-const svcProp = { type: "string", description: "service id (from the instructions)" };
-const TOOLS = [
-  { name: "parley_hello", description: "Show a Parley service's capabilities.", inputSchema: { type: "object", properties: { service: svcProp }, required: ["service"] } },
-  {
-    name: "parley_ask",
-    description: "Read-only query. Never changes anything. Safe to retry.",
-    inputSchema: { type: "object", properties: { service: svcProp, capability: { type: "string" }, params: { type: "object" }, budget: { type: "integer", description: "max reply tokens (default 1500)" } }, required: ["service", "capability"] },
-  },
+const svc = { type: "string" };
+const obj = (properties: Record<string, unknown>, required: string[]) => ({ type: "object", properties, required });
+export const INSTRUCTIONS = "Parley services. Read with parley_ask; change things with parley_intent then parley_commit; parley_undo reverses a receipt.\n\n";
+export const TOOLS = [
+  { name: "parley_ask", description: "Read (never changes anything). Pass `handle` to expand an elided result.", inputSchema: obj({ service: svc, capability: svc, params: { type: "object" }, handle: svc, budget: { type: "integer" } }, ["service"]) },
   {
     name: "parley_intent",
-    description: "Say what you want done. Returns PROPOSALS (with effects, cost, risk and undo window) or a CLARIFY question. Nothing changes until parley_commit.",
-    inputSchema: { type: "object", properties: { service: svcProp, capability: { type: "string" }, params: { type: "object" }, goal: { type: "string", description: "the user's goal in plain words" }, budget: { type: "integer" } }, required: ["service", "capability"] },
+    description: "Request a change. Returns proposals (effects, cost, risk, undo) to commit, or a question. auto:true commits the first proposal at once if your grant allows and it is undoable.",
+    inputSchema: obj({ service: svc, capability: svc, params: { type: "object" }, goal: svc, auto: { type: "boolean" }, budget: { type: "integer" } }, ["service", "capability"]),
   },
-  {
-    name: "parley_commit",
-    description: "Execute one proposal exactly as shown. Only commit what the user asked for. If consent is required, the user is asked to approve.",
-    inputSchema: { type: "object", properties: { service: svcProp, proposal: { type: "string", description: "proposal id, e.g. p_KEs5H7dM" } }, required: ["service", "proposal"] },
-  },
-  { name: "parley_undo", description: "Undo a receipt within its undo window.", inputSchema: { type: "object", properties: { service: svcProp, receipt: { type: "string" } }, required: ["service", "receipt"] } },
-  { name: "parley_expand", description: "Fetch more of an elided result by handle.", inputSchema: { type: "object", properties: { service: svcProp, handle: { type: "string" }, budget: { type: "integer" } }, required: ["service", "handle"] } },
+  { name: "parley_commit", description: "Execute a proposal by id, exactly as shown. Only what the user wants.", inputSchema: obj({ service: svc, proposal: svc }, ["service", "proposal"]) },
+  { name: "parley_undo", description: "Undo a receipt within its undo window.", inputSchema: obj({ service: svc, receipt: svc }, ["service", "receipt"]) },
 ];
 
 export async function runMcpBridge(clients: Client[], io: { input: NodeJS.ReadableStream; output: NodeJS.WritableStream } = { input: process.stdin, output: process.stdout }) {
@@ -47,9 +39,7 @@ export async function runMcpBridge(clients: Client[], io: { input: NodeJS.Readab
     services.set(b.service.id, c);
     briefs.push(b.lens);
   }
-  const instructions =
-    "These tools speak Parley. Use parley_ask to read. To change anything: parley_intent → read the proposals' effects/cost/risk → parley_commit the one the user wants. " +
-    "Receipts can be undone with parley_undo inside their undo window. Services:\n\n" + briefs.join("\n\n");
+  const instructions = INSTRUCTIONS + briefs.join("\n\n");
 
   let clientCaps: Json = {};
   let nextId = 1;
@@ -82,14 +72,15 @@ export async function runMcpBridge(clients: Client[], io: { input: NodeJS.Readab
     if (!c) return { text: `✗ unknown service ${JSON.stringify(a.service)}; known: ${[...services.keys()].join(", ")}`, isError: true };
     const budget = a.budget ?? 1500;
     switch (name) {
-      case "parley_hello": return { text: (await c.hello(budget)).lens };
-      case "parley_ask": return { text: (await c.ask(a.capability, a.params ?? {}, { budget })).lens };
+      case "parley_ask":
+        if (a.handle) return { text: (await c.expand(a.handle, { budget })).lens };
+        if (!a.capability) return { text: (await c.hello(budget)).lens };
+        return { text: (await c.ask(a.capability, a.params ?? {}, { budget })).lens };
       case "parley_intent": {
-        const r = await c.intent(a.capability, a.params ?? {}, { goal: a.goal, budget });
+        const r = await c.intent(a.capability, a.params ?? {}, { goal: a.goal, budget, auto: a.auto === true });
         if (r.kind === "PROPOSALS") for (const p of r.proposals) seen.set(p.id, p.hash);
         return { text: r.lens };
       }
-      case "parley_expand": return { text: (await c.expand(a.handle, { budget })).lens };
       case "parley_undo": return { text: (await c.undo(a.receipt)).lens };
       case "parley_commit": {
         const events: string[] = [];

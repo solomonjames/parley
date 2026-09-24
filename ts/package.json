@@ -9,7 +9,8 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./node": { "types": "./dist/node.d.ts", "default": "./dist/node.js" }
+    "./node": { "types": "./dist/node.d.ts", "default": "./dist/node.js" },
+    "./mcp": { "types": "./dist/mcp.d.ts", "default": "./dist/mcp.js" }
   },
   "files": ["dist", "README.md"],
   "engines": { "node": ">=20" },

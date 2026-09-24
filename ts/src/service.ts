@@ -78,6 +78,7 @@ export class Service {
   private commits = new Map<string, Promise<ReceiptReply | ErrorReply>>();
   private receipts = new Map<string, StoredReceipt>();
   private spent = new Map<string, number>();
+  private autoSeen = new Map<string, { reply: Promise<FinalReply>; exp: number }>();
   private handles: HandleStore;
   private now: () => number;
 
@@ -123,7 +124,7 @@ export class Service {
       switch (req.verb) {
         case "HELLO": return this.brief(budget, re);
         case "ASK": return await this.onAsk(req, budget);
-        case "INTENT": return await this.onIntent(req, budget);
+        case "INTENT": return await this.onIntent(req, budget, emit);
         case "COMMIT": return await this.onCommit(req, budget, emit);
         case "UNDO": return await this.onUndo(req, budget, emit);
         case "EXPAND": return this.onExpand(req, budget);
@@ -197,12 +198,46 @@ export class Service {
     return fit({ parley: 1, id: randomId("s", 6), re: req.id, kind: "ANSWER", data: data ?? null }, budget, this.handles);
   }
 
-  private async onIntent(req: Request & { verb: "INTENT" }, budget: number): Promise<FinalReply> {
+  /** Policy-gated auto-commit (SPEC §4.3.1): only if a grant authorizes it outright and it is undoable. */
+  private async autoAuth(req: Request & { verb: "INTENT" }, proposal: Proposal): Promise<(GrantCheck & { ok: true }) | null> {
+    if (!proposal.undo || !req.grants?.length) return null;
+    if (await checkProof(req.proof, { aud: this.id, verb: "INTENT", target: `auto:${req.capability}:${req.id}` }, this.now())) return null;
+    for (const g of req.grants) {
+      const c = await checkGrant(g, {
+        service: this.id, verb: "COMMIT", capability: proposal.capability, now: this.now(), trusted: this.opts.trust ?? [], proofKey: req.proof!.key,
+        proposal: { hash: proposal.hash, cost: proposal.cost, risk: proposal.risk }, spent: (id) => this.spent.get(id) ?? 0,
+      });
+      if (c.ok) return c;
+    }
+    return null;
+  }
+
+  private async onIntent(req: Request & { verb: "INTENT" }, budget: number, emit: (e: Event) => void): Promise<FinalReply> {
     const def = this.intents.get(req.capability) ?? this.unknownCapability(req.capability, "intent");
     const params = req.params ?? {};
     validateParams(def.params, params);
-    const auth = await this.authorize(req, "INTENT", req.capability, req.capability);
+    const autoTarget = `auto:${req.capability}:${req.id}`;
+    const auth = await this.authorize(req, "INTENT", req.capability, req.auto ? autoTarget : req.capability);
     const principal = auth?.iss ?? null;
+    // A replayed auto INTENT (same holder key + request id) gets the original reply, never a second commit.
+    const autoKey = req.auto && req.proof ? `${req.proof.key}:${req.id}` : null;
+    if (autoKey) {
+      const prior = this.autoSeen.get(autoKey);
+      if (prior && prior.exp > this.now()) {
+        const r = await prior.reply;
+        return r.kind === "RECEIPT" ? { ...r, id: randomId("s", 6), re: req.id, replay: true } : r;
+      }
+    }
+    const reply = this.planIntent(def, req, budget, emit, principal);
+    if (autoKey) {
+      this.autoSeen.set(autoKey, { reply, exp: this.now() + 600 });
+      if (this.autoSeen.size > 10_000) for (const [k, v] of this.autoSeen) if (v.exp <= this.now()) this.autoSeen.delete(k);
+    }
+    return reply;
+  }
+
+  private async planIntent(def: IntentDef, req: Request & { verb: "INTENT" }, budget: number, emit: (e: Event) => void, principal: string | null): Promise<FinalReply> {
+    const params = req.params ?? {};
     const out = await def.plan({ params, goal: req.goal, principal });
     if (out && "clarify" in out) return { parley: 1, id: randomId("s", 6), re: req.id, kind: "CLARIFY", ...out.clarify };
     const plans = Array.isArray(out) ? out : [out];
@@ -219,7 +254,7 @@ export class Service {
         cost: plan.cost ?? null,
         risk: plan.risk ?? def.risk ?? "low",
         undo: window === null ? null : { window },
-        expires: now + (plan.expiresIn ?? this.opts.proposalTtl ?? 600),
+        expires: Math.ceil((now + (plan.expiresIn ?? this.opts.proposalTtl ?? 600)) / 60) * 60,
         ...(plan.data !== undefined ? { data: plan.data } : {}),
       };
       const proposal = { ...p, hash: await proposalHash(p) } as Proposal;
@@ -227,6 +262,14 @@ export class Service {
       proposals.push(proposal);
     }
     this.sweep(now);
+    if (req.auto) {
+      const stored = this.proposals.get(proposals[0].id)!;
+      const ok = await this.autoAuth(req, proposals[0]);
+      if (ok && (!stored.principal || stored.principal === ok.iss)) {
+        const out = await this.execute(stored, ok, req.id, emit);
+        return out.kind === "RECEIPT" ? fit({ ...out, auto: true }, budget, this.handles) : out;
+      }
+    }
     return fit({ parley: 1, id: randomId("s", 6), re: req.id, kind: "PROPOSALS", proposals }, budget, this.handles);
   }
 
@@ -248,7 +291,13 @@ export class Service {
     }
     if (this.now() >= proposal.expires) throw new ParleyError("expired", "this proposal has expired", { fix: [fix("send INTENT again to get a fresh proposal")] });
     if (stored.principal && stored.principal !== auth.iss) throw new ParleyError("forbidden", "this proposal was made for a different principal");
+    const out = await this.execute(stored, auth, req.id, emit);
+    return out.kind === "RECEIPT" ? fit(out, budget, this.handles) : out;
+  }
 
+  private execute(stored: StoredProposal, auth: GrantCheck & { ok: true }, reqId: string, emit: (e: Event) => void): Promise<ReceiptReply | ErrorReply> {
+    const { proposal, plan } = stored;
+    const req = { id: reqId };
     const run = (async (): Promise<ReceiptReply | ErrorReply> => {
       const ctx: CommitCtx = {
         principal: auth.iss,
@@ -271,8 +320,7 @@ export class Service {
       }
     })();
     this.commits.set(proposal.id, run);
-    const out = await run;
-    return out.kind === "RECEIPT" ? fit(out, budget, this.handles) : out;
+    return run;
   }
 
   private async onUndo(req: Request & { verb: "UNDO" }, budget: number, emit: (e: Event) => void): Promise<FinalReply> {

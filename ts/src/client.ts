@@ -12,7 +12,7 @@ export interface Transport {
 
 /** Every reply the client returns carries its Lens: the text to show a model. */
 export type WithLens<T> = T & { lens: string };
-export type IntentResult = WithLens<Proposals | Clarify | ErrorReply>;
+export type IntentResult = WithLens<Proposals | Clarify | ReceiptReply | ErrorReply>;
 
 export interface ClientOptions {
   /** The agent's Ed25519 seed (b64url). Needed to use grants. */
@@ -79,9 +79,19 @@ export class Client {
     return this.send({ verb: "ASK", capability, params, ...(budget ? { budget } : {}), ...(await this.signed("ASK", capability)) });
   }
 
-  async intent(capability: string, params: Record<string, unknown> = {}, o: { goal?: string; budget?: number } = {}): Promise<IntentResult> {
+  /**
+   * Express an intent. With `auto`, the service commits the first proposal in the same round
+   * trip when your grants already allow it and it is undoable; you get a RECEIPT back.
+   */
+  async intent(capability: string, params: Record<string, unknown> = {}, o: { goal?: string; budget?: number; auto?: boolean; onEvent?: (e: WithLens<Event>) => void } = {}): Promise<IntentResult> {
     const budget = o.budget ?? this.opts.budget;
-    return this.send({ verb: "INTENT", capability, params, ...(o.goal ? { goal: o.goal } : {}), ...(budget ? { budget } : {}), ...(await this.signed("INTENT", capability)) });
+    const id = randomId("c", 6);
+    // auto-commit proofs are bound to this request id, so a captured frame can't be replayed into new commits
+    const target = o.auto ? `auto:${capability}:${id}` : capability;
+    return this.send(
+      { id, verb: "INTENT", capability, params, ...(o.goal ? { goal: o.goal } : {}), ...(o.auto ? { auto: true } : {}), ...(budget ? { budget } : {}), ...(await this.signed("INTENT", target)) } as Dist<Request>,
+      o.onEvent,
+    );
   }
 
   /** Commit a proposal. `grants` adds one-off grants (e.g. a consent grant) for this call only. */
