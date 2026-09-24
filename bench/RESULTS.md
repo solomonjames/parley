@@ -68,7 +68,7 @@ Result tokens read, per task (minified REST → Parley): 316 → 129 · 62 → 1
 ### Reschedule, Parley (1 call, auto-commit)
 
 ```
-✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_Fgb6EIWi) · undo until 2026-09-25T02:18:54Z
+✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_Fgb6EIWi) · undo until 2026-09-25T02:25:28Z
   ~ update event/e2.start: 2026-09-25T14:00:00Z → 2026-09-27T09:30:00Z
   > send ana.ruiz@acme.co — updated invite
   result:
