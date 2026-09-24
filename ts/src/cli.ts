@@ -15,9 +15,11 @@ import type { Verb } from "./types.js";
 const HELP = `parley — the protocol agents speak
 
 get started
-  parley setup [claude-code|claude-desktop|cursor|windsurf|vscode|codex|gemini]
-                                           keys + a safe default policy + register the MCP bridge (auto-detects tools)
+  parley install [--target claude-code,cursor,codex,gemini,vscode,windsurf,claude-desktop] [--local] [--no-principal]
+                                           keys, a safe default policy, the MCP bridge and agent instructions (auto-detects tools)
   parley add <url>                         add a service for your AI tools (parley services · parley remove <url>)
+  parley doctor                            check keys, grants, services and AI-tool registration
+  parley uninstall [--target …]            remove Parley from your AI tools
 
 identity
   parley init                              create your principal key and an agent key in ${home()}
@@ -56,7 +58,7 @@ const { values: o, positionals: args } = parseArgs({
     exp: { type: "string" }, per: { type: "string" }, spend: { type: "string" }, risk: { type: "string" },
     to: { type: "string" }, goal: { type: "string" }, budget: { type: "string" }, expires: { type: "string" },
     json: { type: "boolean" }, help: { type: "boolean", short: "h" }, name: { type: "string" },
-    model: { type: "string" }, base: { type: "string" }, header: { type: "string", multiple: true }, port: { type: "string" }, http: { type: "string" }, id: { type: "string" }, prefix: { type: "string" },
+    model: { type: "string" }, base: { type: "string" }, header: { type: "string", multiple: true }, port: { type: "string" }, http: { type: "string" }, id: { type: "string" }, prefix: { type: "string" }, target: { type: "string" }, local: { type: "boolean" }, yes: { type: "boolean", short: "y" }, "no-principal": { type: "boolean" },
   },
 });
 
@@ -237,30 +239,107 @@ async function main() {
       console.log(s.length ? s.join("\n") : "no services yet: parley add <url>");
       return;
     }
-    case "setup": {
-      const names = rest.length ? rest : detectedClients();
-      for (const n of names) if (!CLIENTS[n]) die(`unknown client ${n}; one of: ${Object.keys(CLIENTS).join(", ")}`);
-      const p = (await principalKey()) ?? (await principalKey(true))!;
+    case "setup":
+    case "install": {
+      const scope = { local: !!o.local, cwd: process.cwd() };
+      const names = o.target ? o.target.split(",").map((t) => t.trim()) : detectedClients();
+      for (const n of names) if (!CLIENTS[n]) die(`unknown target ${n}; one of: ${Object.keys(CLIENTS).join(", ")}`);
       const a = (await agentKey()) ?? (await agentKey(true))!;
-      console.log(`keys: principal ${p.public.slice(0, 20)}… · agent ${a.public.slice(0, 20)}… (${home()})`);
-      if (!loadGrants("grants").length) {
+      console.log(`agent key   ${a.public} (${home()})`);
+      let p = await principalKey();
+      if (!p && !o["no-principal"]) {
+        p = (await principalKey(true))!;
+        console.log(`principal   ${p.public} (created here for convenience)`);
+        console.log("  ⚠ an agent with shell access could read this key. For real use, keep it on another user or device: see SECURITY.md");
+      } else if (p) console.log(`principal   ${p.public}`);
+      else console.log(`principal   not on this machine. Issue a grant elsewhere with: parley grant --to ${a.public}`);
+      if (p && !loadGrants("grants").length) {
         const caveats: Caveat[] = [{ risk: "low" }, { per: { max: 2500, currency: "USD" } }, { spend: { max: 10000, currency: "USD" } }, { exp: Math.floor(Date.now() / 1000) + 30 * 86400 }];
         const token = await issueGrant({ principal: p, to: a.public, caveats });
         saveGrant(token, "grants", (await inspectGrant(token)).id.slice(0, 16));
-        console.log("policy: low-risk actions, ≤ 25.00 USD each, ≤ 100.00 USD total, 30 days. Anything else asks you first. (change: parley grant …)");
+        console.log("policy      low-risk actions, ≤ 25.00 USD each, ≤ 100.00 USD total, 30 days. Anything else asks you. (change: parley grant …)");
       }
-      if (!names.length) console.log(`\nno AI tools detected. Name one: parley setup ${Object.keys(CLIENTS).join("|")}`);
+      if (!names.length) console.log(`\nno AI tools detected. Pick some: parley install --target ${Object.keys(CLIENTS).join(",")}`);
       for (const n of names) {
         try {
-          console.log(`✓ ${CLIENTS[n].name}: ${CLIENTS[n].install()}`);
+          for (const line of CLIENTS[n].install(scope)) console.log(`✓ ${CLIENTS[n].name}: ${line}`);
         } catch (e) {
           console.log(`✗ ${CLIENTS[n].name}: ${(e as Error).message}`);
         }
       }
       const s = listServices();
-      console.log(s.length ? `\nservices: ${s.join(", ")}` : "\nnext: add a service. `parley add <url>`, or try the examples: `parley examples` then `parley add parley://127.0.0.1:7447`");
-      console.log("restart your AI tool, then ask it to do something with those services.");
-      console.log("\n⚠ your principal key is in " + home() + ". If your agent has shell access, move it out of reach: see SECURITY.md.");
+      console.log(s.length ? `\nservices    ${s.join(", ")}` : "\nnext: add a service with `parley add <url>`, or try the examples: `parley examples`, then `parley add parley://127.0.0.1:7447`");
+      console.log("restart your AI tool, then ask it to do something. Check anything with: parley doctor");
+      return;
+    }
+    case "uninstall": {
+      const scope = { local: !!o.local, cwd: process.cwd() };
+      const names = o.target ? o.target.split(",").map((t) => t.trim()) : Object.keys(CLIENTS);
+      let n = 0;
+      for (const name of names) {
+        try {
+          for (const line of CLIENTS[name]?.uninstall(scope) ?? []) {
+            console.log(`✓ ${CLIENTS[name].name}: ${line}`);
+            n++;
+          }
+        } catch (e) {
+          console.log(`✗ ${CLIENTS[name]?.name ?? name}: ${(e as Error).message}`);
+        }
+      }
+      console.log(n ? `done. Keys and grants in ${home()} were left in place (delete that folder to remove them).` : "nothing to remove.");
+      return;
+    }
+    case "doctor": {
+      const ok = (m: string) => console.log(`✓ ${m}`), warn = (m: string) => console.log(`! ${m}`), bad = (m: string) => console.log(`✗ ${m}`);
+      const major = Number(process.versions.node.split(".")[0]);
+      if (major >= 20) ok(`node ${process.versions.node}`);
+      else bad(`node ${process.versions.node}: Parley needs node ≥ 20`);
+      const a = await agentKey();
+      if (a) ok(`agent key ${a.public.slice(0, 24)}…`);
+      else bad("no agent key: run parley install");
+      const p = await principalKey();
+      if (p) warn(`principal key is readable here (${process.env.PARLEY_PRINCIPAL_HOME ?? home()}). Fine for trying things; for real use keep it away from agents (SECURITY.md)`);
+      else ok("principal key is not on this machine (recommended)");
+      const now = Math.floor(Date.now() / 1000);
+      const grants = loadGrants("grants");
+      if (!grants.length) bad("no grants: your agent can read but not act. parley grant … (or parley install)");
+      for (const g of grants) {
+        try {
+          const info = await inspectGrant(g);
+          const cav = info.blocks.flatMap((b) => b.caveats) as any[];
+          const exp = Math.min(...cav.filter((c) => c.exp).map((c) => c.exp), Infinity);
+          const scope = cav.find((c) => c.svc)?.svc?.join(", ") ?? "all services";
+          const holder = a && info.holder === a.public ? "" : " (held by another key!)";
+          if (exp !== Infinity && exp <= now) bad(`grant ${info.id.slice(0, 10)} expired ${fmtTime(exp)}${holder}`);
+          else ok(`grant ${info.id.slice(0, 10)}: ${scope}; ${exp === Infinity ? "no expiry" : "expires " + fmtTime(exp)}${holder}`);
+        } catch {
+          bad("a saved grant is unreadable");
+        }
+      }
+      const services = listServices();
+      if (!services.length) warn("no services: parley add <url>");
+      for (const u of services) {
+        const t0 = Date.now();
+        try {
+          const c = await client(u);
+          const b = await c.hello(200);
+          c.close();
+          if (b.kind === "BRIEF") ok(`${u}: ${b.service.name} (${Date.now() - t0} ms)`);
+          else bad(`${u}: ${b.lens}`);
+        } catch (e) {
+          bad(`${u}: ${(e as Error).message}`);
+        }
+      }
+      const scope = { local: !!o.local, cwd: process.cwd() };
+      const installed = Object.values(CLIENTS).filter((t) => {
+        try {
+          return t.installed(scope);
+        } catch {
+          return false;
+        }
+      }).map((t) => t.name);
+      if (installed.length) ok(`registered with: ${installed.join(", ")}`);
+      else warn("not registered with any AI tool: parley install");
       return;
     }
   }
