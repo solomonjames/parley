@@ -1,7 +1,15 @@
-# parley (Python)
+<img alt="parley" src="https://raw.githubusercontent.com/solomonjames/parley/main/docs/brand/logo-light.svg" height="48">
 
-An independent Python implementation of [Parley](../SPEC.md). It's checked against the shared
-vectors in `../conformance` and tested against the TypeScript reference. Python ≥ 3.10; its only
+# parley-protocol (Python)
+
+**[Parley](https://github.com/solomonjames/parley) is the open protocol for AI agents acting on
+behalf of people.** Agents state an intent, services reply with proposals whose effects are
+listed up front, the human's signed policy decides what can go ahead without asking, and
+reversible commits come with an undo window.
+
+This is the Python implementation of the [spec](https://github.com/solomonjames/parley/blob/main/SPEC.md).
+It's checked against the shared [conformance vectors](https://github.com/solomonjames/parley/tree/main/conformance)
+and tested for interop, in both directions, against the TypeScript reference. Python ≥ 3.10; its only
 dependency is `cryptography`.
 
 ```sh
@@ -47,3 +55,8 @@ somewhere the agent can trigger it (SPEC §6.6).
 API names mirror `ts/src` in snake_case (`issue_grant`, `verify_grant`, `consent_grant`,
 `lean`, `lens`, `fit`, `Plan.expires_in`/`undo_window`). `examples/serve.py` runs the shared
 example calendar on `parley://127.0.0.1:7457` and `http://127.0.0.1:8457/parley`.
+
+The CLI (`parley`), the MCP bridge for Claude Code, and the OpenAPI adapter ship with the
+TypeScript package: `npx parley-protocol --help`. See the
+[main README](https://github.com/solomonjames/parley#readme) and the
+[docs](https://solomonjames.github.io/parley/).

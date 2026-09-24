@@ -30,6 +30,10 @@ talk to a service  (url: parley://host:port · parleys://… · http(s)://…/pa
   parley expand <url> <handle>
   parley do     <url> <capability> [key=value …]   intent → choose → commit, with consent prompts
 
+try it
+  parley demo                              narrated end-to-end demo (two services, consent, undo, sub-agents)
+  parley examples [--port 7447]            serve the example calendar (7447) and shop (7449), trusting your principal
+
 bridges
   parley mcp <url> [<url> …]               run an MCP server (stdio) exposing Parley services
   parley openapi <spec.json|url> [--base <url>] [--header "K: V"] [--port 7447] [--http 8080]
@@ -148,6 +152,23 @@ async function main() {
       if (!ok) die("not approved");
       saveGrant(await consentGrant({ principal: p, agent, consent }), "consents", consent.hash);
       console.log("✓ approved: a one-time consent for this proposal only. The agent can commit now.");
+      return;
+    }
+    case "demo": {
+      const { runDemo } = await import("./examples/demo.js");
+      await runDemo();
+      process.exit(0);
+    }
+    case "examples": {
+      const { calendar, shop } = await import("./examples/index.js");
+      const { listen } = await import("./node.js");
+      const trust = (process.env.PARLEY_TRUST ?? "").split(",").filter(Boolean);
+      const p = await principalKey();
+      if (p && !trust.length) trust.push(p.public);
+      const port = Number(o.port ?? 7447);
+      await listen(calendar({ trust }), { port });
+      await listen(shop({ trust }), { port: port + 2 });
+      console.error(`✓ calendar parley://127.0.0.1:${port} · shop parley://127.0.0.1:${port + 2} · trusting ${trust.length} principal(s)${trust.length ? "" : " (run parley init first to commit anything)"}\n  try: parley do parley://127.0.0.1:${port} calendar.reschedule event=Ana`);
       return;
     }
     case "openapi": {

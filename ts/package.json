@@ -21,6 +21,14 @@
     "./mcp": {
       "types": "./dist/mcp.d.ts",
       "default": "./dist/mcp.js"
+    },
+    "./openapi": {
+      "types": "./dist/openapi.d.ts",
+      "default": "./dist/openapi.js"
+    },
+    "./examples": {
+      "types": "./dist/examples/index.d.ts",
+      "default": "./dist/examples/index.js"
     }
   },
   "files": [
@@ -51,7 +59,8 @@
     "build": "tsc -p .",
     "test": "vitest run",
     "typecheck": "tsc -p . --noEmit",
-    "vectors": "node --experimental-strip-types scripts/vectors.ts"
+    "vectors": "node --experimental-strip-types scripts/vectors.ts",
+    "prepublishOnly": "npm run build && node ../scripts/sync-readme.mjs"
   },
   "devDependencies": {
     "@types/node": "^22",
