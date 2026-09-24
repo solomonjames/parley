@@ -67,6 +67,7 @@
     "prepublishOnly": "npm run build && node ../scripts/sync-readme.mjs"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
     "@types/node": "^22",
     "typescript": "^5.9",
     "vitest": "^3"
@@ -84,5 +85,13 @@
   "publishConfig": {
     "access": "public",
     "provenance": true
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.100.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    }
   }
 }

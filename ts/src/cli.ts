@@ -7,11 +7,17 @@ import { agentKey, home, loadGrants, principalKey, saveGrant } from "./home.js";
 import { effectLine, fmtTime, lean, lens } from "./lens.js";
 import { proposalHash } from "./crypto.js";
 import { runMcpBridge } from "./mcp.js";
+import { CLIENTS, addService, detectedClients, listServices, removeService } from "./setup.js";
 import { connect } from "./node.js";
 import type { Client } from "./client.js";
 import type { Verb } from "./types.js";
 
 const HELP = `parley — the protocol agents speak
+
+get started
+  parley setup [claude-code|claude-desktop|cursor|windsurf|vscode|codex|gemini]
+                                           keys + a safe default policy + register the MCP bridge (auto-detects tools)
+  parley add <url>                         add a service for your AI tools (parley services · parley remove <url>)
 
 identity
   parley init                              create your principal key and an agent key in ${home()}
@@ -31,6 +37,7 @@ talk to a service  (url: parley://host:port · parleys://… · http(s)://…/pa
   parley do     <url> <capability> [key=value …]   intent → choose → commit, with consent prompts
 
 try it
+  parley test-drive [--model m] ["task"]  watch a real Claude model use Parley live (needs an Anthropic API key)
   parley demo                              narrated end-to-end demo (two services, consent, undo, sub-agents)
   parley examples [--port 7447]            serve the example calendar (7447) and shop (7449), trusting your principal
 
@@ -49,7 +56,7 @@ const { values: o, positionals: args } = parseArgs({
     exp: { type: "string" }, per: { type: "string" }, spend: { type: "string" }, risk: { type: "string" },
     to: { type: "string" }, goal: { type: "string" }, budget: { type: "string" }, expires: { type: "string" },
     json: { type: "boolean" }, help: { type: "boolean", short: "h" }, name: { type: "string" },
-    base: { type: "string" }, header: { type: "string", multiple: true }, port: { type: "string" }, http: { type: "string" }, id: { type: "string" }, prefix: { type: "string" },
+    model: { type: "string" }, base: { type: "string" }, header: { type: "string", multiple: true }, port: { type: "string" }, http: { type: "string" }, id: { type: "string" }, prefix: { type: "string" },
   },
 });
 
@@ -154,6 +161,22 @@ async function main() {
       console.log("✓ approved: a one-time consent for this proposal only. The agent can commit now.");
       return;
     }
+    case "test-drive": {
+      try {
+        await import("@anthropic-ai/sdk");
+      } catch {
+        // Keep parley-protocol dependency-free: fetch the SDK only for this command.
+        const { spawnSync } = await import("node:child_process");
+        const { createRequire } = await import("node:module");
+        const version = createRequire(import.meta.url)("../package.json").version;
+        console.error("fetching @anthropic-ai/sdk for the test drive…");
+        const r = spawnSync("npx", ["-y", "-p", "@anthropic-ai/sdk", "-p", `parley-protocol@${version}`, "parley", ...process.argv.slice(2)], { stdio: "inherit" });
+        process.exit(r.status ?? 1);
+      }
+      const { testDrive } = await import("./testdrive.js");
+      await testDrive({ model: o.model, prompt: rest.join(" ") || undefined });
+      process.exit(0);
+    }
     case "demo": {
       const { runDemo } = await import("./examples/demo.js");
       await runDemo();
@@ -188,9 +211,57 @@ async function main() {
       return;
     }
     case "mcp": {
-      if (!rest.length) die("usage: parley mcp <url> [<url> …]");
-      await runMcpBridge(await Promise.all(rest.map(client)));
+      // With no URLs, serve the services registered with `parley add` (~/.parley/services.json).
+      const urls = rest.length ? rest : listServices();
+      const clients = (await Promise.all(urls.map((u) => client(u).catch((e) => (console.error(`parley mcp: ${u}: ${(e as Error).message}`), null))))).filter((c): c is Client => !!c);
+      await runMcpBridge(clients);
       process.exit(0);
+    }
+    case "add": {
+      const url = rest[0] ?? die("usage: parley add <url>");
+      const c = await client(url);
+      const b = await c.hello(400);
+      c.close();
+      if (b.kind !== "BRIEF") return die(b.lens);
+      addService(url);
+      console.log(`✓ added ${b.service.name} (${b.service.id}) · ${b.capabilities.length} capabilities\n  restart your AI tool to pick it up`);
+      return;
+    }
+    case "remove": {
+      removeService(rest[0] ?? die("usage: parley remove <url>"));
+      console.log(`✓ removed ${rest[0]}`);
+      return;
+    }
+    case "services": {
+      const s = listServices();
+      console.log(s.length ? s.join("\n") : "no services yet: parley add <url>");
+      return;
+    }
+    case "setup": {
+      const names = rest.length ? rest : detectedClients();
+      for (const n of names) if (!CLIENTS[n]) die(`unknown client ${n}; one of: ${Object.keys(CLIENTS).join(", ")}`);
+      const p = (await principalKey()) ?? (await principalKey(true))!;
+      const a = (await agentKey()) ?? (await agentKey(true))!;
+      console.log(`keys: principal ${p.public.slice(0, 20)}… · agent ${a.public.slice(0, 20)}… (${home()})`);
+      if (!loadGrants("grants").length) {
+        const caveats: Caveat[] = [{ risk: "low" }, { per: { max: 2500, currency: "USD" } }, { spend: { max: 10000, currency: "USD" } }, { exp: Math.floor(Date.now() / 1000) + 30 * 86400 }];
+        const token = await issueGrant({ principal: p, to: a.public, caveats });
+        saveGrant(token, "grants", (await inspectGrant(token)).id.slice(0, 16));
+        console.log("policy: low-risk actions, ≤ 25.00 USD each, ≤ 100.00 USD total, 30 days. Anything else asks you first. (change: parley grant …)");
+      }
+      if (!names.length) console.log(`\nno AI tools detected. Name one: parley setup ${Object.keys(CLIENTS).join("|")}`);
+      for (const n of names) {
+        try {
+          console.log(`✓ ${CLIENTS[n].name}: ${CLIENTS[n].install()}`);
+        } catch (e) {
+          console.log(`✗ ${CLIENTS[n].name}: ${(e as Error).message}`);
+        }
+      }
+      const s = listServices();
+      console.log(s.length ? `\nservices: ${s.join(", ")}` : "\nnext: add a service. `parley add <url>`, or try the examples: `parley examples` then `parley add parley://127.0.0.1:7447`");
+      console.log("restart your AI tool, then ask it to do something with those services.");
+      console.log("\n⚠ your principal key is in " + home() + ". If your agent has shell access, move it out of reach: see SECURITY.md.");
+      return;
     }
   }
 
