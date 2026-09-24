@@ -10,6 +10,7 @@ export default defineConfig({
   title: "Parley",
   description: "An open protocol for AI agents acting on behalf of people: intents, proposals, commits and undo, with signed delegation and token budgets.",
   cleanUrls: true,
+  srcExclude: ["drafts/**"],
   lastUpdated: true,
   appearance: "dark",
   // Included repo files (SPEC.md, design.md, …) link to each other with repo-relative paths.
@@ -109,6 +110,7 @@ function sidebar() {
         { text: "Quickstart", link: "/guide/quickstart" },
         { text: "Playground", link: "/playground" },
         { text: "Use it from Claude Code", link: "/guide/claude-code" },
+        { text: "Integrations", link: "/guide/integrations" },
         { text: "Hosted demo", link: "/guide/hosted-demo" },
       ],
     },
@@ -128,12 +130,14 @@ function sidebar() {
         { text: "Wrap any REST API", link: "/guide/openapi" },
         { text: "Python", link: "/guide/python" },
         { text: "Security model", link: "/guide/security" },
+        { text: "Troubleshooting", link: "/guide/troubleshooting" },
       ],
     },
     {
       text: "Reference",
       items: [
         { text: "Specification", link: "/reference/spec" },
+        { text: "CLI", link: "/reference/cli" },
         { text: "Design decisions", link: "/reference/design" },
         { text: "Benchmark", link: "/reference/benchmark" },
         { text: "A real Claude session", link: "/reference/claude-session" },

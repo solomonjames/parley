@@ -3,9 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "brand": "node scripts/brand.mjs",
-    "dev": "npm run brand && vitepress dev",
-    "build": "npm run brand && vitepress build",
+    "gen": "node scripts/brand.mjs && node scripts/generate.mjs",
+    "dev": "npm run gen && vitepress dev",
+    "build": "npm run gen && vitepress build",
     "preview": "vitepress preview"
   },
   "devDependencies": {

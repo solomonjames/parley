@@ -1,3 +1,6 @@
 public/brand/
 .vitepress/cache/
 .vitepress/dist/
+.vitepress/generated/
+public/llms.txt
+public/llms-full.txt
