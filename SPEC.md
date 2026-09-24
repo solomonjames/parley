@@ -376,14 +376,27 @@ If a `COMMIT` would be authorized except for a `risk`, `per` or `spend` caveat, 
 service MUST reply `ERROR` `consent_required` with:
 
 ```json
-"consent": {"proposal":"p_7Hc2","hash":"…","principal":"ed25519:…","summary":"…","expires":1790000600}
+"consent": {"proposal":"p_7Hc2","hash":"…","service":"shop.example","capability":"shop.order",
+            "principal":"ed25519:…","summary":"…","expires":1790000600}
 ```
 
 The agent shows this to the principal, for example in a CLI prompt, a push
 notification or a page. If the principal approves, they sign a **consent grant**:
-a root grant with `iss` = principal, `sub` = agent key and caveats
-`[{"only": hash}, {"exp": proposal.expires}]`. The agent then re-sends `COMMIT` with it.
-The approval is cryptographic, one-shot and bound to the exact effects shown.
+a root grant with `iss` = principal, `sub` = agent key and exactly these caveats:
+
+```json
+[{"svc": [service]}, {"verbs": ["COMMIT"]}, {"can": [capability]}, {"only": hash}, {"exp": expires}]
+```
+
+The agent then re-sends `COMMIT` with it. The approval is cryptographic, one-shot and
+bound to the exact effects shown. Because it's scoped to `COMMIT` of one capability at
+one service, it authorizes nothing else: no `UNDO`, no reads, no other service. Omitting
+the scoping caveats would make a consent grant a short-lived blanket grant for every
+other verb, because `only` constrains `COMMIT` alone.
+
+The approval must come from the principal, not the agent. Implementations MUST NOT let
+an agent trigger signing with the principal key, and deployments SHOULD keep the
+principal key out of the agent's reach, for example on another OS user or device.
 
 ---
 
@@ -401,7 +414,7 @@ The approval is cryptographic, one-shot and bound to the exact effects shown.
 | `code` | one of the codes below |
 | `message` | a single sentence explaining the problem |
 | `fix` | OPTIONAL list of `{ "say": string, "params"?: mergePatch }`. Applying `params` to the failed request's params is expected to succeed. |
-| `need` | OPTIONAL, for `forbidden`: the caveat(s) a grant would need |
+| `need` | OPTIONAL, for `forbidden`: the caveat(s) that blocked the request |
 | `consent` | for `consent_required` (§6.6) |
 | `retry` | OPTIONAL seconds after which a retry may succeed |
 

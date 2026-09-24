@@ -138,7 +138,7 @@ describe("shop: budgets, money, consent", () => {
     const denied = await client.commit(big.proposals[0]);
     expect(denied.kind === "ERROR" && denied.code).toBe("consent_required");
     if (denied.kind !== "ERROR") return;
-    const consent = await P.consentGrant({ principal, agent: agent.public, hash: denied.consent!.hash, expires: denied.consent!.expires });
+    const consent = await P.consentGrant({ principal, agent: agent.public, consent: denied.consent! });
     // consent for one proposal doesn't work for the other
     const wrong = await client.commit(big.proposals[1], { grants: [consent] });
     expect(wrong.kind === "ERROR" && wrong.code).toBe("consent_required");
@@ -177,5 +177,28 @@ describe("delegation to sub-agents", () => {
     if (p.kind !== "PROPOSALS") throw new Error();
     const r = await client.commit(p.proposals[0]);
     expect(r.kind === "ERROR" && r.code).toBe("forbidden");
+  });
+});
+
+describe("consent grants authorize exactly one commit", () => {
+  it("cannot undo an unrelated receipt, or be used for anything but that commit", async () => {
+    const svc = shop({ trust: [principal.public] });
+    const grant = await P.issueGrant({ principal, to: agent.public, caveats: [{ per: { max: 3000, currency: "USD" } }] });
+    const c = new P.Client(P.local(svc), { key: agent.seed, grants: [grant] });
+    const a = await c.intent("shop.order", { items: [{ sku: "m001", qty: 1 }], deliver: "2030-01-01" });
+    if (a.kind !== "PROPOSALS") throw new Error();
+    const ra = await c.commit(a.proposals[0]);
+    if (ra.kind !== "RECEIPT") throw new Error(ra.lens);
+    const b = await c.intent("shop.order", { items: [{ sku: "m002", qty: 4 }], deliver: "2030-01-01" });
+    if (b.kind !== "PROPOSALS") throw new Error();
+    const denied = await c.commit(b.proposals[0]);
+    if (denied.kind !== "ERROR" || !denied.consent) throw new Error(denied.lens);
+    expect(denied.consent.service).toBe("shop.example");
+    const consent = await P.consentGrant({ principal, agent: agent.public, consent: denied.consent });
+    const onlyConsent = new P.Client(P.local(svc), { key: agent.seed, grants: [consent] });
+    const undo = await onlyConsent.undo(ra.receipt.id);
+    expect(undo.kind === "ERROR" && undo.code).toBe("forbidden");
+    expect((await onlyConsent.commit(b.proposals[0])).kind).toBe("RECEIPT");
+    expect(P.decodeConsentCode(P.consentCode(denied.consent))).toEqual(denied.consent);
   });
 });

@@ -4,7 +4,7 @@ export { canonical } from "./canonical.js";
 export { b64u, unb64u } from "./b64.js";
 export { keyPair, sign, verify, sha256, proposalHash, randomId, type KeyPair } from "./crypto.js";
 export {
-  issueGrant, delegateGrant, consentGrant, inspectGrant, checkGrant, decodeGrant, encodeGrant, makeProof, checkProof, matchCapability,
+  issueGrant, delegateGrant, consentGrant, consentCode, decodeConsentCode, inspectGrant, checkGrant, decodeGrant, encodeGrant, makeProof, checkProof, matchCapability,
   type Caveat, type Limit, type GrantCheck, type GrantInfo, type CheckContext,
 } from "./grants.js";
 export { lens, lean, est, scalar, fmtTime, fmtDuration, fmtMoney, effectLine } from "./lens.js";

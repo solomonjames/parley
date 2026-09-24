@@ -83,7 +83,7 @@ if (order.kind === "PROPOSALS") {
 
   if (denied.kind === "ERROR" && denied.consent) {
     say(human, `gets a push notification, reads the exact effects and taps Approve. That signs a one-time consent bound to hash ${pick.hash.slice(0, 10)}…:`);
-    const consent = await consentGrant({ principal: james, agent: agent.public, hash: denied.consent.hash, expires: denied.consent.expires });
+    const consent = await consentGrant({ principal: james, agent: agent.public, consent: denied.consent });
     wire("COMMIT", `${pick.id} + consent grant`);
     const events: string[] = [];
     const ok = await sh.commit(pick, { grants: [consent], onEvent: (e) => events.push(e.lens) });

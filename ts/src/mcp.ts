@@ -4,7 +4,7 @@
  * Consent requests are routed to the human via MCP elicitation when the client supports
  * it; the model itself can never approve.
  */
-import { consentGrant } from "./grants.js";
+import { consentCode, consentGrant } from "./grants.js";
 import { loadGrants, principalKey, saveGrant } from "./home.js";
 import { keyPair } from "./crypto.js";
 import type { Client } from "./client.js";
@@ -62,7 +62,7 @@ export async function runMcpBridge(clients: Client[], io: { input: NodeJS.Readab
     });
     if (res.result?.action !== "accept" || res.result?.content?.approve !== true) return null;
     if (!c.key) return null;
-    const token = await consentGrant({ principal, agent: (await keyPair(c.key)).public, hash: consent.hash, expires: consent.expires });
+    const token = await consentGrant({ principal, agent: (await keyPair(c.key)).public, consent });
     saveGrant(token, "consents", consent.hash);
     return token;
   }
@@ -93,7 +93,7 @@ export async function runMcpBridge(clients: Client[], io: { input: NodeJS.Readab
           if (token) r = await c.commit(p, { grants: [token], onEvent: (e) => events.push(e.lens) });
           else if (r.kind === "ERROR") {
             return {
-              text: r.lens + `\n  → the user must approve. Ask them to run: parley approve ${r.consent!.hash} --expires ${r.consent!.expires}  — then call parley_commit again.`,
+              text: r.lens + `\n  → only the user can approve this. Ask them to review it and run, in their own terminal: parley approve ${consentCode(r.consent!)}  — then call parley_commit again.`,
               isError: true,
             };
           }

@@ -67,6 +67,8 @@ export interface Fix { say: string; params?: Record<string, unknown> }
 export interface ConsentRequest {
   proposal: string;
   hash: string;
+  service: string;
+  capability: string;
   principal: string;
   summary: string;
   expires: number;

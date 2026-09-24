@@ -11,11 +11,16 @@ function ensure() {
   for (const d of ["", "grants", "consents"]) mkdirSync(p(d), { recursive: true, mode: 0o700 });
 }
 
+/** The principal key may live elsewhere (another OS user, a mounted device): PARLEY_PRINCIPAL_HOME. */
+const keyFile = (name: "principal" | "agent") =>
+  name === "principal" && process.env.PARLEY_PRINCIPAL_HOME ? join(process.env.PARLEY_PRINCIPAL_HOME, "principal.key") : p(`${name}.key`);
+
 async function loadKey(name: "principal" | "agent", create: boolean): Promise<KeyPair | null> {
-  const f = p(`${name}.key`);
+  const f = keyFile(name);
   if (existsSync(f)) return keyPair(readFileSync(f, "utf8").trim());
   if (!create) return null;
   ensure();
+  mkdirSync(join(f, ".."), { recursive: true, mode: 0o700 });
   const kp = await keyPair();
   writeFileSync(f, kp.seed + "\n", { mode: 0o600 });
   return kp;

@@ -327,7 +327,7 @@
     },
     {
       "name": "consent: matching hash ok",
-      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJvbmx5IjoiSEFTSF9PSyJ9LHsiZXhwIjoxNzkwMDAwNjAwfV0sImlhdCI6MTc5MDAwMDAwMCwiaXNzIjoiZWQyNTUxOTppb2pqM1hRSjhaWDlVdHN0UExwZGNzcG5DYjhkbEJJYjgzU0lBYlFQYjF3Iiwibm9uY2UiOiJuMiIsInN1YiI6ImVkMjU1MTk6Z1RsM0RxaDlGMTlXbzFSbXcweC16TXVOaXBHMDdqZWlYZllQVzRfSnM1USJ9LCJzIjoickVpWGtWT0pENjBGRGFOVnFWTi1zdmUzTm1tVlF3VldsWFlPb1pkV2pVZk1zWVYtVkNJYW9HSXRyWnphMmtlRDFjdEZRSms0WkxLUHVPWVpMYl82QkEifV0",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsidmVyYnMiOlsiQ09NTUlUIl19LHsiY2FuIjpbInNob3Aub3JkZXIiXX0seyJvbmx5IjoiSEFTSF9PSyJ9LHsiZXhwIjoxNzkwMDAwNjAwfV0sImlhdCI6MTc5MDAwMDAwMCwiaXNzIjoiZWQyNTUxOTppb2pqM1hRSjhaWDlVdHN0UExwZGNzcG5DYjhkbEJJYjgzU0lBYlFQYjF3Iiwibm9uY2UiOiJuMiIsInN1YiI6ImVkMjU1MTk6Z1RsM0RxaDlGMTlXbzFSbXcweC16TXVOaXBHMDdqZWlYZllQVzRfSnM1USJ9LCJzIjoieHhVNVR0MWFGaHU5dDdDTzE4TzhCcFc5b2dYZV9rYXBlZVJkMWVGMlVUS0VMZnlCd3ZwT0ZBME9jb1FKQ1g1NWhnYnEtMDhkTmp4X0hTSkVQNDNqQ3cifV0",
       "trusted": [
         "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
       ],
@@ -351,8 +351,52 @@
       }
     },
     {
+      "name": "consent: cannot UNDO anything",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsidmVyYnMiOlsiQ09NTUlUIl19LHsiY2FuIjpbInNob3Aub3JkZXIiXX0seyJvbmx5IjoiSEFTSF9PSyJ9LHsiZXhwIjoxNzkwMDAwNjAwfV0sImlhdCI6MTc5MDAwMDAwMCwiaXNzIjoiZWQyNTUxOTppb2pqM1hRSjhaWDlVdHN0UExwZGNzcG5DYjhkbEJJYjgzU0lBYlFQYjF3Iiwibm9uY2UiOiJuMiIsInN1YiI6ImVkMjU1MTk6Z1RsM0RxaDlGMTlXbzFSbXcweC16TXVOaXBHMDdqZWlYZllQVzRfSnM1USJ9LCJzIjoieHhVNVR0MWFGaHU5dDdDTzE4TzhCcFc5b2dYZV9rYXBlZVJkMWVGMlVUS0VMZnlCd3ZwT0ZBME9jb1FKQ1g1NWhnYnEtMDhkTmp4X0hTSkVQNDNqQ3cifV0",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "UNDO",
+        "capability": "shop.order",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "consent: cannot be used at another service",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsidmVyYnMiOlsiQ09NTUlUIl19LHsiY2FuIjpbInNob3Aub3JkZXIiXX0seyJvbmx5IjoiSEFTSF9PSyJ9LHsiZXhwIjoxNzkwMDAwNjAwfV0sImlhdCI6MTc5MDAwMDAwMCwiaXNzIjoiZWQyNTUxOTppb2pqM1hRSjhaWDlVdHN0UExwZGNzcG5DYjhkbEJJYjgzU0lBYlFQYjF3Iiwibm9uY2UiOiJuMiIsInN1YiI6ImVkMjU1MTk6Z1RsM0RxaDlGMTlXbzFSbXcweC16TXVOaXBHMDdqZWlYZllQVzRfSnM1USJ9LCJzIjoieHhVNVR0MWFGaHU5dDdDTzE4TzhCcFc5b2dYZV9rYXBlZVJkMWVGMlVUS0VMZnlCd3ZwT0ZBME9jb1FKQ1g1NWhnYnEtMDhkTmp4X0hTSkVQNDNqQ3cifV0",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "calendar.example",
+        "verb": "COMMIT",
+        "capability": "shop.order",
+        "now": 1790000000,
+        "proposal": {
+          "hash": "HASH_OK",
+          "cost": {
+            "amount": 1,
+            "currency": "USD"
+          },
+          "risk": "low"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
       "name": "consent: other proposal",
-      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJvbmx5IjoiSEFTSF9PSyJ9LHsiZXhwIjoxNzkwMDAwNjAwfV0sImlhdCI6MTc5MDAwMDAwMCwiaXNzIjoiZWQyNTUxOTppb2pqM1hRSjhaWDlVdHN0UExwZGNzcG5DYjhkbEJJYjgzU0lBYlFQYjF3Iiwibm9uY2UiOiJuMiIsInN1YiI6ImVkMjU1MTk6Z1RsM0RxaDlGMTlXbzFSbXcweC16TXVOaXBHMDdqZWlYZllQVzRfSnM1USJ9LCJzIjoickVpWGtWT0pENjBGRGFOVnFWTi1zdmUzTm1tVlF3VldsWFlPb1pkV2pVZk1zWVYtVkNJYW9HSXRyWnphMmtlRDFjdEZRSms0WkxLUHVPWVpMYl82QkEifV0",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsidmVyYnMiOlsiQ09NTUlUIl19LHsiY2FuIjpbInNob3Aub3JkZXIiXX0seyJvbmx5IjoiSEFTSF9PSyJ9LHsiZXhwIjoxNzkwMDAwNjAwfV0sImlhdCI6MTc5MDAwMDAwMCwiaXNzIjoiZWQyNTUxOTppb2pqM1hRSjhaWDlVdHN0UExwZGNzcG5DYjhkbEJJYjgzU0lBYlFQYjF3Iiwibm9uY2UiOiJuMiIsInN1YiI6ImVkMjU1MTk6Z1RsM0RxaDlGMTlXbzFSbXcweC16TXVOaXBHMDdqZWlYZllQVzRfSnM1USJ9LCJzIjoieHhVNVR0MWFGaHU5dDdDTzE4TzhCcFc5b2dYZV9rYXBlZVJkMWVGMlVUS0VMZnlCd3ZwT0ZBME9jb1FKQ1g1NWhnYnEtMDhkTmp4X0hTSkVQNDNqQ3cifV0",
       "trusted": [
         "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
       ],

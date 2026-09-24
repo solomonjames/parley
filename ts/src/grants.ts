@@ -6,7 +6,7 @@
 import { b64u, fromUtf8, unb64u, utf8 } from "./b64.js";
 import { canonical } from "./canonical.js";
 import { keyPair, sha256, sign, verify, type KeyPair } from "./crypto.js";
-import type { Money, Proof, Risk, Verb } from "./types.js";
+import type { ConsentRequest, Money, Proof, Risk, Verb } from "./types.js";
 import { fmtMoney } from "./lens.js";
 
 export type Limit = { max: number; currency: string };
@@ -66,9 +66,30 @@ export async function delegateGrant(token: string, opts: { holder: KeyPair | str
   return encodeGrant([...blocks, { p, s: await sign(holder.seed, canonical(p)) }]);
 }
 
-/** Consent grant (SPEC §6.6): one-shot approval of an exact proposal hash. */
-export function consentGrant(opts: { principal: KeyPair | string; agent: string; hash: string; expires: number }): Promise<string> {
-  return issueGrant({ principal: opts.principal, to: opts.agent, caveats: [{ only: opts.hash }, { exp: opts.expires }] });
+/**
+ * Consent grant (SPEC §6.6): one-shot approval of one exact proposal. It is scoped to COMMIT
+ * of that proposal's capability at that service, so it authorizes nothing else.
+ */
+export function consentGrant(opts: { principal: KeyPair | string; agent: string; consent: Pick<ConsentRequest, "service" | "capability" | "hash" | "expires"> }): Promise<string> {
+  const c = opts.consent;
+  return issueGrant({
+    principal: opts.principal,
+    to: opts.agent,
+    caveats: [{ svc: [c.service] }, { verbs: ["COMMIT"] }, { can: [c.capability] }, { only: c.hash }, { exp: c.expires }],
+  });
+}
+
+/** A consent request packed for a human to approve out of band (`parley approve <code>`). */
+export function consentCode(c: ConsentRequest): string {
+  return "pc1." + b64u(utf8(canonical(c)));
+}
+
+export function decodeConsentCode(code: string): ConsentRequest {
+  if (!code.startsWith("pc1.")) throw new Error("not a consent code (expected pc1.…)");
+  const c = JSON.parse(fromUtf8(unb64u(code.slice(4))));
+  for (const k of ["proposal", "hash", "service", "capability", "principal", "summary"]) if (typeof c[k] !== "string") throw new Error(`consent code missing ${k}`);
+  if (!Number.isSafeInteger(c.expires)) throw new Error("consent code missing expires");
+  return c;
 }
 
 export interface GrantInfo { id: string; iss: string; holder: string; blocks: { id: string; sub: string; caveats: Caveat[]; iat: number }[] }

@@ -180,7 +180,7 @@ export class Service {
     const consent = checks.find((c) => !c.ok && c.code === "consent_required");
     if (consent && !consent.ok && proposal) {
       throw new ParleyError("consent_required", `${consent.reason}; your principal must approve this exact proposal`, {
-        consent: { proposal: proposal.id, hash: proposal.hash, principal: consent.iss!, summary: proposal.summary, expires: proposal.expires },
+        consent: { proposal: proposal.id, hash: proposal.hash, service: this.id, capability: proposal.capability, principal: consent.iss!, summary: proposal.summary, expires: proposal.expires },
       });
     }
     const forbidden = checks.find((c) => !c.ok && c.code === "forbidden");

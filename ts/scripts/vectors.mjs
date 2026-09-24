@@ -48,7 +48,7 @@ const principal = await P.keyPair(seed(1)), agent = await P.keyPair(seed(2)), su
 const now = 1790000000;
 const root = await P.issueGrant({ principal, to: agent.public, iat: now - 100, nonce: "n1", caveats: [{ svc: ["shop.example"] }, { can: ["shop.*"] }, { exp: now + 3600 }, { spend: { max: 5000, currency: "USD" } }, { per: { max: 3000, currency: "USD" } }, { risk: "medium" }] });
 const narrowed = await P.delegateGrant(root, { holder: agent, to: sub.public, iat: now - 50, caveats: [{ can: ["shop.search"] }, { verbs: ["ASK", "INTENT"] }] });
-const consent = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n2", caveats: [{ only: "HASH_OK" }, { exp: now + 600 }] });
+const consent = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n2", caveats: [{ svc: ["shop.example"] }, { verbs: ["COMMIT"] }, { can: ["shop.order"] }, { only: "HASH_OK" }, { exp: now + 600 }] });
 const badRisk = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n5", caveats: [{ risk: "extreme" }] });
 const badSvc = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n6", caveats: [{ svc: "shop.example.evil" }] });
 const badExp = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n7", caveats: [{ exp: "tomorrow" }] });
@@ -76,6 +76,8 @@ const cases = [
   ["delegated: attenuated verbs", narrowed, sub.public, { service: "shop.example", verb: "COMMIT", capability: "shop.search", now, proposal: commit(10) }, { ok: false, code: "forbidden" }],
   ["delegated: parent holder cannot use it", narrowed, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],
   ["consent: matching hash ok", consent, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(999999, "high", "HASH_OK") }, { ok: true }],
+  ["consent: cannot UNDO anything", consent, agent.public, { service: "shop.example", verb: "UNDO", capability: "shop.order", now }, { ok: false, code: "forbidden" }],
+  ["consent: cannot be used at another service", consent, agent.public, { service: "calendar.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(1, "low", "HASH_OK") }, { ok: false, code: "forbidden" }],
   ["consent: other proposal", consent, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(1, "low", "HASH_OTHER") }, { ok: false, code: "forbidden" }],
   ["malformed risk level fails closed", badRisk, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(1) }, { ok: false, code: "forbidden" }],
   ["svc must be a list (no substring match)", badSvc, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "forbidden" }],
@@ -135,7 +137,7 @@ const replies = [
   ["undo receipt", r({ kind: "RECEIPT", receipt: { id: "r_3", proposal: "p_1", capability: "calendar.reschedule", summary: "Moved", at: 1790000200, effects: [{ op: "update", target: "event/e42", field: "start", from: "2026-09-24T15:00:00Z", to: "2026-09-22T14:00:00Z" }], cost: null, undo: null, undoes: "r_1" } })],
   ["answer with more", r({ kind: "ANSWER", data: { events: [{ id: "e1", t: "a" }] }, more: [{ handle: "h_1", path: "data.events", remaining: 12, est: 96 }] })],
   ["error full", r({ kind: "ERROR", code: "invalid_params", message: "`to` must be in the future", fix: [{ say: "use next year", params: { to: "2026-09-24T15:00:00Z" } }, { say: "or ask the user" }], need: [{ can: ["x.*"] }], retry: 3600 })],
-  ["error consent", r({ kind: "ERROR", code: "consent_required", message: "cost exceeds per-commit limit", consent: { proposal: "p_2", hash: "h2", principal: "ed25519:x", summary: "Order 2 items", expires: 1790000605 } })],
+  ["error consent", r({ kind: "ERROR", code: "consent_required", message: "cost exceeds per-commit limit", consent: { proposal: "p_2", hash: "h2", service: "shop.example", capability: "shop.order", principal: "ed25519:x", summary: "Order 2 items", expires: 1790000605 } })],
   ["event", r({ kind: "EVENT", message: "charging card", progress: 0.42 })],
   ["event plain", r({ kind: "EVENT", message: "started" })],
 ];

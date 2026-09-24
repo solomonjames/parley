@@ -2,7 +2,7 @@
 /** parley — command line for the Parley protocol. */
 import { parseArgs } from "node:util";
 import { createInterface } from "node:readline/promises";
-import { consentGrant, delegateGrant, inspectGrant, issueGrant, type Caveat } from "./grants.js";
+import { consentGrant, decodeConsentCode, delegateGrant, inspectGrant, issueGrant, type Caveat } from "./grants.js";
 import { agentKey, home, loadGrants, principalKey, saveGrant } from "./home.js";
 import { effectLine, fmtTime, lean } from "./lens.js";
 import { runMcpBridge } from "./mcp.js";
@@ -18,7 +18,7 @@ identity
   parley grant [caveats]                   principal → agent grant (saved; used automatically)
   parley delegate <token> --to <key> [caveats]   attenuate a grant for a sub-agent
   parley inspect <token>                   decode a grant chain
-  parley approve <hash> --expires <unix>   sign a one-time consent for a proposal hash
+  parley approve <pc1.code>                review and sign a one-time consent for one proposal
 
 talk to a service  (url: parley://host:port · parleys://… · http(s)://…/parley · "stdio:cmd args")
   parley hello  <url>
@@ -125,12 +125,18 @@ async function main() {
       return;
     }
     case "approve": {
-      const p = (await principalKey()) ?? die("no principal key");
-      const hash = rest[0] ?? die("usage: parley approve <hash> --expires <unix>");
+      const p = (await principalKey()) ?? die("no principal key here: approve on the machine that holds it");
+      const consent = decodeConsentCode(rest[0] ?? die("usage: parley approve <pc1.… code>"));
+      if (consent.principal !== p.public) die(`this consent is for principal ${consent.principal}, not ${p.public}`);
       const agent = o.to ?? (await agentKey())?.public ?? die("no agent key");
-      const token = await consentGrant({ principal: p, agent, hash, expires: o.expires ? Number(o.expires) : Math.floor(Date.now() / 1000) + 600 });
-      saveGrant(token, "consents", hash);
-      console.log(`✓ approved ${hash} — one-time consent saved; the agent can commit now`);
+      console.log(`${consent.summary}\n  service: ${consent.service} · ${consent.capability} · proposal ${consent.proposal}\n  expires: ${fmtTime(consent.expires)} · hash ${consent.hash}`);
+      if (!process.stdin.isTTY) die("✗ approval needs an interactive terminal: a human has to confirm");
+      const rl = createInterface({ input: process.stdin, output: process.stdout });
+      const ok = /^y/i.test(await rl.question("\napprove this exact action? [y/N] › "));
+      rl.close();
+      if (!ok) die("not approved");
+      saveGrant(await consentGrant({ principal: p, agent, consent }), "consents", consent.hash);
+      console.log("✓ approved: a one-time consent for this proposal only. The agent can commit now.");
       return;
     }
     case "mcp": {
@@ -186,7 +192,7 @@ async function interactive(c: Client, capability: string, params: Record<string,
         if (p && p.public === res.consent!.principal) {
           console.log(`\n  ${chosen.summary}\n${chosen.effects.map((e) => "    " + effectLine(e)).join("\n")}`);
           if (/^y/i.test(await rl.question("\n[principal] approve this exact proposal? [y/N] › "))) {
-            const token = await consentGrant({ principal: p, agent: (await agentKey())!.public, hash: chosen.hash, expires: chosen.expires });
+            const token = await consentGrant({ principal: p, agent: (await agentKey())!.public, consent: res.consent! });
             res = await c.commit(chosen, { grants: [token], onEvent: (e) => console.log(e.lens) });
           }
         }
