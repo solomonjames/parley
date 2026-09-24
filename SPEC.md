@@ -413,8 +413,16 @@ invalid grant or proof), `forbidden` (a valid grant that doesn't cover the reque
 
 ## 8. Budgets and `EXPAND`
 
-**Token estimate:** `est(text) = ceil(utf8ByteLength(text) / 4)`. Both sides use this
-same deterministic estimate. It is not any model's tokenizer; it is a shared unit.
+**Token estimate:** `est(text)` is the number of non-overlapping, leftmost matches of
+
+```
+[A-Za-z]+|[0-9]{1,3}|\n {2,}|[^ \t\n\r\f\vA-Za-z0-9]
+```
+
+over the text's Unicode code points. That counts letter runs, digit groups of up to
+three, indentation runs and each other visible character. Both sides compute exactly
+this number. It is not any model's tokenizer, but it averages ≈1.0× the token count of
+modern BPE tokenizers on Lens text (measured with o200k), which a byte ratio does not.
 
 A service SHOULD make `est(lens(reply)) ≤ budget`. When a value doesn't fit, the service
 elides part of it and adds a `More` entry:

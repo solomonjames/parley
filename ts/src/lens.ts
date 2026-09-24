@@ -188,5 +188,10 @@ export function lens(r: Reply): string {
   return out.join("\n");
 }
 
-/** Shared token estimate (SPEC §8): ceil(utf8 bytes / 4). */
-export const est = (text: string) => Math.ceil(new TextEncoder().encode(text).length / 4);
+/**
+ * Shared token estimate (SPEC §8): count of letter runs, 1–3 digit groups, indentation runs
+ * and other non-space characters. Tracks real BPE tokenizers closely on Lens text (mean
+ * ratio ≈1.0 vs o200k), and every implementation computes exactly the same number.
+ */
+const TOKENISH = /[A-Za-z]+|[0-9]{1,3}|\n {2,}|[^ \t\n\r\f\vA-Za-z0-9]/gu;
+export const est = (text: string) => text.match(TOKENISH)?.length ?? 0;

@@ -143,5 +143,5 @@ for (const [name, input] of replies) lensCases.push({ name, type: "reply", input
 out("lens", lensCases);
 
 // estimate
-out("estimate", ["", "a", "abcd", "abcde", "café", "東京🎉"].map((text) => ({ text, est: P.est(text) })));
+out("estimate", ["", "a", "abcd", "abcde", "café", "東京🎉", "hello world", "x: 12345\n  - y", "a\u00a0b\tc", "p_KEs5H7dM · 2026-09-24T15:00Z", "  lead\n    deep\n z"].map((text) => ({ text, est: P.est(text) })));
 console.log("vectors written");

@@ -13,7 +13,7 @@
   },
   {
     "text": "abcde",
-    "est": 2
+    "est": 1
   },
   {
     "text": "café",
@@ -22,5 +22,25 @@
   {
     "text": "東京🎉",
     "est": 3
+  },
+  {
+    "text": "hello world",
+    "est": 2
+  },
+  {
+    "text": "x: 12345\n  - y",
+    "est": 7
+  },
+  {
+    "text": "a b\tc",
+    "est": 4
+  },
+  {
+    "text": "p_KEs5H7dM · 2026-09-24T15:00Z",
+    "est": 19
+  },
+  {
+    "text": "  lead\n    deep\n z",
+    "est": 4
   }
 ]
