@@ -1,0 +1,452 @@
+{
+  "seeds": {
+    "principal": "AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+    "agent": "AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI",
+    "subagent": "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM",
+    "mallory": "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ"
+  },
+  "rootSpendBlockId": "wJ_VZU1Z3VYBFmYOLYgx6IU0-93Cu73vFjWYxBP1Bd8",
+  "cases": [
+    {
+      "name": "root: ask ok",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "name": "root: commit within limits",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "COMMIT",
+        "capability": "shop.order",
+        "now": 1790000000,
+        "proposal": {
+          "hash": "HASH_X",
+          "cost": {
+            "amount": 2000,
+            "currency": "USD"
+          },
+          "risk": "low"
+        }
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "name": "root: wrong service",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "evil.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "root: capability not covered",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "bank.transfer",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "root: expired",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790003600
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "root: per-commit limit needs consent",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "COMMIT",
+        "capability": "shop.order",
+        "now": 1790000000,
+        "proposal": {
+          "hash": "HASH_X",
+          "cost": {
+            "amount": 3500,
+            "currency": "USD"
+          },
+          "risk": "low"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "code": "consent_required"
+      }
+    },
+    {
+      "name": "root: cumulative spend needs consent",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "COMMIT",
+        "capability": "shop.order",
+        "now": 1790000000,
+        "proposal": {
+          "hash": "HASH_X",
+          "cost": {
+            "amount": 2000,
+            "currency": "USD"
+          },
+          "risk": "low"
+        },
+        "spent": {
+          "wJ_VZU1Z3VYBFmYOLYgx6IU0-93Cu73vFjWYxBP1Bd8": 4000
+        }
+      },
+      "expect": {
+        "ok": false,
+        "code": "consent_required"
+      }
+    },
+    {
+      "name": "root: risk ceiling needs consent",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "COMMIT",
+        "capability": "shop.order",
+        "now": 1790000000,
+        "proposal": {
+          "hash": "HASH_X",
+          "cost": {
+            "amount": 100,
+            "currency": "USD"
+          },
+          "risk": "high"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "code": "consent_required"
+      }
+    },
+    {
+      "name": "root: other currency",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "COMMIT",
+        "capability": "shop.order",
+        "now": 1790000000,
+        "proposal": {
+          "hash": "H",
+          "cost": {
+            "amount": 1,
+            "currency": "EUR"
+          },
+          "risk": "low"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "code": "consent_required"
+      }
+    },
+    {
+      "name": "root: proof key is not holder",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "unauthorized"
+      }
+    },
+    {
+      "name": "root: untrusted principal",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn1d",
+      "trusted": [
+        "ed25519:ypOsFwUYcHHWe4PH_w7-gQjo7EUwV113JoeTM9vavnw"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "unauthorized"
+      }
+    },
+    {
+      "name": "delegated: sub-agent ask ok",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn0seyJwIjp7ImNhdmVhdHMiOlt7ImNhbiI6WyJzaG9wLnNlYXJjaCJdfSx7InZlcmJzIjpbIkFTSyIsIklOVEVOVCJdfV0sImlhdCI6MTc4OTk5OTk1MCwicHJldiI6IndKX1ZaVTFaM1ZZQkZtWU9MWWd4NklVMC05M0N1NzN2RmpXWXhCUDFCZDgiLCJzdWIiOiJlZDI1NTE5OjdVa294aWpSd3NicTZRTTRrRm1WWVNsWkp6cGNZX2syTnNGR0ZLeUhOOUUifSwicyI6IlczeFlNT1UzVUdvMWFRLXprbHdtTElsenhHaXgyeDJiX0lFZGtMa3lNZG1kOXFjdDliTmdVTndOOEMzd3hjN1JISUNPazd6dmR1Z19vNXdCVVU4bkR3In1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "name": "delegated: attenuated capability",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn0seyJwIjp7ImNhdmVhdHMiOlt7ImNhbiI6WyJzaG9wLnNlYXJjaCJdfSx7InZlcmJzIjpbIkFTSyIsIklOVEVOVCJdfV0sImlhdCI6MTc4OTk5OTk1MCwicHJldiI6IndKX1ZaVTFaM1ZZQkZtWU9MWWd4NklVMC05M0N1NzN2RmpXWXhCUDFCZDgiLCJzdWIiOiJlZDI1NTE5OjdVa294aWpSd3NicTZRTTRrRm1WWVNsWkp6cGNZX2syTnNGR0ZLeUhOOUUifSwicyI6IlczeFlNT1UzVUdvMWFRLXprbHdtTElsenhHaXgyeDJiX0lFZGtMa3lNZG1kOXFjdDliTmdVTndOOEMzd3hjN1JISUNPazd6dmR1Z19vNXdCVVU4bkR3In1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.order",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "delegated: attenuated verbs",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn0seyJwIjp7ImNhdmVhdHMiOlt7ImNhbiI6WyJzaG9wLnNlYXJjaCJdfSx7InZlcmJzIjpbIkFTSyIsIklOVEVOVCJdfV0sImlhdCI6MTc4OTk5OTk1MCwicHJldiI6IndKX1ZaVTFaM1ZZQkZtWU9MWWd4NklVMC05M0N1NzN2RmpXWXhCUDFCZDgiLCJzdWIiOiJlZDI1NTE5OjdVa294aWpSd3NicTZRTTRrRm1WWVNsWkp6cGNZX2syTnNGR0ZLeUhOOUUifSwicyI6IlczeFlNT1UzVUdvMWFRLXprbHdtTElsenhHaXgyeDJiX0lFZGtMa3lNZG1kOXFjdDliTmdVTndOOEMzd3hjN1JISUNPazd6dmR1Z19vNXdCVVU4bkR3In1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "COMMIT",
+        "capability": "shop.search",
+        "now": 1790000000,
+        "proposal": {
+          "hash": "HASH_X",
+          "cost": {
+            "amount": 10,
+            "currency": "USD"
+          },
+          "risk": "low"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "delegated: parent holder cannot use it",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJzdmMiOlsic2hvcC5leGFtcGxlIl19LHsiY2FuIjpbInNob3AuKiJdfSx7ImV4cCI6MTc5MDAwMzYwMH0seyJzcGVuZCI6eyJjdXJyZW5jeSI6IlVTRCIsIm1heCI6NTAwMH19LHsicGVyIjp7ImN1cnJlbmN5IjoiVVNEIiwibWF4IjozMDAwfX0seyJyaXNrIjoibWVkaXVtIn1dLCJpYXQiOjE3ODk5OTk5MDAsImlzcyI6ImVkMjU1MTk6aW9qajNYUUo4Wlg5VXRzdFBMcGRjc3BuQ2I4ZGxCSWI4M1NJQWJRUGIxdyIsIm5vbmNlIjoibjEiLCJzdWIiOiJlZDI1NTE5OmdUbDNEcWg5RjE5V28xUm13MHgtek11TmlwRzA3amVpWGZZUFc0X0pzNVEifSwicyI6IktnLXpOd1FiWDY0MzlPVmwxWWdBNlk5M0FDQTRjSjNoR1d4cFIyYTQtcm9yU1BpUTlya3hWLU1nQUdtMUJuVGpxVFlqa3QtWDQzXzA5WnREZ0tqbkNBIn0seyJwIjp7ImNhdmVhdHMiOlt7ImNhbiI6WyJzaG9wLnNlYXJjaCJdfSx7InZlcmJzIjpbIkFTSyIsIklOVEVOVCJdfV0sImlhdCI6MTc4OTk5OTk1MCwicHJldiI6IndKX1ZaVTFaM1ZZQkZtWU9MWWd4NklVMC05M0N1NzN2RmpXWXhCUDFCZDgiLCJzdWIiOiJlZDI1NTE5OjdVa294aWpSd3NicTZRTTRrRm1WWVNsWkp6cGNZX2syTnNGR0ZLeUhOOUUifSwicyI6IlczeFlNT1UzVUdvMWFRLXprbHdtTElsenhHaXgyeDJiX0lFZGtMa3lNZG1kOXFjdDliTmdVTndOOEMzd3hjN1JISUNPazd6dmR1Z19vNXdCVVU4bkR3In1d",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "unauthorized"
+      }
+    },
+    {
+      "name": "consent: matching hash ok",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJvbmx5IjoiSEFTSF9PSyJ9LHsiZXhwIjoxNzkwMDAwNjAwfV0sImlhdCI6MTc5MDAwMDAwMCwiaXNzIjoiZWQyNTUxOTppb2pqM1hRSjhaWDlVdHN0UExwZGNzcG5DYjhkbEJJYjgzU0lBYlFQYjF3Iiwibm9uY2UiOiJuMiIsInN1YiI6ImVkMjU1MTk6Z1RsM0RxaDlGMTlXbzFSbXcweC16TXVOaXBHMDdqZWlYZllQVzRfSnM1USJ9LCJzIjoickVpWGtWT0pENjBGRGFOVnFWTi1zdmUzTm1tVlF3VldsWFlPb1pkV2pVZk1zWVYtVkNJYW9HSXRyWnphMmtlRDFjdEZRSms0WkxLUHVPWVpMYl82QkEifV0",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "COMMIT",
+        "capability": "shop.order",
+        "now": 1790000000,
+        "proposal": {
+          "hash": "HASH_OK",
+          "cost": {
+            "amount": 999999,
+            "currency": "USD"
+          },
+          "risk": "high"
+        }
+      },
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "name": "consent: other proposal",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJvbmx5IjoiSEFTSF9PSyJ9LHsiZXhwIjoxNzkwMDAwNjAwfV0sImlhdCI6MTc5MDAwMDAwMCwiaXNzIjoiZWQyNTUxOTppb2pqM1hRSjhaWDlVdHN0UExwZGNzcG5DYjhkbEJJYjgzU0lBYlFQYjF3Iiwibm9uY2UiOiJuMiIsInN1YiI6ImVkMjU1MTk6Z1RsM0RxaDlGMTlXbzFSbXcweC16TXVOaXBHMDdqZWlYZllQVzRfSnM1USJ9LCJzIjoickVpWGtWT0pENjBGRGFOVnFWTi1zdmUzTm1tVlF3VldsWFlPb1pkV2pVZk1zWVYtVkNJYW9HSXRyWnphMmtlRDFjdEZRSms0WkxLUHVPWVpMYl82QkEifV0",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "COMMIT",
+        "capability": "shop.order",
+        "now": 1790000000,
+        "proposal": {
+          "hash": "HASH_OTHER",
+          "cost": {
+            "amount": 1,
+            "currency": "USD"
+          },
+          "risk": "low"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "unknown caveat fails closed",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJyZWdpb24iOiJldSJ9XSwiaWF0IjoxNzkwMDAwMDAwLCJpc3MiOiJlZDI1NTE5OmlvamozWFFKOFpYOVV0c3RQTHBkY3NwbkNiOGRsQkliODNTSUFiUVBiMXciLCJub25jZSI6Im4zIiwic3ViIjoiZWQyNTUxOTpnVGwzRHFoOUYxOVdvMVJtdzB4LXpNdU5pcEcwN2plaVhmWVBXNF9KczVRIn0sInMiOiJ0Q3V5N0JQRjNCRVBnUE05cjNPWEpjM1Q1Rmthczc4cWlvVDljdWI5b0plbjVDUk5GMzlDdFppcU1GazRXR1pTLVV2X05pakpLSUkxS1FHbHdNcENBZyJ9XQ",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "forged issuer",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbXSwiaWF0IjoxNzkwMDAwMDAwLCJpc3MiOiJlZDI1NTE5OnlwT3NGd1VZY0hIV2U0UEhfdzctZ1FqbzdFVXdWMTEzSm9lVE05dmF2bnciLCJub25jZSI6Im40Iiwic3ViIjoiZWQyNTUxOTpnVGwzRHFoOUYxOVdvMVJtdzB4LXpNdU5pcEcwN2plaVhmWVBXNF9KczVRIn0sInMiOiItMnFQZTM3UEpOY2ptbXc4Z3N6R3VUUUFOdVlRTUNzSzBFZ2JQQzE2WWZKVzRwSVAxU3Q3T3l5dkhpLW5USlBfemt1MDRqbXJoSEVhWlJ1QW53X0pDZyJ9XQ",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "unauthorized"
+      }
+    },
+    {
+      "name": "tampered caveats",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbXSwiaWF0IjoxNzg5OTk5OTAwLCJpc3MiOiJlZDI1NTE5OmlvamozWFFKOFpYOVV0c3RQTHBkY3NwbkNiOGRsQkliODNTSUFiUVBiMXciLCJub25jZSI6Im4xIiwic3ViIjoiZWQyNTUxOTpnVGwzRHFoOUYxOVdvMVJtdzB4LXpNdU5pcEcwN2plaVhmWVBXNF9KczVRIn0sInMiOiJLZy16TndRYlg2NDM5T1ZsMVlnQTZZOTNBQ0E0Y0ozaEdXeHBSMmE0LXJvclNQaVE5cmt4Vi1NZ0FHbTFCblRqcVRZamt0LVg0M18wOVp0RGdLam5DQSJ9XQ",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "unauthorized"
+      }
+    },
+    {
+      "name": "garbage token",
+      "token": "pg1.bm9wZQ",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "unauthorized"
+      }
+    }
+  ]
+}

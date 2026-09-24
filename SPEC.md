@@ -248,8 +248,8 @@ absent, clients render Lens locally (§9).
 - `risk`: `low` | `medium` | `high`, as assessed by the service.
 - `undo`: `null` if irreversible, else `{"window": seconds}` counted from commit.
 - `expires`: unix seconds after which the proposal cannot be committed.
-- `hash`: `b64url(sha256(canonical(proposal without "hash")))` (§10).
-- `data`: OPTIONAL extra structured detail.
+- `hash`: `b64url(sha256(canonical(proposal without "hash" and "data")))` (§10). The hash binds everything a human is shown: summary, effects, cost, risk, undo and expiry. Numbers inside hashed fields MUST be integers.
+- `data`: OPTIONAL extra structured detail. It is not covered by the hash and MUST NOT describe effects.
 
 A service MUST NOT perform effects beyond those declared in the committed proposal.
 
@@ -425,8 +425,9 @@ Rendering a value `v` at indent `n` (two spaces per level):
 **Scalars**
 - `null` → `-`
 - `true` / `false` → `true` / `false`
-- numbers → shortest JSON form
-- strings → **bare** if they match `^[A-Za-z0-9_@./+\-:() '!?&%$#*=<>~^]+$`, do not start or end with a space, are not `-`, `true`, `false`, or `null`, do not parse as a JSON number, and contain no `, `. Otherwise they are JSON-quoted.
+- numbers → ECMAScript `Number::toString` (so `1.5`, `1e+21`, `1e-7`)
+- strings → **bare** if they match `^[A-Za-z0-9_@./+\-:() '!?&%$#*=<>~^]+$`, do not start or end with a space, are not `-`, `true`, `false`, or `null`, and do not match the JSON number grammar. Otherwise they are quoted as in §10.
+- object keys are rendered with the same string rule.
 
 **Objects** (keys in insertion order), one line per key:
 - scalar value → `key: scalar`
@@ -436,8 +437,8 @@ Rendering a value `v` at indent `n` (two spaces per level):
 
 **Arrays**, under a key `k`:
 - all scalars → `k: [a, b, c]`
-- **table form**: every element is a non-empty object with the **same keys in the same order** and only scalar values → `k[N]{k1,k2,…}:` followed by one row per element at indent n+1: the values rendered as scalars and joined with `,`. In rows, strings containing `,` are JSON-quoted even if otherwise bare.
-- otherwise → `k[N]:` followed by each element at indent n+1 as `- ` plus the element: scalars inline; objects with their first entry on the dash line and later entries aligned under it (indent n+2); arrays rendered as `- ` + `[…]` in scalar-list form if all scalars, else JSON.
+- **table form**: every element is a non-empty object with the **same keys in the same order** and only scalar values → `k[N]{k1,k2,…}:` followed by one row per element at indent n+1: the values rendered as scalars and joined with `,`. (Strings containing `,` are never bare, so rows are unambiguous.)
+- otherwise → `k[N]:` followed by each element at indent n+1 as `- ` plus the element: scalars inline; empty objects as `{}`; non-empty objects with their first entry on the dash line and later entries aligned under it (indent n+2); arrays as `[a, b]` in scalar-list form if all scalars, else compact JSON (no whitespace, insertion order).
 
 A top-level object renders its entries at indent 0. A top-level array renders as if under the key `items`. A top-level scalar renders as a scalar.
 
@@ -445,7 +446,7 @@ A top-level object renders its entries at indent 0. A top-level array renders as
 
 - Times (fields `expires`, `at`, `until`) render as UTC `YYYY-MM-DDTHH:MMZ`, with `:SS` inserted when seconds ≠ 0.
 - Durations render in the largest of `d`/`h`/`m`/`s` that divides them exactly.
-- Money renders as `amount/100` with two decimals and the currency (`12.50 USD`). Zero-decimal currencies (JPY, KRW, VND, CLP, ISK, UGX, XAF, XOF) render without decimals.
+- Money renders as `amount/100` with two decimals (negative amounts get a leading `-`) and the currency (`12.50 USD`). Zero-decimal currencies (JPY, KRW, VND, CLP, ISK, UGX, XAF, XOF) render without decimals.
 
 **Effect line:** `SYM op target[.field][: from → to][ — detail]`, where SYM is `+` create, `~` update, `-` delete, `>` send, `$` charge, `*` other. `from → to` appears when either is present. A missing side renders as `-`.
 
@@ -456,11 +457,11 @@ A top-level object renders its entries at indent 0. A top-level array renders as
 {kind} {name}({p1}: {type1}, {p2?}: {type2}) — {summary}[ [risk:{risk}]]
 ```
 One line per capability. The parameter list renders as `()` if `params` is absent.
-Nested param objects render their type as `{…}`.
+Nested param objects render recursively as `{k: type, …}`.
 
-**PROPOSALS**
+**PROPOSALS** (first line is `1 proposal:` or `{N} proposals:`)
 ```
-{N} proposal(s):
+{N} proposals:
 [{id}] {summary}
   {effect line}…
   cost: {money|free} · risk: {risk} · undo: {duration|never} · expires: {time}
@@ -488,12 +489,13 @@ For a replay, `(replay)` follows the receipt id. For an undo receipt, the first 
 ```
 ✗ {code}: {message}
   fix: {say}[ → params {compact JSON of params}]
+  need: {compact JSON of need}
   consent: principal must approve {hash} ({summary})
   retry in: {duration}
 ```
 (Only the lines whose fields are present.)
 
-**EVENT:** `… {message}[ ({progress×100 rounded}%)]`
+**EVENT:** `… {message}[ ({floor(progress×100 + 0.5)}%)]`
 
 **More (appended to any reply that has `more`):** `… {remaining} more at {path} — EXPAND {handle} (~{est} tokens)`
 

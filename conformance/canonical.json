@@ -1,0 +1,64 @@
+[
+  {
+    "name": "scalars",
+    "input": [
+      null,
+      true,
+      false,
+      0,
+      -1,
+      9007199254740991,
+      ""
+    ],
+    "canonical": "[null,true,false,0,-1,9007199254740991,\"\"]"
+  },
+  {
+    "name": "key order",
+    "input": {
+      "b": 1,
+      "a": 2,
+      "A": 3,
+      "_": 4,
+      "aa": 5,
+      "a b": 6
+    },
+    "canonical": "{\"A\":3,\"_\":4,\"a\":2,\"a b\":6,\"aa\":5,\"b\":1}"
+  },
+  {
+    "name": "nested",
+    "input": {
+      "z": {
+        "y": [
+          3,
+          {
+            "x": null
+          }
+        ],
+        "a": []
+      },
+      "m": {}
+    },
+    "canonical": "{\"m\":{},\"z\":{\"a\":[],\"y\":[3,{\"x\":null}]}}"
+  },
+  {
+    "name": "escapes",
+    "input": {
+      "s": "quote \" back \\ nl \n tab \t cr \r bs \b ff \f nul \u0000 us \u001f del "
+    },
+    "canonical": "{\"s\":\"quote \\\" back \\\\ nl \\n tab \\t cr \\r bs \\b ff \\f nul \\u0000 us \\u001f del \"}"
+  },
+  {
+    "name": "unicode",
+    "input": {
+      "s": "café — 東京 🎉  "
+    },
+    "canonical": "{\"s\":\"café — 東京 🎉  \"}"
+  },
+  {
+    "name": "slash",
+    "input": {
+      "s": "a/b<c>&"
+    },
+    "canonical": "{\"s\":\"a/b<c>&\"}"
+  }
+]

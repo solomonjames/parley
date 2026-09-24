@@ -1,0 +1,596 @@
+[
+  {
+    "name": "scalars",
+    "type": "value",
+    "input": {
+      "n": null,
+      "t": true,
+      "f": false,
+      "i": 42,
+      "x": 1.5,
+      "neg": -3,
+      "big": 1e+21,
+      "small": 1e-7
+    },
+    "lens": "n: -\nt: true\nf: false\ni: 42\nx: 1.5\nneg: -3\nbig: 1e+21\nsmall: 1e-7"
+  },
+  {
+    "name": "strings",
+    "type": "value",
+    "input": {
+      "bare": "hello world",
+      "iso": "2026-09-24T15:00:00Z",
+      "email": "ana@example.com",
+      "empty": "",
+      "sp": " lead",
+      "comma": "a, b",
+      "numeric": "123",
+      "word": "true",
+      "dash": "-",
+      "uni": "café",
+      "nl": "two\nlines",
+      "q": "say \"hi\""
+    },
+    "lens": "bare: hello world\niso: 2026-09-24T15:00:00Z\nemail: ana@example.com\nempty: \"\"\nsp: \" lead\"\ncomma: \"a, b\"\nnumeric: \"123\"\nword: \"true\"\ndash: \"-\"\nuni: \"café\"\nnl: \"two\\nlines\"\nq: \"say \\\"hi\\\"\""
+  },
+  {
+    "name": "nested",
+    "type": "value",
+    "input": {
+      "user": {
+        "name": "Ana",
+        "tags": [
+          "a",
+          "b"
+        ],
+        "prefs": {},
+        "list": []
+      }
+    },
+    "lens": "user:\n  name: Ana\n  tags: [a, b]\n  prefs: {}\n  list: []"
+  },
+  {
+    "name": "table",
+    "type": "value",
+    "input": {
+      "events": [
+        {
+          "id": "e1",
+          "title": "Standup",
+          "start": "09:00"
+        },
+        {
+          "id": "e2",
+          "title": "1:1, Ana",
+          "start": "14:00"
+        }
+      ]
+    },
+    "lens": "events[2]{id,title,start}:\n  e1,Standup,09:00\n  e2,\"1:1, Ana\",14:00"
+  },
+  {
+    "name": "mixed list",
+    "type": "value",
+    "input": {
+      "items": [
+        1,
+        {
+          "a": 1,
+          "b": {
+            "c": 2
+          }
+        },
+        [
+          1,
+          2
+        ],
+        [
+          {
+            "x": 1
+          }
+        ],
+        "s",
+        {}
+      ]
+    },
+    "lens": "items[6]:\n  - 1\n  - a: 1\n    b:\n      c: 2\n  - [1, 2]\n  - [{\"x\":1}]\n  - s\n  - {}"
+  },
+  {
+    "name": "list of objects with nested",
+    "type": "value",
+    "input": {
+      "rows": [
+        {
+          "id": 1,
+          "meta": {
+            "k": "v"
+          }
+        },
+        {
+          "id": 2,
+          "meta": {
+            "k": "w"
+          }
+        }
+      ]
+    },
+    "lens": "rows[2]:\n  - id: 1\n    meta:\n      k: v\n  - id: 2\n    meta:\n      k: w"
+  },
+  {
+    "name": "top array table",
+    "type": "value",
+    "input": [
+      {
+        "a": 1,
+        "b": 2
+      },
+      {
+        "a": 3,
+        "b": 4
+      }
+    ],
+    "lens": "items[2]{a,b}:\n  1,2\n  3,4"
+  },
+  {
+    "name": "top scalar list",
+    "type": "value",
+    "input": [
+      1,
+      "two",
+      null
+    ],
+    "lens": "items: [1, two, -]"
+  },
+  {
+    "name": "top scalar",
+    "type": "value",
+    "input": "just text",
+    "lens": "just text"
+  },
+  {
+    "name": "empty object",
+    "type": "value",
+    "input": {},
+    "lens": "{}"
+  },
+  {
+    "name": "odd keys",
+    "type": "value",
+    "input": {
+      "has space": 1,
+      "k,v": 2,
+      "": 3
+    },
+    "lens": "has space: 1\n\"k,v\": 2\n\"\": 3"
+  },
+  {
+    "name": "brief",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "BRIEF",
+      "service": {
+        "id": "cal.example.com",
+        "name": "Example Calendar",
+        "summary": "Your calendar."
+      },
+      "capabilities": [
+        {
+          "name": "calendar.find",
+          "kind": "ask",
+          "summary": "Search events",
+          "params": {
+            "query?": "string",
+            "day?": "date"
+          }
+        },
+        {
+          "name": "calendar.reschedule",
+          "kind": "intent",
+          "summary": "Move a meeting",
+          "params": {
+            "event": "string — id or title",
+            "to": "datetime",
+            "opts": {
+              "notify?": "bool"
+            }
+          },
+          "risk": "low"
+        },
+        {
+          "name": "calendar.ping",
+          "kind": "ask",
+          "summary": "Health"
+        }
+      ]
+    },
+    "lens": "# Example Calendar (cal.example.com)\nYour calendar.\nask calendar.find(query?: string, day?: date) — Search events\nintent calendar.reschedule(event: string — id or title, to: datetime, opts: {notify?: bool}) — Move a meeting [risk:low]\nask calendar.ping() — Health"
+  },
+  {
+    "name": "proposals",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "PROPOSALS",
+      "proposals": [
+        {
+          "id": "p_1",
+          "capability": "calendar.reschedule",
+          "summary": "Move \"1:1 with Ana\" to Thu 15:00",
+          "effects": [
+            {
+              "op": "update",
+              "target": "event/e42",
+              "field": "start",
+              "from": "2026-09-22T14:00:00Z",
+              "to": "2026-09-24T15:00:00Z"
+            },
+            {
+              "op": "send",
+              "target": "ana@example.com",
+              "detail": "update notification"
+            }
+          ],
+          "cost": null,
+          "risk": "low",
+          "undo": {
+            "window": 3600
+          },
+          "expires": 1790000600,
+          "hash": "h1"
+        },
+        {
+          "id": "p_2",
+          "capability": "shop.order",
+          "summary": "Order 2 items",
+          "effects": [
+            {
+              "op": "create",
+              "target": "order"
+            },
+            {
+              "op": "charge",
+              "target": "card ••42",
+              "detail": "12.50 USD"
+            },
+            {
+              "op": "delete",
+              "target": "cart/1"
+            },
+            {
+              "op": "other",
+              "target": "x",
+              "to": 5
+            }
+          ],
+          "cost": {
+            "amount": 1250,
+            "currency": "USD"
+          },
+          "risk": "medium",
+          "undo": null,
+          "expires": 1790000605,
+          "hash": "h2",
+          "data": {
+            "eta": "2026-09-25",
+            "items": [
+              {
+                "sku": "a",
+                "qty": 1
+              },
+              {
+                "sku": "b",
+                "qty": 2
+              }
+            ]
+          }
+        },
+        {
+          "id": "p_3",
+          "capability": "shop.order",
+          "summary": "Yen",
+          "effects": [],
+          "cost": {
+            "amount": 500,
+            "currency": "JPY"
+          },
+          "risk": "high",
+          "undo": {
+            "window": 90
+          },
+          "expires": 1790000000,
+          "hash": "h3"
+        },
+        {
+          "id": "p_4",
+          "capability": "shop.order",
+          "summary": "Refund",
+          "effects": [],
+          "cost": {
+            "amount": -5,
+            "currency": "EUR"
+          },
+          "risk": "low",
+          "undo": {
+            "window": 172800
+          },
+          "expires": 1790000000,
+          "hash": "h4"
+        }
+      ],
+      "more": [
+        {
+          "handle": "h_abc",
+          "path": "proposals",
+          "remaining": 3,
+          "est": 210
+        }
+      ]
+    },
+    "lens": "4 proposals:\n[p_1] Move \"1:1 with Ana\" to Thu 15:00\n  ~ update event/e42.start: 2026-09-22T14:00:00Z → 2026-09-24T15:00:00Z\n  > send ana@example.com — update notification\n  cost: free · risk: low · undo: 1h · expires: 2026-09-21T14:23:20Z\n[p_2] Order 2 items\n  + create order\n  $ charge card ••42 — 12.50 USD\n  - delete cart/1\n  * other x: - → 5\n  cost: 12.50 USD · risk: medium · undo: never · expires: 2026-09-21T14:23:25Z\n  data:\n    eta: 2026-09-25\n    items[2]{sku,qty}:\n      a,1\n      b,2\n[p_3] Yen\n  cost: 500 JPY · risk: high · undo: 90s · expires: 2026-09-21T14:13:20Z\n[p_4] Refund\n  cost: -0.05 EUR · risk: low · undo: 2d · expires: 2026-09-21T14:13:20Z\n… 3 more at proposals — EXPAND h_abc (~210 tokens)"
+  },
+  {
+    "name": "one proposal",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "PROPOSALS",
+      "proposals": [
+        {
+          "id": "p_1",
+          "capability": "calendar.reschedule",
+          "summary": "Move \"1:1 with Ana\" to Thu 15:00",
+          "effects": [
+            {
+              "op": "update",
+              "target": "event/e42",
+              "field": "start",
+              "from": "2026-09-22T14:00:00Z",
+              "to": "2026-09-24T15:00:00Z"
+            },
+            {
+              "op": "send",
+              "target": "ana@example.com",
+              "detail": "update notification"
+            }
+          ],
+          "cost": null,
+          "risk": "low",
+          "undo": {
+            "window": 45
+          },
+          "expires": 1790000600,
+          "hash": "h1"
+        }
+      ]
+    },
+    "lens": "1 proposal:\n[p_1] Move \"1:1 with Ana\" to Thu 15:00\n  ~ update event/e42.start: 2026-09-22T14:00:00Z → 2026-09-24T15:00:00Z\n  > send ana@example.com — update notification\n  cost: free · risk: low · undo: 45s · expires: 2026-09-21T14:23:20Z"
+  },
+  {
+    "name": "clarify",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "CLARIFY",
+      "question": "Which Ana?",
+      "options": [
+        {
+          "label": "Ana Ruiz (design)",
+          "params": {
+            "event": "e42"
+          }
+        },
+        {
+          "label": "Ana Li (sales)",
+          "params": {
+            "event": "e77"
+          }
+        }
+      ]
+    },
+    "lens": "? Which Ana?\n  1. Ana Ruiz (design)\n  2. Ana Li (sales)"
+  },
+  {
+    "name": "receipt",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "RECEIPT",
+      "receipt": {
+        "id": "r_1",
+        "proposal": "p_1",
+        "capability": "calendar.reschedule",
+        "summary": "Moved",
+        "at": 1790000100,
+        "effects": [
+          {
+            "op": "update",
+            "target": "event/e42",
+            "field": "start",
+            "from": "2026-09-22T14:00:00Z",
+            "to": "2026-09-24T15:00:00Z"
+          },
+          {
+            "op": "send",
+            "target": "ana@example.com",
+            "detail": "update notification"
+          }
+        ],
+        "cost": null,
+        "undo": {
+          "until": 1790003700
+        },
+        "result": {
+          "event": "e42"
+        }
+      }
+    },
+    "lens": "✓ Moved (receipt r_1)\n  ~ update event/e42.start: 2026-09-22T14:00:00Z → 2026-09-24T15:00:00Z\n  > send ana@example.com — update notification\n  undo: until 2026-09-21T15:15Z\n  result:\n    event: e42"
+  },
+  {
+    "name": "receipt replay irreversible",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "RECEIPT",
+      "replay": true,
+      "receipt": {
+        "id": "r_2",
+        "proposal": "p_2",
+        "capability": "shop.order",
+        "summary": "Ordered",
+        "at": 1790000100,
+        "effects": [],
+        "cost": null,
+        "undo": null
+      }
+    },
+    "lens": "✓ Ordered (receipt r_2) (replay)\n  undo: never"
+  },
+  {
+    "name": "undo receipt",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "RECEIPT",
+      "receipt": {
+        "id": "r_3",
+        "proposal": "p_1",
+        "capability": "calendar.reschedule",
+        "summary": "Moved",
+        "at": 1790000200,
+        "effects": [
+          {
+            "op": "update",
+            "target": "event/e42",
+            "field": "start",
+            "from": "2026-09-24T15:00:00Z",
+            "to": "2026-09-22T14:00:00Z"
+          }
+        ],
+        "cost": null,
+        "undo": null,
+        "undoes": "r_1"
+      }
+    },
+    "lens": "↶ undid r_1: Moved (receipt r_3)\n  ~ update event/e42.start: 2026-09-24T15:00:00Z → 2026-09-22T14:00:00Z\n  undo: never"
+  },
+  {
+    "name": "answer with more",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "ANSWER",
+      "data": {
+        "events": [
+          {
+            "id": "e1",
+            "t": "a"
+          }
+        ]
+      },
+      "more": [
+        {
+          "handle": "h_1",
+          "path": "data.events",
+          "remaining": 12,
+          "est": 96
+        }
+      ]
+    },
+    "lens": "events[1]{id,t}:\n  e1,a\n… 12 more at data.events — EXPAND h_1 (~96 tokens)"
+  },
+  {
+    "name": "error full",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "ERROR",
+      "code": "invalid_params",
+      "message": "`to` must be in the future",
+      "fix": [
+        {
+          "say": "use next year",
+          "params": {
+            "to": "2026-09-24T15:00:00Z"
+          }
+        },
+        {
+          "say": "or ask the user"
+        }
+      ],
+      "need": [
+        {
+          "can": [
+            "x.*"
+          ]
+        }
+      ],
+      "retry": 3600
+    },
+    "lens": "✗ invalid_params: `to` must be in the future\n  fix: use next year → params {\"to\":\"2026-09-24T15:00:00Z\"}\n  fix: or ask the user\n  need: [{\"can\":[\"x.*\"]}]\n  retry in: 1h"
+  },
+  {
+    "name": "error consent",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "ERROR",
+      "code": "consent_required",
+      "message": "cost exceeds per-commit limit",
+      "consent": {
+        "proposal": "p_2",
+        "hash": "h2",
+        "principal": "ed25519:x",
+        "summary": "Order 2 items",
+        "expires": 1790000605
+      }
+    },
+    "lens": "✗ consent_required: cost exceeds per-commit limit\n  consent: principal must approve h2 (Order 2 items)"
+  },
+  {
+    "name": "event",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "EVENT",
+      "message": "charging card",
+      "progress": 0.425
+    },
+    "lens": "… charging card (43%)"
+  },
+  {
+    "name": "event plain",
+    "type": "reply",
+    "input": {
+      "parley": 1,
+      "id": "s1",
+      "re": "c1",
+      "kind": "EVENT",
+      "message": "started"
+    },
+    "lens": "… started"
+  }
+]

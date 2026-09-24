@@ -1,0 +1,26 @@
+[
+  {
+    "text": "",
+    "est": 0
+  },
+  {
+    "text": "a",
+    "est": 1
+  },
+  {
+    "text": "abcd",
+    "est": 1
+  },
+  {
+    "text": "abcde",
+    "est": 2
+  },
+  {
+    "text": "café",
+    "est": 2
+  },
+  {
+    "text": "東京🎉",
+    "est": 3
+  }
+]
