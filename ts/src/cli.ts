@@ -30,8 +30,10 @@ talk to a service  (url: parley://host:port · parleys://… · http(s)://…/pa
   parley expand <url> <handle>
   parley do     <url> <capability> [key=value …]   intent → choose → commit, with consent prompts
 
-bridge
+bridges
   parley mcp <url> [<url> …]               run an MCP server (stdio) exposing Parley services
+  parley openapi <spec.json|url> [--base <url>] [--header "K: V"] [--port 7447] [--http 8080]
+                                           serve any REST API as a Parley service (writes become proposals)
 
 caveats: --svc <id> --can <pattern> --verbs ASK,INTENT --exp 24h --per 50USD --spend 200USD --risk low|medium|high
 options: --budget <tokens> --json`;
@@ -43,6 +45,7 @@ const { values: o, positionals: args } = parseArgs({
     exp: { type: "string" }, per: { type: "string" }, spend: { type: "string" }, risk: { type: "string" },
     to: { type: "string" }, goal: { type: "string" }, budget: { type: "string" }, expires: { type: "string" },
     json: { type: "boolean" }, help: { type: "boolean", short: "h" }, name: { type: "string" },
+    base: { type: "string" }, header: { type: "string", multiple: true }, port: { type: "string" }, http: { type: "string" }, id: { type: "string" }, prefix: { type: "string" },
   },
 });
 
@@ -145,6 +148,22 @@ async function main() {
       if (!ok) die("not approved");
       saveGrant(await consentGrant({ principal: p, agent, consent }), "consents", consent.hash);
       console.log("✓ approved: a one-time consent for this proposal only. The agent can commit now.");
+      return;
+    }
+    case "openapi": {
+      const { fromOpenAPI, loadOpenAPI } = await import("./openapi.js");
+      const { listen, serveHttp } = await import("./node.js");
+      const spec = await loadOpenAPI(rest[0] ?? die("usage: parley openapi <spec.json|url> [--base <url>]"));
+      const headers = Object.fromEntries((o.header ?? []).map((h) => [h.slice(0, h.indexOf(":")).trim(), h.slice(h.indexOf(":") + 1).trim()]));
+      const trust = (process.env.PARLEY_TRUST ?? "").split(",").filter(Boolean);
+      const p = await principalKey();
+      if (p && !trust.length) trust.push(p.public);
+      const svc = fromOpenAPI(spec, { baseUrl: o.base, headers, trust, id: o.id, prefix: o.prefix });
+      const port = Number(o.port ?? 7447);
+      await listen(svc, { port });
+      if (o.http) await serveHttp(svc, { port: Number(o.http) });
+      const n = svc.capabilities.length;
+      console.error(`✓ ${svc.id}: ${n} capabilities (${svc.capabilities.filter((c) => c.kind === "ask").length} ask, ${svc.capabilities.filter((c) => c.kind === "intent").length} intent)\n  parley://127.0.0.1:${port}${o.http ? `  ·  http://127.0.0.1:${o.http}/parley` : ""}\n  trusting ${trust.length} principal(s) for writes\n  try: parley hello parley://127.0.0.1:${port}`);
       return;
     }
     case "mcp": {

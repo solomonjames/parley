@@ -270,6 +270,49 @@ parley approve <pc1.code>                               # review and sign a one-
 parley do parley://cal.example.com calendar.reschedule event=Ana   # interactive: intent → pick → commit
 ```
 
+## Wrap any REST API in one command
+
+You don't have to wait for services to adopt Parley. Point `parley openapi` at an OpenAPI
+spec: GET endpoints become `ASK`s, and writes become `INTENT`s whose proposal shows the
+exact HTTP request. The upstream call happens only on `COMMIT`, under your grant and with
+consent when your policy requires it. Upstream credentials (`--header`) are never shown
+to the model.
+
+```sh
+parley openapi https://petstore3.swagger.io/api/v3/openapi.json --base https://petstore3.swagger.io/api/v3
+# ✓ petstore3.swagger.io: 19 capabilities (8 ask, 11 intent)
+```
+
+Real output against the live Swagger Petstore:
+
+```
+→ ASK swagger_petstore.findPetsByStatus {status:"available"} budget=300
+items[7]:
+  - id: 60689
+    name: pet-60689
+  …
+… 4012 more at data — EXPAND h_osNrf2irMR_G (~121689 tokens)
+
+→ INTENT swagger_petstore.addPet {name:"Rex", photoUrls:["x"], status:"available"}
+1 proposal:
+[p_HGgxOZ4L] POST /api/v3/pet
+  + create petstore3.swagger.io/api/v3/pet — body {"name":"Rex","photoUrls":["x"],"status":"available"}
+  cost: free · risk: low · undo: never · expires: 2026-09-24T02:54Z
+```
+
+That endpoint returns **4,019 pets, about 120,000 tokens**. A typical MCP wrapper would put
+all of it in the model's context. Parley gives the model what fits its budget and a
+handle for the rest. Wrapped writes are marked `undo: never`, because generic REST calls
+can't be reversed, so they're never auto-committed.
+
+Combine it with the MCP bridge and any REST API gets previews, budgets and consent inside
+Claude Code:
+
+```sh
+parley openapi ./openapi.json --header "Authorization: Bearer $API_TOKEN" --port 7447 &
+claude mcp add my-api -- npx parley-protocol mcp parley://127.0.0.1:7447
+```
+
 ## Use it from Claude Code today
 
 The bridge exposes any Parley services as an MCP server, so every MCP client (Claude
@@ -323,7 +366,7 @@ for delegated agents.
 |---|---|
 | [`SPEC.md`](SPEC.md) | The protocol, v1 draft |
 | [`conformance/`](conformance) | Language-neutral test vectors: canonical JSON, keys, hashes, proofs, grants, Lens and token estimates |
-| [`ts/`](ts) | Reference implementation (TypeScript, **zero runtime dependencies**, WebCrypto): service, client, transports, CLI, MCP bridge |
+| [`ts/`](ts) | Reference implementation (TypeScript, **zero runtime dependencies**, WebCrypto): service, client, transports, CLI, MCP bridge, OpenAPI adapter |
 | [`python/`](python) | Second implementation (Python), started from the spec and vectors, passing all of them, and interoperating with TS |
 | [`examples/`](examples) | Calendar and meal-shop services, plus the narrated demo |
 | [`bench/`](bench) | The token benchmark above |
