@@ -1,0 +1,135 @@
+// Generates ../conformance/*.json from the reference implementation. Deterministic.
+import { writeFileSync } from "node:fs";
+import * as P from "../dist/index.js";
+
+const out = (name, v) => writeFileSync(new URL(`../../conformance/${name}.json`, import.meta.url), JSON.stringify(v, null, 2) + "\n");
+const seed = (n) => P.b64u(new Uint8Array(32).fill(n));
+
+// canonical
+const canon = [
+  ["scalars", [null, true, false, 0, -1, 9007199254740991, ""]],
+  ["key order", { b: 1, a: 2, A: 3, _: 4, aa: 5, "a b": 6 }],
+  ["nested", { z: { y: [3, { x: null }], a: [] }, m: {} }],
+  ["escapes", { s: 'quote " back \\ nl \n tab \t cr \r bs \b ff \f nul \u0000 us \u001f del \u007f' }],
+  ["unicode", { s: "café — 東京 🎉  " }],
+  ["slash", { s: "a/b<c>&" }],
+].map(([name, input]) => ({ name, input, canonical: P.canonical(input) }));
+out("canonical", canon);
+
+// keys
+const keys = [];
+for (const n of [0, 1, 7, 42, 255]) keys.push({ seed: seed(n), public: (await P.keyPair(seed(n))).public });
+out("keys", keys);
+
+// hash
+const baseP = {
+  id: "p_1", capability: "calendar.reschedule", summary: "Move \"1:1 with Ana\" to Thu 15:00",
+  effects: [{ op: "update", target: "event/e42", field: "start", from: "2026-09-22T14:00:00Z", to: "2026-09-24T15:00:00Z" }, { op: "send", target: "ana@example.com", detail: "update notification" }],
+  cost: null, risk: "low", undo: { window: 3600 }, expires: 1790000600,
+};
+const hash = [
+  { name: "basic", proposal: baseP },
+  { name: "with cost and data (data excluded)", proposal: { ...baseP, id: "p_2", cost: { amount: 1250, currency: "USD" }, risk: "medium", undo: null, data: { note: "not hashed", n: 1.5 } } },
+  { name: "hash field ignored", proposal: { ...baseP, hash: "whatever" } },
+];
+for (const h of hash) h.hash = await P.proposalHash(h.proposal);
+out("hash", hash);
+
+// proof
+const proofs = [];
+for (const [aud, verb, target, ts] of [["cal.example.com", "COMMIT", "abc", 1790000000], ["shop.example", "ASK", "shop.search", 1]]) {
+  const p = await P.makeProof(seed(2), { aud, verb, target }, ts);
+  proofs.push({ seed: seed(2), aud, verb, target, ts, key: p.key, sig: p.sig });
+}
+out("proof", proofs);
+
+// grants
+const principal = await P.keyPair(seed(1)), agent = await P.keyPair(seed(2)), sub = await P.keyPair(seed(3)), mallory = await P.keyPair(seed(4));
+const now = 1790000000;
+const root = await P.issueGrant({ principal, to: agent.public, iat: now - 100, nonce: "n1", caveats: [{ svc: ["shop.example"] }, { can: ["shop.*"] }, { exp: now + 3600 }, { spend: { max: 5000, currency: "USD" } }, { per: { max: 3000, currency: "USD" } }, { risk: "medium" }] });
+const narrowed = await P.delegateGrant(root, { holder: agent, to: sub.public, iat: now - 50, caveats: [{ can: ["shop.search"] }, { verbs: ["ASK", "INTENT"] }] });
+const consent = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n2", caveats: [{ only: "HASH_OK" }, { exp: now + 600 }] });
+const unknownCav = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n3", caveats: [{ region: "eu" }] });
+const forged = await P.issueGrant({ principal: mallory, to: agent.public, iat: now, nonce: "n4", caveats: [] });
+const rootBlocks = P.decodeGrant(root);
+const tampered = P.encodeGrant([{ ...rootBlocks[0], p: { ...rootBlocks[0].p, caveats: [] } }]);
+const rootSpendId = await P.sha256(rootBlocks[0].s);
+const T = [principal.public];
+const commit = (cost, risk = "low", hash = "HASH_X") => ({ hash, cost: cost === null ? null : { amount: cost, currency: "USD" }, risk });
+const cases = [
+  ["root: ask ok", root, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: true }],
+  ["root: commit within limits", root, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(2000) }, { ok: true }],
+  ["root: wrong service", root, agent.public, { service: "evil.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "forbidden" }],
+  ["root: capability not covered", root, agent.public, { service: "shop.example", verb: "ASK", capability: "bank.transfer", now }, { ok: false, code: "forbidden" }],
+  ["root: expired", root, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now: now + 3600 }, { ok: false, code: "forbidden" }],
+  ["root: per-commit limit needs consent", root, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(3500) }, { ok: false, code: "consent_required" }],
+  ["root: cumulative spend needs consent", root, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(2000), spent: { [rootSpendId]: 4000 } }, { ok: false, code: "consent_required" }],
+  ["root: risk ceiling needs consent", root, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(100, "high") }, { ok: false, code: "consent_required" }],
+  ["root: other currency", root, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: { hash: "H", cost: { amount: 1, currency: "EUR" }, risk: "low" } }, { ok: false, code: "consent_required" }],
+  ["root: proof key is not holder", root, sub.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],
+  ["root: untrusted principal", root, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now, trusted: [mallory.public] }, { ok: false, code: "unauthorized" }],
+  ["delegated: sub-agent ask ok", narrowed, sub.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: true }],
+  ["delegated: attenuated capability", narrowed, sub.public, { service: "shop.example", verb: "ASK", capability: "shop.order", now }, { ok: false, code: "forbidden" }],
+  ["delegated: attenuated verbs", narrowed, sub.public, { service: "shop.example", verb: "COMMIT", capability: "shop.search", now, proposal: commit(10) }, { ok: false, code: "forbidden" }],
+  ["delegated: parent holder cannot use it", narrowed, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],
+  ["consent: matching hash ok", consent, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(999999, "high", "HASH_OK") }, { ok: true }],
+  ["consent: other proposal", consent, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(1, "low", "HASH_OTHER") }, { ok: false, code: "forbidden" }],
+  ["unknown caveat fails closed", unknownCav, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "forbidden" }],
+  ["forged issuer", forged, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],
+  ["tampered caveats", tampered, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],
+  ["garbage token", "pg1.bm9wZQ", agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],
+];
+const gcases = [];
+for (const [name, token, proofKey, c, expect] of cases) {
+  const { trusted = T, spent, ...ctx } = c;
+  const got = await P.checkGrant(token, { ...ctx, trusted, proofKey, spent: (id) => spent?.[id] ?? 0 });
+  const actual = got.ok ? { ok: true } : { ok: false, code: got.code };
+  if (JSON.stringify(actual) !== JSON.stringify(expect)) throw new Error(`grant case ${name}: expected ${JSON.stringify(expect)} got ${JSON.stringify(got)}`);
+  gcases.push({ name, token, trusted, proofKey, ctx: { ...ctx, ...(spent ? { spent } : {}) }, expect });
+}
+out("grants", { seeds: { principal: seed(1), agent: seed(2), subagent: seed(3), mallory: seed(4) }, rootSpendBlockId: rootSpendId, cases: gcases });
+
+// lens
+const values = [
+  ["scalars", { n: null, t: true, f: false, i: 42, x: 1.5, neg: -3, big: 1e21, small: 1e-7 }],
+  ["strings", { bare: "hello world", iso: "2026-09-24T15:00:00Z", email: "ana@example.com", empty: "", sp: " lead", comma: "a, b", numeric: "123", word: "true", dash: "-", uni: "café", nl: "two\nlines", q: 'say "hi"' }],
+  ["nested", { user: { name: "Ana", tags: ["a", "b"], prefs: {}, list: [] } }],
+  ["table", { events: [{ id: "e1", title: "Standup", start: "09:00" }, { id: "e2", title: "1:1, Ana", start: "14:00" }] }],
+  ["mixed list", { items: [1, { a: 1, b: { c: 2 } }, [1, 2], [{ x: 1 }], "s", {}] }],
+  ["list of objects with nested", { rows: [{ id: 1, meta: { k: "v" } }, { id: 2, meta: { k: "w" } }] }],
+  ["top array table", [{ a: 1, b: 2 }, { a: 3, b: 4 }]],
+  ["top scalar list", [1, "two", null]],
+  ["top scalar", "just text"],
+  ["empty object", {}],
+  ["odd keys", { "has space": 1, "k,v": 2, "": 3 }],
+];
+const lensCases = values.map(([name, input]) => ({ name, type: "value", input, lens: P.lean(input) }));
+const r = (x) => ({ parley: 1, id: "s1", re: "c1", ...x });
+const replies = [
+  ["brief", r({ kind: "BRIEF", service: { id: "cal.example.com", name: "Example Calendar", summary: "Your calendar." }, capabilities: [
+    { name: "calendar.find", kind: "ask", summary: "Search events", params: { "query?": "string", "day?": "date" } },
+    { name: "calendar.reschedule", kind: "intent", summary: "Move a meeting", params: { event: "string — id or title", to: "datetime", opts: { "notify?": "bool" }, "items?": [{ sku: "string", qty: "int" }] }, risk: "low" },
+    { name: "calendar.ping", kind: "ask", summary: "Health" }] })],
+  ["proposals", r({ kind: "PROPOSALS", proposals: [
+    { ...baseP, hash: "h1" },
+    { id: "p_2", capability: "shop.order", summary: "Order 2 items", effects: [{ op: "create", target: "order" }, { op: "charge", target: "card ••42", detail: "12.50 USD" }, { op: "delete", target: "cart/1" }, { op: "other", target: "x", to: 5 }], cost: { amount: 1250, currency: "USD" }, risk: "medium", undo: null, expires: 1790000605, hash: "h2", data: { eta: "2026-09-25", items: [{ sku: "a", qty: 1 }, { sku: "b", qty: 2 }] } },
+    { id: "p_3", capability: "shop.order", summary: "Yen", effects: [], cost: { amount: 500, currency: "JPY" }, risk: "high", undo: { window: 90 }, expires: 1790000000, hash: "h3" },
+    { id: "p_4", capability: "shop.order", summary: "Refund", effects: [], cost: { amount: -5, currency: "EUR" }, risk: "low", undo: { window: 172800 }, expires: 1790000000, hash: "h4" },
+  ], more: [{ handle: "h_abc", path: "proposals", remaining: 3, est: 210 }] })],
+  ["one proposal", r({ kind: "PROPOSALS", proposals: [{ ...baseP, undo: { window: 45 }, hash: "h1" }] })],
+  ["clarify", r({ kind: "CLARIFY", question: "Which Ana?", options: [{ label: "Ana Ruiz (design)", params: { event: "e42" } }, { label: "Ana Li (sales)", params: { event: "e77" } }] })],
+  ["receipt", r({ kind: "RECEIPT", receipt: { id: "r_1", proposal: "p_1", capability: "calendar.reschedule", summary: "Moved", at: 1790000100, effects: baseP.effects, cost: null, undo: { until: 1790003700 }, result: { event: "e42" } } })],
+  ["receipt replay irreversible", r({ kind: "RECEIPT", replay: true, receipt: { id: "r_2", proposal: "p_2", capability: "shop.order", summary: "Ordered", at: 1790000100, effects: [], cost: null, undo: null } })],
+  ["undo receipt", r({ kind: "RECEIPT", receipt: { id: "r_3", proposal: "p_1", capability: "calendar.reschedule", summary: "Moved", at: 1790000200, effects: [{ op: "update", target: "event/e42", field: "start", from: "2026-09-24T15:00:00Z", to: "2026-09-22T14:00:00Z" }], cost: null, undo: null, undoes: "r_1" } })],
+  ["answer with more", r({ kind: "ANSWER", data: { events: [{ id: "e1", t: "a" }] }, more: [{ handle: "h_1", path: "data.events", remaining: 12, est: 96 }] })],
+  ["error full", r({ kind: "ERROR", code: "invalid_params", message: "`to` must be in the future", fix: [{ say: "use next year", params: { to: "2026-09-24T15:00:00Z" } }, { say: "or ask the user" }], need: [{ can: ["x.*"] }], retry: 3600 })],
+  ["error consent", r({ kind: "ERROR", code: "consent_required", message: "cost exceeds per-commit limit", consent: { proposal: "p_2", hash: "h2", principal: "ed25519:x", summary: "Order 2 items", expires: 1790000605 } })],
+  ["event", r({ kind: "EVENT", message: "charging card", progress: 0.425 })],
+  ["event plain", r({ kind: "EVENT", message: "started" })],
+];
+for (const [name, input] of replies) lensCases.push({ name, type: "reply", input, lens: P.lens(input) });
+out("lens", lensCases);
+
+// estimate
+out("estimate", ["", "a", "abcd", "abcde", "café", "東京🎉"].map((text) => ({ text, est: P.est(text) })));
+console.log("vectors written");

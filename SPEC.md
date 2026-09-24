@@ -138,7 +138,7 @@ base     := "string" | "int" | "number" | "bool" | "date" | "datetime" | "any" |
 enum     := literal ( "|" literal )+          e.g.  "low|medium|high"
 ```
 
-A nested object is written as a nested params object. This is a deliberately lossy,
+A nested object is written as a nested params object. An array of objects is written as a one-element JSON array holding the element schema, e.g. `"items": [{"sku": "string", "qty": "int"}]`; Lens renders it as `[{sku: string, qty: int}]`. This is a deliberately lossy,
 token-lean alternative to JSON Schema: it is written for models to read, not for
 validators.
 

@@ -1,0 +1,1 @@
+{ "name": "parley-bench", "private": true, "type": "module", "dependencies": { "parley-protocol": "*" }, "devDependencies": { "gpt-tokenizer": "^3" } }

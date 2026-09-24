@@ -1,0 +1,177 @@
+/** Parley client: what an agent (or its harness) uses to talk to a service. */
+import { randomId } from "./crypto.js";
+import { decodeGrant, makeProof } from "./grants.js";
+import { lens } from "./lens.js";
+import type { Service } from "./service.js";
+import type { Answer, Brief, Clarify, ErrorReply, Event, FinalReply, Proposal, Proposals, ReceiptReply, Request, Verb } from "./types.js";
+
+export interface Transport {
+  request(frame: Request, onEvent?: (e: Event) => void): Promise<FinalReply>;
+  close(): void;
+}
+
+/** Every reply the client returns carries its Lens: the text to show a model. */
+export type WithLens<T> = T & { lens: string };
+export type IntentResult = WithLens<Proposals | Clarify | ErrorReply>;
+
+export interface ClientOptions {
+  /** The agent's Ed25519 seed (b64url). Needed to use grants. */
+  key?: string;
+  grants?: string[];
+  name?: string;
+  budget?: number;
+}
+
+type Dist<T> = T extends unknown ? Omit<T, "parley" | "id"> : never;
+
+export class Client {
+  private serviceId?: string;
+  private grants: string[];
+  constructor(private transport: Transport, private opts: ClientOptions = {}) {
+    this.grants = [...(opts.grants ?? [])];
+  }
+
+  addGrant(token: string) {
+    this.grants.push(token);
+  }
+
+  private async send<T extends FinalReply>(body: Dist<Request>, onEvent?: (e: WithLens<Event>) => void): Promise<WithLens<T>> {
+    const frame = { parley: 1, id: randomId("c", 6), ...body } as Request;
+    const reply = await this.transport.request(frame, onEvent && ((e) => onEvent({ ...e, lens: e.lens ?? lens(e) })));
+    return { ...reply, lens: reply.lens ?? lens(reply) } as WithLens<T>;
+  }
+
+  private async signed(verb: Verb, target: string, extra: string[] = []): Promise<Pick<Request, "grants" | "proof">> {
+    const all = [...this.grants, ...extra];
+    if (!this.opts.key || !all.length) return {};
+    const aud = await this.audience();
+    const grants = all.filter((g) => {
+      try {
+        const svc = decodeGrant(g).flatMap((b) => b.p.caveats).find((c: any) => c.svc) as { svc: string[] } | undefined;
+        return !svc || svc.svc.includes(aud);
+      } catch {
+        return false;
+      }
+    });
+    if (!grants.length) return {};
+    return { grants, proof: await makeProof(this.opts.key, { aud, verb, target }) };
+  }
+
+  /** The service's audience id (learned from HELLO). */
+  async audience(): Promise<string> {
+    if (!this.serviceId) await this.hello(200);
+    return this.serviceId!;
+  }
+
+  async hello(budget = this.opts.budget): Promise<WithLens<Brief | ErrorReply>> {
+    const r = await this.send<Brief | ErrorReply>({ verb: "HELLO", agent: { name: this.opts.name }, ...(budget ? { budget } : {}) });
+    if (r.kind === "BRIEF") this.serviceId = r.service.id;
+    return r;
+  }
+
+  async ask(capability: string, params: Record<string, unknown> = {}, o: { budget?: number } = {}): Promise<WithLens<Answer | ErrorReply>> {
+    const budget = o.budget ?? this.opts.budget;
+    return this.send({ verb: "ASK", capability, params, ...(budget ? { budget } : {}), ...(await this.signed("ASK", capability)) });
+  }
+
+  async intent(capability: string, params: Record<string, unknown> = {}, o: { goal?: string; budget?: number } = {}): Promise<IntentResult> {
+    const budget = o.budget ?? this.opts.budget;
+    return this.send({ verb: "INTENT", capability, params, ...(o.goal ? { goal: o.goal } : {}), ...(budget ? { budget } : {}), ...(await this.signed("INTENT", capability)) });
+  }
+
+  /** Commit a proposal. `grants` adds one-off grants (e.g. a consent grant) for this call only. */
+  async commit(p: Pick<Proposal, "id" | "hash">, o: { grants?: string[]; onEvent?: (e: WithLens<Event>) => void; budget?: number } = {}): Promise<WithLens<ReceiptReply | ErrorReply>> {
+    return this.send({ verb: "COMMIT", proposal: p.id, hash: p.hash, ...(o.budget ? { budget: o.budget } : {}), ...(await this.signed("COMMIT", p.hash, o.grants)) }, o.onEvent);
+  }
+
+  async undo(receipt: string, o: { onEvent?: (e: WithLens<Event>) => void } = {}): Promise<WithLens<ReceiptReply | ErrorReply>> {
+    return this.send({ verb: "UNDO", receipt, ...(await this.signed("UNDO", receipt)) }, o.onEvent);
+  }
+
+  async expand(handle: string, o: { budget?: number } = {}): Promise<WithLens<Answer | ErrorReply>> {
+    const budget = o.budget ?? this.opts.budget;
+    return this.send({ verb: "EXPAND", handle, ...(budget ? { budget } : {}), ...(await this.signed("EXPAND", handle)) });
+  }
+
+  close() {
+    this.transport.close();
+  }
+}
+
+/** In-process transport: call a Service directly (tests, embedding, MCP bridge). */
+export function local(svc: Service): Transport {
+  return {
+    request: (frame, onEvent) => svc.handle(JSON.parse(JSON.stringify(frame)), onEvent),
+    close() {},
+  };
+}
+
+/** HTTP bridge transport (SPEC §2.4). Works anywhere `fetch` exists. */
+export function http(endpoint: string, init: { headers?: Record<string, string> } = {}): Transport {
+  return {
+    async request(frame, onEvent) {
+      const res = await fetch(endpoint, { method: "POST", headers: { "content-type": "application/json", ...init.headers }, body: JSON.stringify(frame) });
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status} from ${endpoint}`);
+      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
+      let buf = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (value) buf += value;
+        let nl: number;
+        while ((nl = buf.indexOf("\n")) >= 0) {
+          const line = buf.slice(0, nl).trim();
+          buf = buf.slice(nl + 1);
+          if (!line) continue;
+          const f = JSON.parse(line);
+          if (f.kind === "EVENT") onEvent?.(f);
+          else return f;
+        }
+        if (done) break;
+      }
+      if (buf.trim()) return JSON.parse(buf);
+      throw new Error("HTTP bridge closed without a final reply");
+    },
+    close() {},
+  };
+}
+
+/** Line-framed stream transport over any duplex (TCP, TLS, child stdio). */
+export function lines(write: (line: string) => void, close: () => void): Transport & { feed(chunk: string): void; fail(err: Error): void } {
+  const pending = new Map<string, { resolve: (r: FinalReply) => void; reject: (e: Error) => void; onEvent?: (e: Event) => void }>();
+  let buf = "";
+  return {
+    request(frame, onEvent) {
+      return new Promise((resolve, reject) => {
+        pending.set(frame.id, { resolve, reject, onEvent });
+        write(JSON.stringify(frame) + "\n");
+      });
+    },
+    feed(chunk) {
+      buf += chunk;
+      let nl: number;
+      while ((nl = buf.indexOf("\n")) >= 0) {
+        const line = buf.slice(0, nl).trim();
+        buf = buf.slice(nl + 1);
+        if (!line) continue;
+        let f: any;
+        try {
+          f = JSON.parse(line);
+        } catch {
+          continue;
+        }
+        const p = pending.get(f.re);
+        if (!p) continue;
+        if (f.kind === "EVENT") p.onEvent?.(f);
+        else {
+          pending.delete(f.re);
+          p.resolve(f);
+        }
+      }
+    },
+    fail(err) {
+      for (const p of pending.values()) p.reject(err);
+      pending.clear();
+    },
+    close,
+  };
+}

@@ -195,7 +195,13 @@
             "to": "datetime",
             "opts": {
               "notify?": "bool"
-            }
+            },
+            "items?": [
+              {
+                "sku": "string",
+                "qty": "int"
+              }
+            ]
           },
           "risk": "low"
         },
@@ -206,7 +212,7 @@
         }
       ]
     },
-    "lens": "# Example Calendar (cal.example.com)\nYour calendar.\nask calendar.find(query?: string, day?: date) — Search events\nintent calendar.reschedule(event: string — id or title, to: datetime, opts: {notify?: bool}) — Move a meeting [risk:low]\nask calendar.ping() — Health"
+    "lens": "# Example Calendar (cal.example.com)\nYour calendar.\nask calendar.find(query?: string, day?: date) — Search events\nintent calendar.reschedule(event: string — id or title, to: datetime, opts: {notify?: bool}, items?: [{sku: string, qty: int}]) — Move a meeting [risk:low]\nask calendar.ping() — Health"
   },
   {
     "name": "proposals",
