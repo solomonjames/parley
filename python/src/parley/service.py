@@ -24,6 +24,7 @@ from .validate import closest, validate_params
 log = logging.getLogger("parley")
 
 DAY = 86400
+AUTO_MEMORY = 600  # seconds a (key, frame id) auto INTENT is remembered (§4.3.1)
 VERBS = ("HELLO", "ASK", "INTENT", "COMMIT", "UNDO", "EXPAND")
 Emit = Callable[[dict], None]
 _UNSET: Any = object()
@@ -192,6 +193,7 @@ class Service:
         self._commits: dict[str, asyncio.Task] = {}
         self._receipts: dict[str, _StoredReceipt] = {}
         self._spent: dict[str, int] = {}
+        self._auto_seen: dict[str, tuple[asyncio.Task, int]] = {}
 
     def now(self) -> int:
         return int(self._now())
@@ -254,7 +256,7 @@ class Service:
             if verb == "ASK":
                 return await self._on_ask(frame, budget)
             if verb == "INTENT":
-                return await self._on_intent(frame, budget)
+                return await self._on_intent(frame, budget, emit)
             if verb == "COMMIT":
                 return await self._on_commit(frame, budget, emit)
             if verb == "UNDO":
@@ -357,49 +359,90 @@ class Service:
         data = await _call(d.run, Ctx(params, auth.principal if auth else None, agent=frame.get("agent")))
         return fit(self._frame(frame["id"], "ANSWER", {"data": data}), budget, self.handles)
 
-    async def _on_intent(self, frame: dict, budget: int) -> dict:
+    async def _on_intent(self, frame: dict, budget: int, emit: Emit) -> dict:
         name = frame.get("capability")
         d = self._intents.get(name) if isinstance(name, str) else None
         if d is None:
             raise self._unknown_capability(name, "intent")
         params = self._params(frame)
         validate_params(d.params, params)
-        auth = await self._authorize(frame, "INTENT", name, name)
-        principal = auth.principal if auth else None
-        goal = frame.get("goal") if isinstance(frame.get("goal"), str) else None
-        out = await _call(d.plan, Ctx(params, principal, goal, frame.get("agent")))
-        if isinstance(out, Clarification):
-            return self._frame(frame["id"], "CLARIFY", {"question": out.question, "options": out.options})
-        plans = list(out) if isinstance(out, (list, tuple)) else [out]
-        if not plans:
-            raise ParleyError("not_found", "no way to satisfy this intent", fix=[fix("relax the constraints and try again")])
+        auto = frame.get("auto") is True
+        auth = await self._authorize(frame, "INTENT", name, f"auto:{name}:{frame['id']}" if auto else name)
+        # A repeated auto INTENT (same holder key + frame id) gets the original reply, never a
+        # second commit (§4.3.1). Only proofs that _authorize verified are used as keys.
+        key = f"{frame['proof']['key']}:{frame['id']}" if auto and frame.get("grants") else None
+        if key:
+            now = self.now()
+            prior = self._auto_seen.get(key)
+            if prior and prior[1] > now:
+                r = await asyncio.shield(prior[0])
+                return {**r, "id": random_id("s"), "re": frame["id"], "replay": True} if r["kind"] == "RECEIPT" else r
+            task = asyncio.ensure_future(self._plan_intent(d, name, frame, params, budget, emit, auth, auto))
+            self._auto_seen[key] = (task, now + AUTO_MEMORY)
+            if len(self._auto_seen) > 10_000:
+                self._auto_seen = {k: v for k, v in self._auto_seen.items() if v[1] > now}
+            return await asyncio.shield(task)
+        return await self._plan_intent(d, name, frame, params, budget, emit, auth, auto)
+
+    async def _plan_intent(
+        self, d: _IntentDef, name: str, frame: dict, params: dict, budget: int, emit: Emit,
+        auth: Verification | None, auto: bool,
+    ) -> dict:
+        try:
+            principal = auth.principal if auth else None
+            goal = frame.get("goal") if isinstance(frame.get("goal"), str) else None
+            out = await _call(d.plan, Ctx(params, principal, goal, frame.get("agent")))
+            if isinstance(out, Clarification):
+                return self._frame(frame["id"], "CLARIFY", {"question": out.question, "options": out.options})
+            plans = list(out) if isinstance(out, (list, tuple)) else [out]
+            if not plans:
+                raise ParleyError("not_found", "no way to satisfy this intent", fix=[fix("relax the constraints and try again")])
+            now = self.now()
+            proposals = []
+            for plan in plans:
+                window = (plan.undo_window or DAY) if plan.revert else None
+                p: dict[str, Any] = {
+                    "id": random_id("p"),
+                    "capability": name,
+                    "summary": plan.summary,
+                    "effects": plan.effects,
+                    "cost": plan.cost,
+                    "risk": plan.risk or d.risk or "low",
+                    "undo": None if window is None else {"window": window},
+                    "expires": -(-(now + (plan.expires_in or self.proposal_ttl)) // 60) * 60,  # whole minutes
+                }
+                if plan.data is not _UNSET:
+                    p["data"] = plan.data
+                p["hash"] = proposal_hash(p)
+                self._proposals[p["id"]] = (p, plan, principal)
+                proposals.append(p)
+            if auto:
+                commit_auth = self._auto_auth(frame, proposals[0])
+                if commit_auth and (principal is None or principal == commit_auth.principal):
+                    out = await self._execute(proposals[0]["id"], commit_auth, frame["id"], emit)
+                    return fit({**out, "auto": True}, budget, self.handles) if out["kind"] == "RECEIPT" else out
+            return fit(self._frame(frame["id"], "PROPOSALS", {"proposals": proposals}), budget, self.handles)
+        except Exception as e:  # noqa: BLE001 — also reached from a cached auto task
+            return self._error_reply(frame["id"], e)
+
+    def _auto_auth(self, frame: dict, proposal: dict) -> Verification | None:
+        """A grant that authorizes COMMIT of ``proposal`` outright, if the proposal is undoable."""
+        grants = frame.get("grants")
+        if not proposal["undo"] or not grants:
+            return None
         now = self.now()
-        proposals = []
-        for plan in plans:
-            window = (plan.undo_window or DAY) if plan.revert else None
-            p: dict[str, Any] = {
-                "id": random_id("p"),
-                "capability": name,
-                "summary": plan.summary,
-                "effects": plan.effects,
-                "cost": plan.cost,
-                "risk": plan.risk or d.risk or "low",
-                "undo": None if window is None else {"window": window},
-                "expires": now + (plan.expires_in or self.proposal_ttl),
-            }
-            if plan.data is not _UNSET:
-                p["data"] = plan.data
-            p["hash"] = proposal_hash(p)
-            self._proposals[p["id"]] = (p, plan, principal)
-            proposals.append(p)
-        return fit(self._frame(frame["id"], "PROPOSALS", {"proposals": proposals}), budget, self.handles)
+        if verify_proof(frame.get("proof"), self.id, "INTENT", f"auto:{proposal['capability']}:{frame['id']}", now):
+            return None
+        ctx = GrantContext(self.id, "COMMIT", proposal["capability"], now,
+                           {"hash": proposal["hash"], "cost": proposal["cost"], "risk": proposal["risk"]}, self._spent)
+        return next((c for g in grants if (c := verify_grant(g, self.trust, frame["proof"]["key"], ctx)).ok), None)
 
     async def _on_commit(self, frame: dict, budget: int, emit: Emit) -> dict:
         pid = frame.get("proposal")
         stored = self._proposals.get(pid) if isinstance(pid, str) else None
         if stored is None:
             raise ParleyError("not_found", f"no proposal {_json_str(pid)}", fix=[fix("send INTENT again to get fresh proposals")])
-        proposal, plan, made_for = stored
+        proposal, _plan, made_for = stored
         if frame.get("hash") != proposal["hash"]:
             raise ParleyError(
                 "conflict",
@@ -416,8 +459,12 @@ class Service:
             raise ParleyError("expired", "this proposal has expired", fix=[fix("send INTENT again to get a fresh proposal")])
         if made_for and made_for != auth.principal:
             raise ParleyError("forbidden", "this proposal was made for a different principal")
+        out = await self._execute(pid, auth, frame["id"], emit)
+        return fit(out, budget, self.handles) if out["kind"] == "RECEIPT" else out
 
-        re = frame["id"]
+    async def _execute(self, pid: str, auth: Verification, re: str, emit: Emit) -> dict:
+        """Run a proposal's ``apply`` at most once; concurrent and later commits share the result."""
+        proposal, plan, _ = self._proposals[pid]
 
         def progress(message: str, pct: float | None, data: Any) -> None:
             body: dict[str, Any] = {"message": message}
@@ -449,8 +496,7 @@ class Service:
 
         task = asyncio.ensure_future(run())
         self._commits[pid] = task
-        out = await asyncio.shield(task)
-        return fit(out, budget, self.handles) if out["kind"] == "RECEIPT" else out
+        return await asyncio.shield(task)
 
     async def _on_undo(self, frame: dict, budget: int, emit: Emit) -> dict:
         rid = frame.get("receipt")

@@ -173,7 +173,7 @@ def test_expired_proposal_and_proof_window():
         svc = Service("s", "S", trust=[PRINCIPAL.public], now=lambda: clock[0])
         svc.intent("x.do", "d")(lambda ctx: Plan("do", [], lambda c: None, expires_in=60))
         p = (await Client(local(svc)).intent("x.do")).proposals[0]
-        assert p["expires"] == clock[0] + 60
+        assert p["expires"] == -(-(clock[0] + 60) // 60) * 60 == 1_790_000_100  # rounded up to the minute
         c = Client(local(svc), key=AGENT, grants=[grant()])
         r = await c.commit(p)  # proof ts is real time, far from the fake clock
         assert r.code == "unauthorized" and "300s" in r.message
@@ -240,14 +240,27 @@ def test_budget_and_expand():
 
 
 def test_proposals_are_never_altered_by_budget():
+    summary, detail = "move it " * 60, "d " * 60
+
     async def go():
         svc = Service("s", "S", trust=[PRINCIPAL.public])
-        svc.intent("x.many", "m")(lambda ctx: [Plan("s" * 400, [charge("card", "d" * 300)], lambda c: None, data={"k": 1}) for _ in range(6)])
+        svc.intent("x.many", "m")(lambda ctx: [Plan(summary, [charge("card", detail)], lambda c: None, data={"k": 1}) for _ in range(6)])
         r = await Client(local(svc)).intent("x.many", budget=500)
         assert est(r.lens) <= 500 and r.more[0]["path"] == "proposals"
         assert 0 < len(r.proposals) < 6
         for p in r.proposals:
-            assert p["summary"] == "s" * 400 and p["effects"][0]["detail"] == "d" * 300
+            assert p["summary"] == summary and p["effects"][0]["detail"] == detail
+
+    run(go())
+
+
+def test_budget_elides_proposal_data_before_dropping_proposals():
+    async def go():
+        svc = Service("s", "S", trust=[PRINCIPAL.public])
+        svc.intent("x.one", "o")(lambda ctx: [Plan("do it", [], lambda c: None, data={"rows": list(range(2000))}) for _ in range(2)])
+        r = await Client(local(svc)).intent("x.one", budget=300)
+        assert len(r.proposals) == 2 and est(r.lens) <= 300
+        assert {m["path"] for m in r.more} == {"proposals.0.data.rows", "proposals.1.data.rows"}
 
     run(go())
 
@@ -330,5 +343,67 @@ def test_stdio_flow():
             assert (await c.ask("calendar.agenda", {"query": "planning"})).data[0]["id"] == "e8"
         finally:
             await c.close()
+
+    run(go())
+
+
+# ------------------------------------------------------------ auto-commit (§4.3.1)
+
+
+def _auto_shop():
+    svc = shop()
+    svc.intent("shop.final", "Irreversible", {})(lambda ctx: Plan("final", [], lambda c: "done"))
+    return svc
+
+
+def test_auto_commits_when_policy_allows():
+    async def go():
+        svc = _auto_shop()
+        c = Client(local(svc), key=AGENT, grants=[grant({"per": {"max": 5000, "currency": "USD"}})])
+        events = []
+        r = await c.intent("shop.order", {"sku": "a", "qty": 1}, auto=True, on_event=events.append)
+        assert r.kind == "RECEIPT" and r.auto is True and svc.orders == [1]
+        assert r.lens.splitlines()[1] == "  $ charge card/default — 1 items"  # auto receipts show effects
+        assert [e.kind for e in events] == ["EVENT"]
+        # Over the per-commit cap: needs consent, so no auto; plain proposals come back.
+        big = await c.intent("shop.order", {"sku": "a", "qty": 4}, auto=True)
+        assert big.kind == "PROPOSALS" and svc.orders == [1]
+        # Irreversible: never auto.
+        assert (await c.intent("shop.final", auto=True)).kind == "PROPOSALS"
+        # No grants: never auto.
+        assert (await Client(local(svc)).intent("shop.order", {"sku": "a", "qty": 1}, auto=True)).kind == "PROPOSALS"
+
+    run(go())
+
+
+def test_auto_replay_returns_original_reply():
+    async def go():
+        svc = _auto_shop()
+        c = Client(local(svc), key=AGENT, grants=[grant()])
+        frames = []
+
+        class Spy:
+            async def request(self, frame, on_event):
+                frames.append(frame)
+                return await local(svc).request(frame, on_event)
+
+            async def close(self):
+                pass
+
+        spy = Client(Spy(), key=AGENT, grants=[grant()])
+        first = await spy.intent("shop.order", {"sku": "a", "qty": 1}, auto=True)
+        assert first.kind == "RECEIPT" and svc.orders == [1]
+        captured = frames[-1]
+        again = await local(svc).request(captured, None)  # replayed verbatim
+        assert again.replay is True and again.receipt["id"] == first.receipt["id"] and svc.orders == [1]
+        # Same id, new params: still the cached reply, never a new commit.
+        tampered = await local(svc).request({**captured, "params": {"sku": "a", "qty": 3}}, None)
+        assert tampered.receipt["id"] == first.receipt["id"] and svc.orders == [1]
+        # New id with the old proof: the proof no longer verifies.
+        forged = await local(svc).request({**captured, "id": "c999"}, None)
+        assert forged.code == "unauthorized" and svc.orders == [1]
+        assert c  # a normal client still works alongside
+        assert (await c.intent("shop.order", {"sku": "a", "qty": 1}, auto=True)).kind == "RECEIPT"
+        assert svc.orders == [1, 1]
 
     run(go())

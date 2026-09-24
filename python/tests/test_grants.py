@@ -75,7 +75,11 @@ def test_tampering_and_trust():
         ({"per": {"max": 5000, "currency": "EUR"}}, {}, "consent_required"),
         ({"risk": "low"}, {}, None),
         ({"risk": "low"}, {"proposal": {"hash": "H", "cost": None, "risk": "high"}}, "consent_required"),
-        ({"risk": "extreme"}, {}, "consent_required"),
+        ({"risk": "extreme"}, {}, "forbidden"),  # malformed values fail closed, hard
+        ({"svc": "svc"}, {}, "forbidden"),
+        ({"exp": "tomorrow"}, {}, "forbidden"),
+        ({"exp": True}, {}, "forbidden"),
+        ({"only": 5}, {"verb": "ASK", "proposal": None}, "forbidden"),
         ({"only": "H"}, {}, None),
         ({"only": "X"}, {}, "forbidden"),
         ({"only": "X"}, {"verb": "ASK", "proposal": None}, None),

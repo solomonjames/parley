@@ -37,6 +37,8 @@ async with await connect("parley://127.0.0.1:7447", key=agent, grants=[g]) as c:
     if r.code == "consent_required":           # ask the human, then:
         r = await c.commit(props.proposals[0], grants=[consent_grant(principal, agent.public, r.consent)])
     await c.undo(r.receipt["id"])
+    # auto=True: commit in one round trip when the grant already allows it and it's undoable
+    r = await c.intent("calendar.move", {"event": "e3", "to": "2026-09-25T10:00:00Z"}, auto=True)
 ```
 
 API names mirror `ts/src` in snake_case (`issue_grant`, `verify_grant`, `consent_grant`,

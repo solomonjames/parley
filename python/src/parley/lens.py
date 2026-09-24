@@ -17,9 +17,13 @@ _EFFECT_SYM = {"create": "+", "update": "~", "delete": "-", "send": ">", "charge
 _DURATION_UNITS = ((86400, "d"), (3600, "h"), (60, "m"))
 
 
+_EST = re.compile(r"[A-Za-z]+|[0-9]{1,3}|\n {2,}|[^ \t\n\r\f\vA-Za-z0-9]")
+
+
 def est(text: str) -> int:
-    """Shared token estimate: ``ceil(utf8ByteLength / 4)`` (SPEC §8)."""
-    return -(-len(text.encode("utf-8")) // 4)
+    """Shared token estimate (SPEC §8): letter runs, digit groups of up to three,
+    indentation runs, and each other visible code point."""
+    return sum(1 for _ in _EST.finditer(text))
 
 
 # ---------------------------------------------------------------- lean notation (§9.1)
@@ -204,18 +208,28 @@ def _brief(r: dict) -> list[str]:
     return lines
 
 
+_ATTRS = (
+    ("cost", lambda p: fmt_money(p.get("cost"))),
+    ("risk", lambda p: str(p.get("risk", "-"))),
+    ("undo", lambda p: fmt_duration(p["undo"]["window"]) if isinstance(p.get("undo"), dict) and "window" in p["undo"] else "never"),
+    ("expires", lambda p: fmt_time(p.get("expires"))),
+)
+
+
 def _proposals(r: dict) -> list[str]:
     ps = r.get("proposals") or []
-    lines = [f"{len(ps)} proposal{'' if len(ps) == 1 else 's'}:"]
+    # Attributes identical across all (N >= 2) proposals are stated once, in the header.
+    shared = [a for a in _ATTRS if len(ps) >= 2 and all(a[1](p) == a[1](ps[0]) for p in ps)]
+    own = [a for a in _ATTRS if a not in shared]
+    head = f"{len(ps)} proposal{'' if len(ps) == 1 else 's'}"
+    if shared:
+        head += " — " + " · ".join(f"{k}: {f(ps[0])}" for k, f in shared)
+    lines = [head + ":"]
     for p in ps:
         lines.append(f"[{p.get('id', '')}] {p.get('summary', '')}")
         lines.extend("  " + effect_line(e) for e in p.get("effects") or [])
-        undo = p.get("undo")
-        undo_s = fmt_duration(undo["window"]) if isinstance(undo, dict) and "window" in undo else "never"
-        lines.append(
-            f"  cost: {fmt_money(p.get('cost'))} · risk: {p.get('risk', '-')} · undo: {undo_s}"
-            f" · expires: {fmt_time(p.get('expires'))}"
-        )
+        if own:
+            lines.append("  " + " · ".join(f"{k}: {f(p)}" for k, f in own))
         if "data" in p:
             lines.extend(_entry_lines("data", p["data"], 1))
     return lines
@@ -229,16 +243,15 @@ def _clarify(r: dict) -> list[str]:
 
 def _receipt(r: dict) -> list[str]:
     rc = r.get("receipt") or {}
-    tail = f"(receipt {rc.get('id', '')})"
-    if r.get("replay"):
-        tail += " (replay)"
+    tag = f"(receipt {rc.get('id', '')})" + (" (replay)" if r.get("replay") else "")
     if rc.get("undoes"):
-        lines = [f"↶ undid {rc['undoes']}: {rc.get('summary', '')} {tail}"]
+        lines = [f"↶ undid {rc['undoes']}: {rc.get('summary', '')} {tag}"]
     else:
-        lines = [f"✓ {rc.get('summary', '')} {tail}"]
-    lines.extend("  " + effect_line(e) for e in rc.get("effects") or [])
-    undo = rc.get("undo")
-    lines.append(f"  undo: until {fmt_time(undo['until'])}" if isinstance(undo, dict) and "until" in undo else "  undo: never")
+        undo = rc.get("undo")
+        when = f"undo until {fmt_time(undo['until'])}" if isinstance(undo, dict) and "until" in undo else "irreversible"
+        lines = [f"✓ {rc.get('summary', '')} {tag} · {when}"]
+    if r.get("auto"):  # otherwise the model already read the effects in the proposal
+        lines.extend("  " + effect_line(e) for e in rc.get("effects") or [])
     if "result" in rc:
         lines.extend(_entry_lines("result", rc["result"], 1))
     return lines

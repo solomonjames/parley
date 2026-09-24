@@ -12,7 +12,6 @@ from ._json import b64url_encode, compact
 from .lens import est, lean, lens
 
 MIN_STRING = 200
-PLACEHOLDER = "h_XXXXXXXXXXXX"
 Path = tuple
 
 
@@ -52,34 +51,33 @@ def _set(root: Any, path: Path, value: Any) -> None:
     _get(root, path[:-1])[path[-1]] = value
 
 
-def _collect(v: Any, path: Path, deep: bool, out: list) -> None:
+def _collect(v: Any, path: Path, out: list) -> None:
     if isinstance(v, str):
         if len(v) > MIN_STRING:
             out.append((path, len(v)))
     elif isinstance(v, list):
         if v:
             out.append((path, len(compact(v))))
-        if deep:
-            for i, x in enumerate(v):
-                _collect(x, path + (i,), deep, out)
-    elif isinstance(v, dict) and deep:
+        for i, x in enumerate(v):
+            _collect(x, path + (i,), out)
+    elif isinstance(v, dict):
         for k, x in v.items():
-            _collect(x, path + (k,), deep, out)
+            _collect(x, path + (k,), out)
 
 
-def _roots(r: dict) -> list[tuple[Path, bool]]:
-    """Where elision may happen, and whether it may go inside. Effects, summaries and
-    hashes are never elided: the list of proposals may shrink, but a proposal never changes."""
+def _roots(r: dict) -> tuple[list[Path], list[Path]]:
+    """(deep roots, list roots) per SPEC §8. Deep roots may be elided anywhere inside and go
+    first; list roots only lose whole trailing items, so what remains is never altered."""
     kind = r.get("kind")
     if kind == "ANSWER":
-        return [(("data",), True)]
+        return [("data",)], []
     if kind == "BRIEF":
-        return [(("capabilities",), False)]
+        return [], [("capabilities",)]
     if kind == "PROPOSALS":
-        return [(("proposals",), False)] + [(("proposals", i, "data"), True) for i in range(len(r.get("proposals") or []))]
+        return [("proposals", i, "data") for i, p in enumerate(r.get("proposals") or []) if "data" in p], [("proposals",)]
     if kind == "RECEIPT":
-        return [(("receipt", "result"), True)]
-    return []
+        return [("receipt", "result")], []
+    return [], []
 
 
 def fit(reply: dict, budget: int, store: HandleStore) -> dict:
@@ -90,6 +88,9 @@ def fit(reply: dict, budget: int, store: HandleStore) -> dict:
     r = copy.deepcopy(reply)
     cut: dict[Path, int] = {}  # path -> kept length, in elision order
     base_more = list(r.get("more") or [])
+    # Real handles are picked up front: under the §8 estimate a placeholder can count as
+    # fewer tokens than the random handle that replaces it, overshooting the budget.
+    handles: dict[Path, str] = {}
 
     def more_for(real: bool) -> list[dict]:
         out = []
@@ -97,7 +98,7 @@ def fit(reply: dict, budget: int, store: HandleStore) -> dict:
             if _get(r, path) is None:
                 continue  # an ancestor was elided; its remainder carries this
             rest = _get(original, path)[kept:]
-            handle = "h_" + b64url_encode(os.urandom(9)) if real else PLACEHOLDER
+            handle = handles.setdefault(path, "h_" + b64url_encode(os.urandom(9)))
             if real:
                 store.put(handle, rest)
             out.append({
@@ -111,11 +112,14 @@ def fit(reply: dict, budget: int, store: HandleStore) -> dict:
         view = {**r, "more": more} if more else r
         if est(lens(view)) <= budget:
             break
+        deep, lists = _roots(r)
         cands: list = []
-        for root, deep in _roots(r):
+        for root in deep:
             v = _get(r, root)
             if v is not None:
-                _collect(v, root, deep, cands)
+                _collect(v, root, cands)
+        if not cands:
+            cands = [(root, len(compact(v))) for root in lists if isinstance(v := _get(r, root), list) and v]
         if not cands:
             break
         path = max(cands, key=lambda c: c[1])[0]  # first of the largest, like the TS reduce

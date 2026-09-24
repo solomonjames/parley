@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-import itertools
+import os
 import shlex
 import ssl
 import time
@@ -12,7 +12,7 @@ from collections.abc import Callable, Sequence
 from typing import Any
 from urllib.parse import urlsplit
 
-from ._json import dumps, loads
+from ._json import b64url_encode, dumps, loads
 from .grants import Grant, decode_grant
 from .keys import KeyPair, sign_proof
 from .lens import lens as render_lens
@@ -208,7 +208,6 @@ class Client:
         self.name = name
         self.budget = budget
         self.service_id: str | None = None
-        self._ids = itertools.count(1)
 
     async def __aenter__(self) -> Client:
         return self
@@ -224,7 +223,7 @@ class Client:
 
     async def send(self, body: dict, on_event: OnEvent | None = None) -> Reply:
         """Send a request body (``parley`` and ``id`` are filled in)."""
-        return await self._t.request({"parley": 1, "id": f"c{next(self._ids)}", **body}, on_event)
+        return await self._t.request({"parley": 1, "id": _request_id(), **body}, on_event)
 
     async def audience(self) -> str:
         """The service's id (learned from HELLO), which proofs are bound to."""
@@ -267,13 +266,21 @@ class Client:
         return await self.send({**body, **await self._signed("ASK", capability)})
 
     async def intent(
-        self, capability: str, params: dict | None = None, *, goal: str | None = None, budget: int | None = None
+        self, capability: str, params: dict | None = None, *, goal: str | None = None, budget: int | None = None,
+        auto: bool = False, on_event: OnEvent | None = None,
     ) -> Reply:
-        body: dict[str, Any] = {"verb": "INTENT", "capability": capability, "params": params or {}}
+        """Express an intent. With ``auto``, the service commits the first proposal in the same
+        round trip when your grants already allow it and it is undoable; you get a RECEIPT back."""
+        rid = _request_id()
+        body: dict[str, Any] = {"parley": 1, "id": rid, "verb": "INTENT", "capability": capability, "params": params or {}}
         if goal:
             body["goal"] = goal
+        if auto:
+            body["auto"] = True
         body.update(self._budget(budget))
-        return await self.send({**body, **await self._signed("INTENT", capability)})
+        # Auto-commit proofs are bound to this frame id, so a captured frame can't mint new commits.
+        body.update(await self._signed("INTENT", f"auto:{capability}:{rid}" if auto else capability))
+        return await self._t.request(body, on_event)
 
     async def commit(
         self, proposal: dict, *, grants: Sequence[str | Grant] | None = None,
@@ -293,6 +300,11 @@ class Client:
     async def expand(self, handle: str | dict, *, budget: int | None = None) -> Reply:
         h = handle["handle"] if isinstance(handle, dict) else handle
         return await self.send({"verb": "EXPAND", "handle": h, **self._budget(budget), **await self._signed("EXPAND", h)})
+
+
+def _request_id() -> str:
+    # Random, not a counter: auto-commit dedupes on (key, frame id) across connections (§4.3.1).
+    return "c_" + b64url_encode(os.urandom(9))
 
 
 async def connect(

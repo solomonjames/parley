@@ -176,9 +176,39 @@ def _money_ok(limit: Any, cost: Any, already: int = 0) -> bool:
     return already + cost["amount"] <= limit["max"]
 
 
+def _safe_int(v: Any) -> bool:
+    return _is_int(v) and abs(v) <= 2**53 - 1
+
+
+def _str_list(v: Any) -> bool:
+    return isinstance(v, list) and all(isinstance(x, str) for x in v)
+
+
+def _limit(v: Any) -> bool:
+    return isinstance(v, dict) and _safe_int(v.get("max")) and isinstance(v.get("currency"), str)
+
+
+_WELL_FORMED = {
+    "svc": _str_list, "verbs": _str_list, "can": _str_list,
+    "exp": _safe_int, "nbf": _safe_int,
+    "per": _limit, "spend": _limit,
+    "risk": lambda v: isinstance(v, str) and v in RISK_ORDER,
+    "only": lambda v: isinstance(v, str),
+}
+
+
+def well_formed(caveat: Any) -> bool:
+    """A known caveat name with a value of the right shape (SPEC §6.3)."""
+    if not isinstance(caveat, dict) or len(caveat) != 1:
+        return False
+    (name, arg), = caveat.items()
+    check = _WELL_FORMED.get(name)
+    return check is not None and check(arg)
+
+
 def check_caveat(caveat: Any, bid: str, ctx: GrantContext) -> bool:
     """True iff one caveat is satisfied. Unknown or malformed caveats fail closed."""
-    if not isinstance(caveat, dict) or len(caveat) != 1:
+    if not well_formed(caveat):
         return False
     (name, arg), = caveat.items()
     if name in COMMIT_ONLY and ctx.verb != "COMMIT":
@@ -241,7 +271,7 @@ def verify_grant(
     failed = [c for b in g.blocks for c in b["p"]["caveats"] if not check_caveat(c, block_id(b), ctx)]
     if not failed:
         return Verification(True, grant=g)
-    hard = [c for c in failed if _caveat_name(c) not in CONSENT_CAVEATS]
+    hard = [c for c in failed if _caveat_name(c) not in CONSENT_CAVEATS or not well_formed(c)]
     if hard:
         shown = ", ".join(compact(c) for c in hard[:3])
         return Verification(False, "forbidden", f"the grant does not allow this request ({shown})", g, hard)

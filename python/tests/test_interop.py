@@ -103,7 +103,10 @@ def test_calendar_flow(ts_servers, transport):
             assert bad.code == "invalid_params" and bad.fix[0]["params"] == {"quer": None, "query": "ana"}
             small = await c.ask("calendar.agenda", budget=60)
             assert small.more and (await c.expand(small.more[0]["handle"])).kind == "ANSWER"
-            seen += [brief, agenda, clar, props, rc, replay, undo, bad, small]
+            auto = await c.intent("calendar.reschedule", {"event": "e8", "day": clar.options[0]["label"].split(" · ")[1][:10]}, auto=True)
+            assert auto.kind == "RECEIPT" and auto.auto is True, auto.lens
+            assert auto.lens.splitlines()[1].startswith("  ~ update event/e8.start")
+            seen += [brief, agenda, clar, props, rc, replay, undo, bad, small, auto]
         assert_same_lens(seen)
 
     asyncio.run(go())
