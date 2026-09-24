@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "parley": { "type": "stdio", "command": "npx", "args": ["-y", "parley-protocol", "mcp"], "alwaysLoad": true }
+  }
+}

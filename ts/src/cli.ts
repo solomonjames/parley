@@ -41,7 +41,7 @@ talk to a service  (url: parley://host:port · parleys://… · http(s)://…/pa
 try it
   parley test-drive [--model m] ["task"]  watch a real Claude model use Parley live (needs an Anthropic API key)
   parley demo                              narrated end-to-end demo (two services, consent, undo, sub-agents)
-  parley examples [--port 7447]            serve the example calendar (7447) and shop (7449), trusting your principal
+  parley examples [--port 7447] [--host]            serve the example calendar (7447) and shop (7449), trusting your principal
 
 bridges
   parley mcp <url> [<url> …]               run an MCP server (stdio) exposing Parley services
@@ -58,7 +58,7 @@ const { values: o, positionals: args } = parseArgs({
     exp: { type: "string" }, per: { type: "string" }, spend: { type: "string" }, risk: { type: "string" },
     to: { type: "string" }, goal: { type: "string" }, budget: { type: "string" }, expires: { type: "string" },
     json: { type: "boolean" }, help: { type: "boolean", short: "h" }, name: { type: "string" },
-    model: { type: "string" }, base: { type: "string" }, header: { type: "string", multiple: true }, port: { type: "string" }, http: { type: "string" }, id: { type: "string" }, prefix: { type: "string" }, target: { type: "string" }, local: { type: "boolean" }, yes: { type: "boolean", short: "y" }, "no-principal": { type: "boolean" },
+    model: { type: "string" }, base: { type: "string" }, header: { type: "string", multiple: true }, port: { type: "string" }, http: { type: "string" }, id: { type: "string" }, prefix: { type: "string" }, target: { type: "string" }, local: { type: "boolean" }, yes: { type: "boolean", short: "y" }, "no-principal": { type: "boolean" }, host: { type: "string" },
   },
 });
 
@@ -191,8 +191,8 @@ async function main() {
       const p = await principalKey();
       if (p && !trust.length) trust.push(p.public);
       const port = Number(o.port ?? 7447);
-      await listen(calendar({ trust }), { port });
-      await listen(shop({ trust }), { port: port + 2 });
+      await listen(calendar({ trust }), { port, host: o.host });
+      await listen(shop({ trust }), { port: port + 2, host: o.host });
       console.error(`✓ calendar parley://127.0.0.1:${port} · shop parley://127.0.0.1:${port + 2} · trusting ${trust.length} principal(s)${trust.length ? "" : " (run parley init first to commit anything)"}\n  try: parley do parley://127.0.0.1:${port} calendar.reschedule event=Ana`);
       return;
     }
@@ -206,8 +206,8 @@ async function main() {
       if (p && !trust.length) trust.push(p.public);
       const svc = fromOpenAPI(spec, { baseUrl: o.base, headers, trust, id: o.id, prefix: o.prefix });
       const port = Number(o.port ?? 7447);
-      await listen(svc, { port });
-      if (o.http) await serveHttp(svc, { port: Number(o.http) });
+      await listen(svc, { port, host: o.host });
+      if (o.http) await serveHttp(svc, { port: Number(o.http), host: o.host });
       const n = svc.capabilities.length;
       console.error(`✓ ${svc.id}: ${n} capabilities (${svc.capabilities.filter((c) => c.kind === "ask").length} ask, ${svc.capabilities.filter((c) => c.kind === "intent").length} intent)\n  parley://127.0.0.1:${port}${o.http ? `  ·  http://127.0.0.1:${o.http}/parley` : ""}\n  trusting ${trust.length} principal(s) for writes\n  try: parley hello parley://127.0.0.1:${port}`);
       return;

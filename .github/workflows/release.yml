@@ -1,29 +1,32 @@
 name: release
-# Push a tag like v0.1.1 to publish both packages. npm uses provenance (OIDC trusted
-# publishing, or an NPM_TOKEN secret as fallback); PyPI uses trusted publishing (OIDC).
+# Push a tag like v0.1.1 (or run manually) to publish. npm: trusted publishing (OIDC) with
+# provenance, NPM_TOKEN secret as a fallback. PyPI: trusted publishing. Artifacts are attested.
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 permissions:
   contents: write
   id-token: write
+  attestations: write
 jobs:
   npm:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
+        with: { node-version: 22, registry-url: https://registry.npmjs.org }
       - run: npm install -g npm@latest
       - run: npm ci && npm run build && npm test
-        env:
-          SKIP_INTEROP: "1"
-      - run: npm publish --provenance --access public
+        env: { SKIP_INTEROP: "1" }
+      - run: cd ts && npm pack
+      - uses: actions/attest-build-provenance@v4
+        with: { subject-path: "ts/parley-protocol-*.tgz" }
+      - run: npm publish ./parley-protocol-*.tgz --provenance --access public
         working-directory: ts
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
+      - uses: actions/upload-artifact@v4
+        with: { name: npm, path: "ts/parley-protocol-*.tgz" }
   pypi:
     runs-on: ubuntu-latest
     environment: pypi
@@ -32,14 +35,28 @@ jobs:
       - uses: astral-sh/setup-uv@v6
       - run: uv build
         working-directory: python
+      - uses: actions/attest-build-provenance@v4
+        with: { subject-path: "python/dist/*" }
       - uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: python/dist
+        with: { packages-dir: python/dist }
+      - uses: actions/upload-artifact@v4
+        with: { name: pypi, path: "python/dist/*" }
   github-release:
     needs: [npm, pypi]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file CHANGELOG.md --verify-tag || true
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with: { path: dist, merge-multiple: true }
+      - run: cd dist && sha256sum * > SHA256SUMS
+      - run: |
+          awk '/^## /{n++} n==1' CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" dist/* --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+        env: { GH_TOKEN: "${{ github.token }}" }
+  mcp-registry:
+    needs: [npm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+      - run: ./mcp-publisher login github-oidc && ./mcp-publisher publish

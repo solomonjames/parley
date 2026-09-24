@@ -93,5 +93,6 @@
     "@anthropic-ai/sdk": {
       "optional": true
     }
-  }
+  },
+  "mcpName": "io.github.solomonjames/parley"
 }

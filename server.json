@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.solomonjames/parley",
+  "title": "Parley",
+  "description": "Agent actions with previewed effects, a signed spend/risk policy, human consent, undo and budgets.",
+  "websiteUrl": "https://solomonjames.github.io/parley/",
+  "repository": { "url": "https://github.com/solomonjames/parley", "source": "github", "subfolder": "ts" },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "parley-protocol",
+      "version": "0.1.0",
+      "transport": { "type": "stdio" },
+      "packageArguments": [{ "type": "positional", "value": "mcp" }]
+    }
+  ]
+}
