@@ -1,7 +1,7 @@
 // Turns `FORCE_COLOR=1 node examples/demo.ts > demo.ansi` into an asciinema cast, then:
 //   node scripts/demo-cast.cjs demo.ansi demo.cast && npx svg-term-cli --in demo.cast --out docs/demo.svg --window --no-cursor --padding 18
 const fs = require("fs");
-const text = fs.readFileSync("process.argv[2]", "utf8");
+const text = fs.readFileSync(process.argv[2], "utf8");
 const lines = text.split("\n");
 const events = [];
 let t = 0.3;
