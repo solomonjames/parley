@@ -4,17 +4,49 @@
   "description": "Parley: the protocol agents speak. Intents, proposals, commits and undo, with signed delegation and token budgets. Built for AI agents, not browsers.",
   "type": "module",
   "license": "Apache-2.0",
-  "bin": { "parley": "dist/cli.js" },
+  "bin": {
+    "parley": "dist/cli.js"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" },
-    "./node": { "types": "./dist/node.d.ts", "default": "./dist/node.js" },
-    "./mcp": { "types": "./dist/mcp.d.ts", "default": "./dist/mcp.js" }
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    },
+    "./mcp": {
+      "types": "./dist/mcp.d.ts",
+      "default": "./dist/mcp.js"
+    }
   },
-  "files": ["dist", "README.md"],
-  "engines": { "node": ">=20" },
-  "keywords": ["ai", "agents", "protocol", "mcp", "llm", "delegation", "capabilities", "ed25519"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "ai",
+    "agents",
+    "ai-agents",
+    "llm",
+    "protocol",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "delegation",
+    "capabilities",
+    "ed25519",
+    "consent",
+    "undo",
+    "tool-use"
+  ],
   "scripts": {
     "build": "tsc -p .",
     "test": "vitest run",
@@ -25,5 +57,19 @@
     "@types/node": "^22",
     "typescript": "^5.9",
     "vitest": "^3"
+  },
+  "author": "James Solomon",
+  "homepage": "https://solomonjames.github.io/parley/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/solomonjames/parley.git",
+    "directory": "ts"
+  },
+  "bugs": {
+    "url": "https://github.com/solomonjames/parley/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
   }
 }

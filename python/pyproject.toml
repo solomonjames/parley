@@ -1,7 +1,18 @@
 [project]
 name = "parley-protocol"
 version = "0.1.0"
-description = "Parley protocol: independent Python implementation"
+description = "Parley: the open protocol for AI agents acting on behalf of people (Python implementation)"
+license = "Apache-2.0"
+keywords = ["ai", "agents", "ai-agents", "llm", "protocol", "mcp", "delegation", "capabilities", "ed25519", "consent"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 readme = "README.md"
 authors = [
     { name = "James Solomon", email = "solomonjames@gmail.com" }
@@ -10,6 +21,12 @@ requires-python = ">=3.10"
 dependencies = [
     "cryptography>=50.0.1",
 ]
+
+[project.urls]
+Homepage = "https://solomonjames.github.io/parley/"
+Repository = "https://github.com/solomonjames/parley"
+Specification = "https://github.com/solomonjames/parley/blob/main/SPEC.md"
+Issues = "https://github.com/solomonjames/parley/issues"
 
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]

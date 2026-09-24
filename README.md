@@ -1,17 +1,25 @@
 <div align="center">
 
-# Parley
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-dark.svg">
+  <img alt="parley" src="docs/brand/logo-light.svg" height="64">
+</picture>
 
 ### HTTP was built for browsers. Parley is built for agents.
 
-**An open protocol for AI agents acting on behalf of people.**<br>
+**The open protocol for AI agents acting on behalf of people.**<br>
 Agents state an intent. Services reply with proposals whose effects are listed up front.
 The human's signed policy decides what can go ahead without asking, and reversible
 commits come with an undo window.
 
-[Spec](SPEC.md) · [Demo](#see-it) · [Benchmark](#numbers) · [Quickstart](#quickstart) · [Use it from Claude today](#use-it-from-claude-code-today) · [Design](docs/design.md)
+[![CI](https://github.com/solomonjames/parley/actions/workflows/ci.yml/badge.svg)](https://github.com/solomonjames/parley/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/parley-protocol?color=FFB224&label=npm)](https://www.npmjs.com/package/parley-protocol)
+[![PyPI](https://img.shields.io/pypi/v/parley-protocol?color=FFB224&label=pypi)](https://pypi.org/project/parley-protocol/)
+![spec](https://img.shields.io/badge/spec-v1%20draft-0B0D12)
+![deps](https://img.shields.io/badge/runtime%20deps-0-2BD9A5)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-![spec](https://img.shields.io/badge/spec-v1%20draft-6f42c1) ![implementations](https://img.shields.io/badge/implementations-TypeScript%20%C2%B7%20Python-2ea44f) ![deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+**[Try it in your browser](https://solomonjames.github.io/parley/playground)** · [Docs](https://solomonjames.github.io/parley/) · [Spec](SPEC.md) · [Quickstart](#quickstart) · [Use from Claude Code](#use-it-from-claude-code-today) · [Benchmark](#numbers) · [Design](docs/design.md)
 
 <img src="docs/demo.svg" alt="Parley demo: an agent reschedules a meeting, undoes it, browses a menu within a token budget, and places an order that needs the human's consent" width="880">
 
