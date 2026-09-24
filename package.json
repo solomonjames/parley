@@ -18,5 +18,10 @@
   },
   "engines": {
     "node": ">=22.18"
+  },
+  "overrides": {
+    "vitepress": {
+      "vite": "^6.4.3"
+    }
   }
 }
