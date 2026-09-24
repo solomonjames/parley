@@ -121,6 +121,7 @@ function jsonTarget(name: string, file: (s: Scope) => string, detect: () => bool
   };
 }
 
+const devinDir = () => join(process.env.XDG_CONFIG_HOME ?? join(homedir(), ".config"), "devin");
 const appData = () => process.env.APPDATA ?? join(homedir(), "AppData", "Roaming");
 const claudeDesktopConfig = () =>
   platform() === "darwin" ? join(homedir(), "Library", "Application Support", "Claude", "claude_desktop_config.json")
@@ -134,7 +135,9 @@ export const CLIENTS: Record<string, Target> = {
   "claude-desktop": jsonTarget("Claude Desktop", claudeDesktopConfig, () => existsSync(dirname(claudeDesktopConfig()))),
   cursor: jsonTarget("Cursor", (s) => (s.local ? join(s.cwd, ".cursor", "mcp.json") : join(homedir(), ".cursor", "mcp.json")), () => existsSync(join(homedir(), ".cursor")),
     (s) => (s.local ? join(s.cwd, ".cursor", "rules", "parley.mdc") : "")),
-  windsurf: jsonTarget("Windsurf", () => join(homedir(), ".codeium", "windsurf", "mcp_config.json"), () => existsSync(join(homedir(), ".codeium", "windsurf"))),
+  // Windsurf became Devin Desktop; its Cascade agent reads $XDG_CONFIG_HOME/devin/mcp_config.json. Keep the legacy path if that's what exists.
+  windsurf: jsonTarget("Windsurf / Devin Desktop", () => (existsSync(join(homedir(), ".codeium", "windsurf")) && !existsSync(devinDir()) ? join(homedir(), ".codeium", "windsurf", "mcp_config.json") : join(devinDir(), "mcp_config.json")),
+    () => existsSync(join(homedir(), ".codeium", "windsurf")) || existsSync(devinDir())),
   gemini: jsonTarget("Gemini CLI", (s) => join(s.local ? s.cwd : homedir(), ".gemini", "settings.json"), () => existsSync(join(homedir(), ".gemini")),
     (s) => (s.local ? join(s.cwd, "GEMINI.md") : join(homedir(), ".gemini", "GEMINI.md"))),
   vscode: jsonTarget("VS Code", (s) => join(s.cwd, ".vscode", "mcp.json"), () => has("code"), undefined, "servers", { type: "stdio" }),

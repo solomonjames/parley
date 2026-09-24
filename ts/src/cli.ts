@@ -15,7 +15,7 @@ import type { Verb } from "./types.js";
 const HELP = `parley — the protocol agents speak
 
 get started
-  parley install [--target claude-code,cursor,codex,gemini,vscode,windsurf,claude-desktop] [--local] [--no-principal]
+  parley install [--target claude-code,cursor,codex,gemini,vscode,windsurf,claude-desktop] [--local] [--with-principal]
                                            keys, a safe default policy, the MCP bridge and agent instructions (auto-detects tools)
   parley add <url>                         add a service for your AI tools (parley services · parley remove <url>)
   parley doctor                            check keys, grants, services and AI-tool registration
@@ -25,6 +25,7 @@ identity
   parley init                              create your principal key and an agent key in ${home()}
   parley whoami                            show public keys
   parley grant [caveats]                   principal → agent grant (saved; used automatically)
+  parley grant-import <token>              save a grant issued to this machine's agent key (principal kept elsewhere)
   parley delegate <token> --to <key> [caveats]   attenuate a grant for a sub-agent
   parley inspect <token>                   decode a grant chain
   parley approve <pc1.code>                review and sign a one-time consent for one proposal
@@ -45,7 +46,7 @@ try it
 
 bridges
   parley mcp <url> [<url> …]               run an MCP server (stdio) exposing Parley services
-  parley openapi <spec.json|url> [--base <url>] [--header "K: V"] [--port 7447] [--http 8080]
+  parley openapi <spec.json|url> [--base <url>] [--header "K: V"] [--port 7447] [--http 8080] [--preset github|petstore]
                                            serve any REST API as a Parley service (writes become proposals)
 
 caveats: --svc <id> --can <pattern> --verbs ASK,INTENT --exp 24h --per 50USD --spend 200USD --risk low|medium|high
@@ -58,7 +59,7 @@ const { values: o, positionals: args } = parseArgs({
     exp: { type: "string" }, per: { type: "string" }, spend: { type: "string" }, risk: { type: "string" },
     to: { type: "string" }, goal: { type: "string" }, budget: { type: "string" }, expires: { type: "string" },
     json: { type: "boolean" }, help: { type: "boolean", short: "h" }, name: { type: "string" },
-    model: { type: "string" }, base: { type: "string" }, header: { type: "string", multiple: true }, port: { type: "string" }, http: { type: "string" }, id: { type: "string" }, prefix: { type: "string" }, target: { type: "string" }, local: { type: "boolean" }, yes: { type: "boolean", short: "y" }, "no-principal": { type: "boolean" }, host: { type: "string" },
+    model: { type: "string" }, base: { type: "string" }, header: { type: "string", multiple: true }, port: { type: "string" }, http: { type: "string" }, id: { type: "string" }, prefix: { type: "string" }, target: { type: "string" }, local: { type: "boolean" }, yes: { type: "boolean", short: "y" }, "no-principal": { type: "boolean" }, "with-principal": { type: "boolean" }, host: { type: "string" }, preset: { type: "string" },
   },
 });
 
@@ -131,6 +132,15 @@ async function main() {
       console.error(`\ngrant ${info.id.slice(0, 16)} → ${to}\n${lean({ caveats: info.blocks[0].caveats })}${o.to ? "" : `\nsaved to ${home()}/grants`}`);
       return;
     }
+    case "grant-import": {
+      const token = rest[0] ?? die("usage: parley grant-import <pg1.… token>");
+      const info = await inspectGrant(token);
+      const a = await agentKey();
+      if (!a || info.holder !== a.public) die(`this grant is for ${info.holder}, not this machine's agent key ${a?.public ?? "(none: run parley install)"}`);
+      saveGrant(token, "grants", info.id.slice(0, 16));
+      console.log(`✓ imported grant ${info.id.slice(0, 16)} from ${info.iss}`);
+      return;
+    }
     case "delegate": {
       const a = (await agentKey()) ?? die("no agent key");
       console.log(await delegateGrant(rest[0] ?? die("usage: parley delegate <token> --to <key>"), { holder: a, to: o.to ?? die("--to required"), caveats: caveats() }));
@@ -199,12 +209,15 @@ async function main() {
     case "openapi": {
       const { fromOpenAPI, loadOpenAPI } = await import("./openapi.js");
       const { listen, serveHttp } = await import("./node.js");
-      const spec = await loadOpenAPI(rest[0] ?? die("usage: parley openapi <spec.json|url> [--base <url>]"));
-      const headers = Object.fromEntries((o.header ?? []).map((h) => [h.slice(0, h.indexOf(":")).trim(), h.slice(h.indexOf(":") + 1).trim()]));
+      const { PRESETS, presetOptions } = await import("./presets.js");
+      const preset = o.preset ? PRESETS[o.preset] ?? die(`unknown preset ${o.preset}; one of: ${Object.keys(PRESETS).join(", ")}`) : null;
+      if (preset) for (const e of preset.env) if (!process.env[e]) console.error(`note: ${e} is not set; ${o.preset} will only do what works without it`);
+      const spec = await loadOpenAPI(preset?.spec ?? rest[0] ?? die("usage: parley openapi <spec.json|url> [--base <url>]  (or --preset " + Object.keys(PRESETS).join("|") + ")"));
+      const headers = { ...(preset ? presetOptions(preset).headers : {}), ...Object.fromEntries((o.header ?? []).map((h) => [h.slice(0, h.indexOf(":")).trim(), h.slice(h.indexOf(":") + 1).trim()])) };
       const trust = (process.env.PARLEY_TRUST ?? "").split(",").filter(Boolean);
       const p = await principalKey();
       if (p && !trust.length) trust.push(p.public);
-      const svc = fromOpenAPI(spec, { baseUrl: o.base, headers, trust, id: o.id, prefix: o.prefix });
+      const svc = fromOpenAPI(spec, { ...(preset ? presetOptions(preset) : {}), ...(o.base ? { baseUrl: o.base } : {}), ...(o.id ? { id: o.id } : {}), ...(o.prefix ? { prefix: o.prefix } : {}), headers, trust });
       const port = Number(o.port ?? 7447);
       await listen(svc, { port, host: o.host });
       if (o.http) await serveHttp(svc, { port: Number(o.http), host: o.host });
@@ -246,13 +259,23 @@ async function main() {
       for (const n of names) if (!CLIENTS[n]) die(`unknown target ${n}; one of: ${Object.keys(CLIENTS).join(", ")}`);
       const a = (await agentKey()) ?? (await agentKey(true))!;
       console.log(`agent key   ${a.public} (${home()})`);
+      // The principal (approval) key should live where agents can't read it. Only create it here
+      // when asked: --with-principal, or a yes at the interactive prompt.
       let p = await principalKey();
-      if (!p && !o["no-principal"]) {
-        p = (await principalKey(true))!;
-        console.log(`principal   ${p.public} (created here for convenience)`);
-        console.log("  ⚠ an agent with shell access could read this key. For real use, keep it on another user or device: see SECURITY.md");
-      } else if (p) console.log(`principal   ${p.public}`);
-      else console.log(`principal   not on this machine. Issue a grant elsewhere with: parley grant --to ${a.public}`);
+      if (!p) {
+        let create = !!o["with-principal"];
+        if (!create && process.stdin.isTTY && !o.yes) {
+          const rl = createInterface({ input: process.stdin, output: process.stdout });
+          create = /^y/i.test(await rl.question("Create your approval (principal) key on this machine too? Handy for trying Parley, but an agent with shell access could read it. [y/N] › "));
+          rl.close();
+        }
+        if (create) {
+          p = (await principalKey(true))!;
+          console.log(`principal   ${p.public} (on this machine: fine for trying things; see SECURITY.md for real use)`);
+        } else {
+          console.log(`principal   not on this machine (recommended). On the device that holds it, run:\n              parley grant --to ${a.public} --risk low --per 25USD --spend 100USD --exp 30d\n            and save the token here with: parley grant-import <token>   (or re-run with --with-principal to try things quickly)`);
+        }
+      } else console.log(`principal   ${p.public}`);
       if (p && !loadGrants("grants").length) {
         const caveats: Caveat[] = [{ risk: "low" }, { per: { max: 2500, currency: "USD" } }, { spend: { max: 10000, currency: "USD" } }, { exp: Math.floor(Date.now() / 1000) + 30 * 86400 }];
         const token = await issueGrant({ principal: p, to: a.public, caveats });

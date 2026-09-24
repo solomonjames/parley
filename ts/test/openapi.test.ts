@@ -90,3 +90,30 @@ describe("OpenAPI adapter", async () => {
     expect(r.kind).toBe("PROPOSALS");
   });
 });
+
+describe("OpenAPI presets and projections", async () => {
+  const { projectFields } = await import("../src/openapi.js");
+  const { PRESETS, presetOptions } = await import("../src/presets.js");
+
+  it("projects big upstream objects down to table rows", () => {
+    const rows = projectFields([{ number: 1, title: "t", user: { login: "ana", id: 9 }, labels: [{ name: "bug" }, { name: "ui" }], junk: "x" }], ["number", "title", "author=user.login", "labels[].name"]);
+    expect(rows).toEqual([{ number: 1, title: "t", author: "ana", labels: "bug, ui" }]);
+    expect(projectFields({ total_count: 2, items: [{ a: 1, b: 2 }] }, ["a"])).toEqual({ total: 2, items: [{ a: 1 }] });
+  });
+
+  it("the github preset exposes only curated operations with overridden risk", () => {
+    const o = presetOptions(PRESETS.github, {} as NodeJS.ProcessEnv);
+    expect(o.include!("put", "/x", { operationId: "pulls/merge" })).toBe(true);
+    expect(o.include!("delete", "/x", { operationId: "repos/delete" })).toBe(false);
+    expect(o.risk!("put", "/x", { operationId: "pulls/merge" })).toBe("high");
+    expect(o.headers!.authorization).toBeUndefined();
+    expect(presetOptions(PRESETS.github, { GITHUB_TOKEN: "t" } as any).headers!.authorization).toBe("Bearer t");
+  });
+
+  it("risk overrides reach proposals", async () => {
+    const principal = await P.keyPair();
+    const svc = fromOpenAPI(spec, { baseUrl: base, trust: [principal.public], risk: (_m, _p, op) => (op.operationId === "createTodo" ? "high" : "low") });
+    const r = await new P.Client(P.local(svc)).intent("todo_api.createTodo", { title: "x" });
+    expect(r.kind === "PROPOSALS" && r.proposals[0].risk).toBe("high");
+  });
+});

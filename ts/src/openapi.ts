@@ -29,6 +29,35 @@ export interface OpenApiOptions {
   include?: (method: string, path: string, op: Json) => boolean;
   fetch?: typeof fetch;
   timeoutMs?: number;
+  /**
+   * Keep only these fields of an operation's response (keyed by operationId). Each entry is
+   * `path` or `outKey=path`; `a.b` descends, `list[].x` maps over an array (joined with ", ").
+   * Big upstream objects become compact Lens tables.
+   */
+  project?: Record<string, string[]>;
+}
+
+function pluck(v: any, path: string): unknown {
+  const [head, ...rest] = path.split(".");
+  if (head.endsWith("[]")) {
+    const arr = v?.[head.slice(0, -2)];
+    if (!Array.isArray(arr)) return null;
+    const vals = arr.map((x) => (rest.length ? pluck(x, rest.join(".")) : x)).filter((x) => x !== null && x !== undefined);
+    return vals.join(", ");
+  }
+  const next = v?.[head];
+  return rest.length ? pluck(next, rest.join(".")) : next ?? null;
+}
+
+export function projectFields(data: unknown, fields: string[]): unknown {
+  const one = (o: any) =>
+    Object.fromEntries(fields.map((f) => {
+      const [k, p] = f.includes("=") ? f.split("=") : [f.includes("[]") ? f.split("[]")[0].split(".").pop()! : f.split(".").pop()!, f];
+      return [k, pluck(o, p)];
+    }));
+  if (Array.isArray(data)) return data.map(one);
+  if (data && typeof data === "object" && Array.isArray((data as any).items)) return { ...(("total_count" in (data as any)) ? { total: (data as any).total_count } : {}), items: (data as any).items.map(one) };
+  return data && typeof data === "object" ? one(data) : data;
 }
 
 const WRITE: Record<string, Effect["op"]> = { post: "create", put: "update", patch: "update", delete: "delete" };
@@ -57,12 +86,14 @@ function typeOf(spec: Json, schema: any, depth = 0): string {
   }
 }
 
+/** First sentence of a description, cut at a word boundary: a hint for the model, not docs. */
 const describe = (t: string, d?: string) => {
-  const text = (d ?? "").replace(/\s+/g, " ").trim().slice(0, 60);
+  let text = (d ?? "").replace(/\s+/g, " ").replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").trim().split(/(?<=\.)\s/)[0].replace(/\.$/, "");
+  if (text.length > 48) text = text.slice(0, 48).replace(/\s+\S*$/, "") + "…";
   return text ? `${t} — ${text}` : t;
 };
 
-interface Op { method: string; path: string; name: string; summary: string; pathParams: string[]; queryParams: string[]; bodyKeys: string[] | "whole" | null; params: ParamSchema }
+interface Op { id?: string; raw: Json; method: string; path: string; name: string; summary: string; pathParams: string[]; queryParams: string[]; bodyKeys: string[] | "whole" | null; params: ParamSchema }
 
 function operations(spec: Json, o: OpenApiOptions, prefix: string): Op[] {
   const out: Op[] = [];
@@ -102,7 +133,7 @@ function operations(spec: Json, o: OpenApiOptions, prefix: string): Op[] {
         }
       }
       const summary = (op.summary ?? op.description ?? `${method.toUpperCase()} ${path}`).replace(/\s+/g, " ").trim().slice(0, 90);
-      out.push({ method, path, name, summary, pathParams, queryParams, bodyKeys, params });
+      out.push({ id: op.operationId, raw: op, method, path, name, summary, pathParams, queryParams, bodyKeys, params });
     }
   }
   return out;
@@ -161,6 +192,7 @@ export function fromOpenAPI(spec: Json, o: OpenApiOptions = {}): Service {
     return data;
   };
 
+  const shape = (op: Op, data: unknown) => (op.id && o.project?.[op.id] ? projectFields(data, o.project[op.id]) : data);
   for (const op of operations(spec, o, prefix)) {
     const params = Object.keys(op.params).length ? op.params : undefined;
     if (op.method === "get") {
@@ -169,11 +201,11 @@ export function fromOpenAPI(spec: Json, o: OpenApiOptions = {}): Service {
         params,
         run: async ({ params: p }) => {
           const { url } = build(op, p);
-          return call("get", url, undefined);
+          return shape(op, await call("get", url, undefined));
         },
       });
     } else {
-      const risk = o.risk?.(op.method, op.path, op) ?? (op.method === "delete" ? "medium" : "low");
+      const risk = o.risk?.(op.method, op.path, op.raw) ?? (op.method === "delete" ? "medium" : "low");
       svc.intent(op.name, {
         summary: op.summary,
         params,
@@ -185,7 +217,7 @@ export function fromOpenAPI(spec: Json, o: OpenApiOptions = {}): Service {
             summary: `${op.method.toUpperCase()} ${shown}`,
             effects: [{ op: WRITE[op.method] ?? "other", target: `${url.host}${url.pathname}`, detail: body !== undefined ? `body ${JSON.stringify(body).slice(0, 160)}` : `${op.method.toUpperCase()} request` }],
             risk,
-            apply: () => call(op.method, url, body),
+            apply: async () => shape(op, await call(op.method, url, body)),
           };
         },
       });
