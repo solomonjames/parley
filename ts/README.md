@@ -201,8 +201,10 @@ Read the [full specification](https://github.com/solomonjames/parley/blob/main/S
 
 ## Quickstart
 
-**Try it in 10 seconds** (no clone): `npx parley-protocol demo` runs the narrated session
-above, with two services, a human's policy, consent and undo, over real sockets.
+
+<!-- #region quickstart -->
+**Try it in 10 seconds** (no clone): `npx parley-protocol demo` runs a narrated session
+with two services, a human's policy, consent and undo, over real sockets.
 [Or try it in your browser →](https://solomonjames.github.io/parley/playground)
 
 ```sh
@@ -274,9 +276,12 @@ parley approve <pc1.code>                               # review and sign a one-
 parley examples                                          # serve the example calendar + shop locally
 parley do parley://127.0.0.1:7447 calendar.reschedule event=Ana   # interactive: intent → pick → commit
 ```
+<!-- #endregion quickstart -->
 
 ## Wrap any REST API in one command
 
+
+<!-- #region openapi -->
 You don't have to wait for services to adopt Parley. Point `parley openapi` at an OpenAPI
 spec: GET endpoints become `ASK`s, and writes become `INTENT`s whose proposal shows the
 exact HTTP request. The upstream call happens only on `COMMIT`, under your grant and with
@@ -317,9 +322,12 @@ Claude Code:
 parley openapi ./openapi.json --header "Authorization: Bearer $API_TOKEN" --port 7447 &
 claude mcp add my-api -- npx parley-protocol mcp parley://127.0.0.1:7447
 ```
+<!-- #endregion openapi -->
 
 ## Use it from Claude Code today
 
+
+<!-- #region claude-code -->
 The bridge exposes any Parley services as an MCP server, so every MCP client (Claude
 Code, Claude Desktop, Cursor and others) can use them now. Tool results are Lens.
 
@@ -346,6 +354,7 @@ can't reach: another OS user, another machine, or a phone. Set `PARLEY_PRINCIPAL
 to that location and approve there, and the agent's machine never holds it. Also pair
 `--per` with `--spend`: a per-action cap alone can be dodged by splitting a purchase,
 and `--spend` bounds the total.
+<!-- #endregion claude-code -->
 
 ## How it compares
 

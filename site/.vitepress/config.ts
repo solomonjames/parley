@@ -28,6 +28,7 @@ export default defineConfig({
   themeConfig: {
     logo: { light: "/brand/mark.svg", dark: "/brand/mark.svg", alt: "Parley" },
     nav: [
+      { text: "Why Parley", link: "/why" },
       { text: "Guide", link: "/guide/quickstart", activeMatch: "/guide/" },
       { text: "Playground", link: "/playground" },
       { text: "Spec", link: "/reference/spec", activeMatch: "/reference/" },
@@ -35,6 +36,7 @@ export default defineConfig({
     sidebar: {
       "/guide/": sidebar(),
       "/reference/": sidebar(),
+      "/why": sidebar(),
     },
     socialLinks: [{ icon: "github", link: repo }],
     editLink: { pattern: `${repo}/edit/main/site/:path`, text: "Edit this page on GitHub" },
@@ -75,6 +77,8 @@ const PAGES: Record<string, string> = {
   "bench/RESULTS.md": "/reference/benchmark",
   "docs/claude-code-session.md": "/reference/claude-session",
   "python/README.md": "/guide/python",
+  "docs/why.md": "/why",
+  "deploy/demo/README.md": "/guide/hosted-demo",
   "README.md": "/",
 };
 
@@ -82,10 +86,10 @@ const PAGES: Record<string, string> = {
 function repoLink(href: string): string {
   if (/^([a-z]+:|\/|#)/i.test(href)) return href;
   const [path, hash] = href.split("#");
-  if (!/\.md$|^(\.\.\/)*(ts|python|examples|bench|conformance|docs|site)\b|\.(ts|py|json|svg|txt)$/.test(path)) return href;
+  if (!/\.md$|^(\.\.\/)*(ts|python|examples|bench|conformance|docs|site|deploy)\b|\.(ts|py|json|svg|txt)$/.test(path)) return href;
   // Normalize against the repo root: included files live at the root, in docs/, python/ or bench/.
   const clean = path.replace(/^(\.\.\/)+/, "").replace(/^\.\//, "");
-  const candidates = [clean, `docs/${clean}`, `python/${clean}`, `bench/${clean}`];
+  const candidates = [clean, `docs/${clean}`, `python/${clean}`, `bench/${clean}`, `deploy/demo/${clean}`];
   const page = candidates.map((c) => PAGES[c]).find(Boolean);
   // VitePress's link renderer adds the base to internal links after this runs.
   if (page) return page + (hash ? `#${hash}` : "");
@@ -101,9 +105,11 @@ function sidebar() {
     {
       text: "Start",
       items: [
+        { text: "Why Parley", link: "/why" },
         { text: "Quickstart", link: "/guide/quickstart" },
         { text: "Playground", link: "/playground" },
         { text: "Use it from Claude Code", link: "/guide/claude-code" },
+        { text: "Hosted demo", link: "/guide/hosted-demo" },
       ],
     },
     {
@@ -119,6 +125,7 @@ function sidebar() {
       text: "Build",
       items: [
         { text: "Build a service", link: "/guide/build-a-service" },
+        { text: "Wrap any REST API", link: "/guide/openapi" },
         { text: "Python", link: "/guide/python" },
         { text: "Security model", link: "/guide/security" },
       ],
