@@ -1,32 +1,25 @@
 # Parley vs REST-style MCP — token benchmark
 
-Tokenizer: o200k_base (gpt-tokenizer). Claude's tokenizer differs, but ratios are what matter here. Same data on both sides.
+Tokenizer: o200k_base (gpt-tokenizer). Claude's tokenizer differs; the ratios are what matter. Both sides serve the same data. Ids are seeded, so runs are reproducible.
 
-Tool definitions in context every turn: **REST MCP 644 tokens** (9 tools) vs **Parley 640 tokens** (4 generic tools + service briefs).
+**Total input** counts what you pay for: each model turn re-reads the tool definitions plus the conversation so far (calls and results), and there's one final turn to answer.
 
-## REST results pretty-printed (`JSON.stringify(x, null, 2)`, the common MCP default)
+Tool definitions in context every turn: REST MCP **729** tokens (10 tools) vs Parley **640** (4 generic tools + service briefs).
 
-| Task | Calls (REST → Parley) | Result tokens read (REST → Parley) | Total input tokens over the task (REST → Parley) | Saved |
-|---|---|---|---|---|
-| Reschedule a meeting into a free slot | 3 → 1 | 393 → 131 (67% less) | 3494 → 1456 | **58%** |
-| Find vegan meals < 700 kcal and order four | 2 → 2 | 725 → 308 (58% less) | 3289 → 2567 | **22%** |
-| Read the full 60-item menu | 1 → 1 | 3019 → 1095 (64% less) | 4318 → 2401 | **44%** |
-| Skim the menu (800-token budget) | 1 → 1 | 3019 → 558 (82% less) | 4318 → 1864 | **57%** |
-| **All tasks** | | | 15419 → 8288 | **46%** |
+| Task | Calls (REST → Parley) | Total input: REST minified JSON | REST pretty JSON | Parley | Saved vs minified | vs pretty |
+|---|---|---|---|---|---|---|
+| Reschedule a meeting (REST: search → free slots → update) | 3 → 1 | 3,679 | 3,834 | 1,454 | **60%** | 62% |
+| Reschedule a meeting (REST: one outcome-level endpoint) | 1 → 1 | 1,545 | 1,566 | 1,454 | **6%** | 7% |
+| Find vegan meals < 700 kcal and order four | 2 → 2 | 3,080 | 3,542 | 2,567 | **17%** | 28% |
+| Read the full 60-item menu | 1 → 1 | 3,388 | 4,488 | 2,401 | **29%** | 47% |
+| Skim the menu (first 30 items: REST limit=30, Parley budget=800) | 1 → 1 | 2,403 | 2,963 | 1,867 | **22%** | 37% |
+| **All tasks** (CRUD reschedule row) | | 12,550 | 14,827 | 8,289 | **34%** | 44% |
 
-## REST results minified JSON (best case for REST)
-
-| Task | Calls (REST → Parley) | Result tokens read (REST → Parley) | Total input tokens over the task (REST → Parley) | Saved |
-|---|---|---|---|---|
-| Reschedule a meeting into a free slot | 3 → 1 | 316 → 131 (59% less) | 3339 → 1456 | **56%** |
-| Find vegan meals < 700 kcal and order four | 2 → 2 | 464 → 309 (33% less) | 2827 → 2568 | **9%** |
-| Read the full 60-item menu | 1 → 1 | 1919 → 1095 (43% less) | 3218 → 2401 | **25%** |
-| Skim the menu (800-token budget) | 1 → 1 | 1919 → 558 (71% less) | 3218 → 1864 | **42%** |
-| **All tasks** | | | 12602 → 8289 | **34%** |
+Result tokens read, per task (minified REST → Parley): 316 → 129 · 62 → 129 · 462 → 308 · 1919 → 1095 · 932 → 558
 
 ## What the model actually reads
 
-### Reschedule, REST (3 calls)
+### Reschedule, REST CRUD (3 calls, pretty JSON)
 
 ```json
 [
@@ -72,10 +65,10 @@ Tool definitions in context every turn: **REST MCP 644 tokens** (9 tools) vs **P
 }
 ```
 
-### Reschedule, Parley (1 call)
+### Reschedule, Parley (1 call, auto-commit)
 
 ```
-✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_cDvV2ji-) · undo until 2026-09-25T02:06:47Z
+✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_Fgb6EIWi) · undo until 2026-09-25T02:18:54Z
   ~ update event/e2.start: 2026-09-25T14:00:00Z → 2026-09-27T09:30:00Z
   > send ana.ruiz@acme.co — updated invite
   result:
@@ -83,4 +76,4 @@ Tool definitions in context every turn: **REST MCP 644 tokens** (9 tools) vs **P
     start: 2026-09-27T09:30:00Z
 ```
 
-Tokens are only half the story. The REST agent moved the meeting blind: no preview of the invite that goes to Ana, no undo, and a key that can do anything. The Parley agent acted only because the principal's grant allows low-risk, undoable changes. It got back exactly what happened and a 24h undo window, and anything costlier or irreversible would have stopped for review.
+What the tokens don't show: the Parley agent acted only because the principal's grant allows low-risk, undoable changes, and it got back exactly what happened with a 24h undo window. In the auto-commit case the *service* chose the slot (the first free one), just like the REST outcome endpoint. An agent that wants to choose omits `auto` and gets three proposals instead.

@@ -54,13 +54,13 @@ if (q.kind === "CLARIFY") {
   show(r.lens);
 
   if (r.kind === "RECEIPT") {
-    say(human, `"wait, not that day." The agent undoes it:`);
+    say(human, `(simulated) "wait, not that day." The agent undoes it:`);
     wire("UNDO", r.receipt.id);
     show((await cal.undo(r.receipt.id)).lens);
   }
 }
 
-say(agentName, "browses a 60-item menu with a 250-token budget; the rest waits behind a handle:");
+say(agentName, "searches the 60-item menu for vegan meals with a 250-token budget; the rest waits behind a handle:");
 wire("ASK", `shop.search {tag:"vegan"} budget=250`);
 const menu = (await sh.ask("shop.search", { tag: "vegan" }, { budget: 250 })) as Answer & { lens: string };
 show(menu.lens);
@@ -82,7 +82,7 @@ if (order.kind === "PROPOSALS") {
   show(denied.lens);
 
   if (denied.kind === "ERROR" && denied.consent) {
-    say(human, `gets a push notification, reads the exact effects and taps Approve. That signs a one-time consent bound to hash ${pick.hash.slice(0, 10)}…:`);
+    say(human, `(simulated) gets a push notification, reads the exact effects and taps Approve. That signs a one-time consent for this proposal only (hash ${pick.hash.slice(0, 10)}…):`);
     const consent = await consentGrant({ principal: james, agent: agent.public, consent: denied.consent });
     wire("COMMIT", `${pick.id} + consent grant`);
     const events: string[] = [];

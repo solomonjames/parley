@@ -9,7 +9,7 @@ Parley demo — agents propose, humans set policy, everything is undoable
    └ 53 tokens
 
 2. 🤖 agent discovers what the calendar can do:
-   → HELLO parley://127.0.0.1:61913
+   → HELLO parley://127.0.0.1:63111
    │ # Example Calendar (calendar.example)
    │ Your work calendar. Read your agenda, find free time, and book, move or cancel meetings. Invitees are notified automatically.
    │ ask calendar.agenda(day?: date, query?: string — words in title or attendee) — Events, optionally for one day and/or matching a query
@@ -29,20 +29,20 @@ Parley demo — agents propose, humans set policy, everything is undoable
 
 4. 🤖 agent picks option 1. The service knows it's low-risk and undoable, and the policy allows that, so it commits in the same round trip:
    → INTENT calendar.reschedule {"event":"e2","day":"2026-09-27"} auto
-   │ ✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_n_PS97fF) · undo until 2026-09-25T02:06:47Z
+   │ ✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_JXmu6mtf) · undo until 2026-09-25T02:17:34Z
    │   ~ update event/e2.start: 2026-09-25T14:00:00Z → 2026-09-27T09:30:00Z
    │   > send ana.ruiz@acme.co — updated invite
    │   result:
    │     event: e2
    │     start: 2026-09-27T09:30:00Z
-   └ 123 tokens
+   └ 121 tokens
 
-5. 👤 human "wait, not that day." The agent undoes it:
-   → UNDO r_n_PS97fF
-   │ ↶ undid r_n_PS97fF: Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_AtTqZhl-)
-   └ 39 tokens
+5. 👤 human (simulated) "wait, not that day." The agent undoes it:
+   → UNDO r_JXmu6mtf
+   │ ↶ undid r_JXmu6mtf: Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_KRSogfx_)
+   └ 37 tokens
 
-6. 🤖 agent browses a 60-item menu with a 250-token budget; the rest waits behind a handle:
+6. 🤖 agent searches the 60-item menu for vegan meals with a 250-token budget; the rest waits behind a handle:
    → ASK shop.search {tag:"vegan"} budget=250
    │ items[7]{sku,name,usd,cal,protein}:
    │   m005,Falafel Plate,16.47,632,46
@@ -52,9 +52,9 @@ Parley demo — agents propose, humans set policy, everything is undoable
    │   m020,Black Bean Burrito,19.02,667,31
    │   m025,Falafel Plate (family),16.87,552,36
    │   m027,Tofu Pad Thai (family),19.61,658,20
-   │ … 8 more at data — EXPAND h_20F74mmpWC1f (~155 tokens)
+   │ … 8 more at data — EXPAND h_KN9Sbg8526kK (~155 tokens)
    └ 143 tokens
-   → EXPAND h_20F74mmpWC1f budget=200
+   → EXPAND h_KN9Sbg8526kK budget=200
    │ items[8]{sku,name,usd,cal,protein}:
    │   m030,Lentil Curry (family),14.72,437,41
    │   m035,Chickpea Shawarma (family),12.57,702,46
@@ -68,15 +68,15 @@ Parley demo — agents propose, humans set policy, everything is undoable
 
 7. 🤖 agent orders 4 meals. It's over the 40.00 USD per-action limit, so no auto-commit, just proposals:
    → INTENT shop.order {items:[m005×2, m007×2], deliver:"2026-09-26"} auto
-   │ 2 proposals — undo: 2h · expires: 2026-09-24T02:17Z:
-   │ [p_eTQyeAZo] 4 meals for 2026-09-26 — 71.36 USD
+   │ 2 proposals — undo: 2h · expires: 2026-09-24T02:28Z:
+   │ [p_GCFpf4dl] 4 meals for 2026-09-26 — 71.36 USD
    │   + create order/o1001 — 2× Falafel Plate, 2× Tofu Pad Thai
    │   $ charge card ••4242 — 71.36 USD
    │   cost: 71.36 USD · risk: low
    │   data:
    │     subtotal: 71.36
    │     delivery: 0
-   │ [p_E9ZFFieG] 4 meals for 2026-09-26 (express, by noon) — 80.35 USD
+   │ [p_A4Dy2FmC] 4 meals for 2026-09-26 (express, by noon) — 80.35 USD
    │   + create order/o1002 — 2× Falafel Plate, 2× Tofu Pad Thai
    │   $ charge card ••4242 — 80.35 USD
    │   cost: 80.35 USD · risk: medium
@@ -84,28 +84,28 @@ Parley demo — agents propose, humans set policy, everything is undoable
    │     subtotal: 71.36
    │     delivery: 0
    │     express: 8.99
-   └ 186 tokens
+   └ 190 tokens
 
-8. 🤖 agent commits [p_eTQyeAZo]:
-   → COMMIT p_eTQyeAZo #BRktWKEWgv…
+8. 🤖 agent commits [p_GCFpf4dl]:
+   → COMMIT p_GCFpf4dl #xrxtyq9EJ1…
    │ ✗ consent_required: cost exceeds the per-commit limit of 40.00 USD; your principal must approve this exact proposal
-   │   consent: principal must approve BRktWKEWgveGKuY68WVM68-Wm6iococ1j8uoBXiGtM4 (4 meals for 2026-09-26 — 71.36 USD)
-   └ 60 tokens
+   │   consent: principal must approve xrxtyq9EJ1_14IazcNkSqiuB_VNpnjKFA3veZ_Z7G18 (4 meals for 2026-09-26 — 71.36 USD)
+   └ 63 tokens
 
-9. 👤 human gets a push notification, reads the exact effects and taps Approve. That signs a one-time consent bound to hash BRktWKEWgv…:
-   → COMMIT p_eTQyeAZo + consent grant
+9. 👤 human (simulated) gets a push notification, reads the exact effects and taps Approve. That signs a one-time consent for this proposal only (hash xrxtyq9EJ1…):
+   → COMMIT p_GCFpf4dl + consent grant
    │ … authorizing card (30%)
    │ … order placed with kitchen (90%)
-   │ ✓ 4 meals for 2026-09-26 — 71.36 USD (receipt r_d_dWy0vH) · undo until 2026-09-24T04:06:47Z
+   │ ✓ 4 meals for 2026-09-26 — 71.36 USD (receipt r_SnSl2Gc2) · undo until 2026-09-24T04:17:34Z
    │   result:
    │     order: o1001
    │     status: placed
-   └ 70 tokens
+   └ 69 tokens
 
 10. 🤖 agent hands a sub-agent a narrower, read-only slice of its authority, offline and without asking the service:
 
 11. 🤖 sub-agent tries to place an order anyway:
-   → COMMIT p_P-XGC1hi
+   → COMMIT p_LtYjt47-
    │ ✗ forbidden: does not allow COMMIT
    │   need: [{"verbs":["HELLO","ASK","INTENT"]}]
    └ 31 tokens

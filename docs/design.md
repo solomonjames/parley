@@ -31,9 +31,10 @@ window. The agent, or a human, commits to exactly that, and the proposal hash gu
 it. A side benefit is that services can offer *alternatives* ("standard or express") that
 CRUD can't express.
 
-**The cost we measured.** The preview adds a round trip. In our first benchmark run that
-made Parley lose to plain REST on a two-step order task, −48% in total input tokens
-(every turn re-reads the context). The fix is below.
+**The cost we measured.** The preview adds a round trip. In an early, unpublished run of
+the benchmark (before the changes below), that made Parley use about 1.5× the total
+input tokens of plain REST on a two-step order task, because every turn re-reads the
+context. The fix is below.
 
 ## Policy-gated auto-commit
 
@@ -48,8 +49,11 @@ slow.
 **Why.** It puts the review/speed trade-off where it belongs, in the **principal's
 signed policy**. "My agent may move meetings and spend up to $40 on anything it can undo"
 becomes one round trip. Anything outside that falls back to proposals automatically.
-Irreversible actions never auto-commit. This took the reschedule task from 3 calls to 1
-and flipped the benchmark to a 34–46% saving.
+Irreversible actions never auto-commit. Against CRUD-style REST, this took the reschedule
+task from 3 calls to 1. Across the whole benchmark Parley now saves 34% of total input
+tokens against minified JSON (44% against pretty JSON). Against a REST server with an
+equivalent outcome-level endpoint the saving is only 6%, and the benchmark shows that row
+too.
 
 Auto frames are replay-safe: the proof is bound to `auto:{capability}:{frame id}`, and
 services dedupe `(key, id)` for 600 s. An independent implementer found that attack
@@ -70,7 +74,7 @@ buys three things:
 1. **Compactness where it counts.** Uniform lists become tables that name their keys once
    (`items[60]{sku,name,usd,cal,protein}:`), strings are unquoted when safe, and effects
    use one-character operators (`~ update`, `+ create`, `$ charge`). The 60-item menu
-   costs 1,095 tokens in Lens against 3,019 in pretty-printed JSON and 1,919 minified.
+   costs 1,095 tokens in Lens against 1,919 minified and 3,019 pretty-printed.
 2. **Consistency across services.** A model that has read one Parley receipt can read all of them.
 3. **Budgets that mean something.** A budget constrains the rendering the model actually reads, not a JSON byte count.
 
@@ -86,17 +90,20 @@ computes identically (§8), not by any model's tokenizer.
 **Alternatives.** Bytes/4 (the classic rule of thumb, and our first draft). A real
 tokenizer (model-specific, large, and different in every language).
 
-**Measurement.** Compared to o200k BPE counts on Lens and JSON samples:
+**Measurement.** Compared to o200k BPE counts over 25 texts (conformance Lens outputs,
+benchmark payloads, and the menu as JSON and as Lens), reproducible with
+`node bench/estimator.ts`:
 
 | Estimator | mean ratio to real tokens | range |
 |---|---|---|
-| `ceil(bytes / 4)` | 0.71 | 0.37 – 1.50 |
-| `ceil(bytes / 3)` | 0.92 | 0.47 – 2.00 |
-| **`[A-Za-z]+\|[0-9]{1,3}\|\n {2,}\|[^ \t\n\r\f\vA-Za-z0-9]`** | **1.00** | **0.77 – 1.56** |
+| `ceil(bytes / 4)` | 0.61 | 0.37 – 1.00 |
+| `ceil(bytes / 3)` | 0.82 | 0.47 – 1.35 |
+| **`[A-Za-z]+\|[0-9]{1,3}\|\n {2,}\|[^ \t\n\r\f\vA-Za-z0-9]`** | **1.00** | **0.77 – 1.55** |
 
-Bytes/4 undercounted structured text by up to 2.7×, so "800-token" replies came back
-at 1,095 real tokens. The regex tracks real tokenizers on the text Parley actually sends,
-and it's four alternatives long.
+Bytes/4 undercounts structured text by up to 2.7×. It estimates the full menu's Lens at
+623 tokens when it's really 1,095, so an "800-token" budget let the whole thing through.
+The regex tracks real tokenizers on the text Parley actually sends, and it's four
+alternatives long.
 
 **Elision safety.** Budget fitting may drop whole trailing proposals or capabilities, and
 may elide anything inside `data` and `result`. It may **never** alter a proposal's
@@ -135,8 +142,12 @@ possession signed by the holder key.
 - **Agent-shaped caveats:** `per` and `spend` (money), `risk` (a ceiling on what the
   agent may do without asking), and `only` (consent bound to one proposal hash).
 - **Consent is just a grant.** A human approval is a root grant with
-  `[{only: hash}, {exp: …}]`. No new machinery, and it's cryptographically bound to the
-  exact effects the human saw.
+  `[{svc: [service]}, {verbs: ["COMMIT"]}, {can: [capability]}, {only: hash}, {exp: …}]`.
+  No new machinery, and it's cryptographically bound to the exact effects the human
+  saw. The first draft had only `only` and `exp`. Because `only` constrains `COMMIT` alone,
+  that grant would have authorized every other verb, including `UNDO` of unrelated
+  orders, until it expired. The Python implementer found it by exploiting it, and
+  the scoping caveats are now required by the spec.
 - **Soft vs hard failures.** If only `per`, `spend` or `risk` fail, the service replies
   `consent_required` rather than `forbidden`. That's the protocol-level "ask the human."
 
@@ -175,20 +186,29 @@ spec.
   aren't in CI yet.
 - *Performance is irrelevant here.* Verifying a grant is microseconds, while a model turn
   is seconds. There's no hot path for Rust to win.
-- *Two languages keep the spec honest.* The Python implementation was written from
-  `SPEC.md` and the vectors, not from the TS code. The ambiguities it found (Lens float
-  formatting, rounding, fail-open caveats, elision of effects, replayable auto frames)
-  were fixed in the spec, not papered over in code.
+- *Two languages keep the spec honest.* The Python implementation started from `SPEC.md`
+  and the vectors (its first cut passed 63 of 67 vectors before its author had read any
+  TS). It was then aligned with the TS source where the spec was silent. That
+  cross-reading surfaced real gaps and bugs: Lens float formatting, rounding, fail-open
+  caveats, elision of effects, replayable auto frames, and a consent grant that was
+  far broader than one proposal. Each fix went into the spec and vectors, not just the
+  code.
 
 ## Non-goals and known limits (v1)
+
+- **The principal key must be isolated from the agent.** Everything rests on it. If an
+  agent can read the principal key, it can sign its own consent. The CLI supports
+  keeping it elsewhere (`PARLEY_PRINCIPAL_HOME`), and approval requires an interactive
+  terminal, but a local shell-capable agent on the same account defeats both.
 
 - **Services are trusted to describe their own effects.** Parley makes the description
   explicit and binds commits to it, but a malicious service can still lie. Signed
   receipts (below) make lies attributable.
 - **No revocation.** Keep grants short-lived with `exp`.
-- **Pair `per` with `spend`.** A per-commit cap alone can be dodged by splitting a
-  purchase. In our [real Claude session](claude-code-session.md) the model pointed
-  this out itself and declined to do it. The cumulative `spend` caveat closes the gap.
+- **`per` alone doesn't bound a purchase.** A per-commit cap can be dodged by splitting.
+  In our [real Claude session](claude-code-session.md) the model pointed this out itself
+  and declined to do it. `spend` bounds *total* exposure, but splitting within it is
+  still possible, so size `spend` as the most you're willing to lose.
 - **`spend` accounting is per service.** A grant used at two services has two
   independent totals. Scope money grants with `svc`.
 - **Lens is English-centric.** Its keywords (`cost`, `undo`, `risk`) are fixed tokens,

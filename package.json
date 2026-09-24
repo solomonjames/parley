@@ -7,7 +7,7 @@
     "build": "npm run build -w parley-protocol",
     "test": "npm test -w parley-protocol",
     "demo": "npm run build && node examples/demo.ts",
-    "bench": "npm run build && node bench/run.ts"
+    "bench": "npm run build && node bench/run.ts && node bench/estimator.ts"
   },
   "engines": { "node": ">=22.18" }
 }

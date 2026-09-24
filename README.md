@@ -6,7 +6,8 @@
 
 **An open protocol for AI agents acting on behalf of people.**<br>
 Agents state an intent. Services reply with proposals whose effects are listed up front.
-The human's policy decides what can go ahead without asking. Commits can be undone.
+The human's signed policy decides what can go ahead without asking, and reversible
+commits come with an undo window.
 
 [Spec](SPEC.md) · [Demo](#see-it) · [Benchmark](#numbers) · [Quickstart](#quickstart) · [Use it from Claude today](#use-it-from-claude-code-today) · [Design](docs/design.md)
 
@@ -19,10 +20,11 @@ The human's policy decides what can go ahead without asking. Commits can be undo
 ---
 
 The web gave humans pages and gave code APIs. Agents got neither. Today an agent does real
-work by stitching CRUD endpoints together. It reads bulky JSON that it pays for by the
-token, and it changes things blind: it can't preview the change, can't undo it, and holds
-a credential that can do anything its owner can do. MCP made those endpoints easy to plug
-in, but it kept the endpoint shape.
+work by stitching CRUD endpoints together. It reads JSON that it pays for by the token,
+and it changes things with no standard way to see the effects first, undo them, or prove
+that the human allowed *this* action at *this* price. Its credentials are scoped to
+resources, not to amounts, risk or a specific action. MCP made those endpoints easy to
+plug in, but it kept the endpoint shape.
 
 **Parley goes back to the protocol layer.** It's an application protocol with its own
 verbs, reply kinds, errors, authorization model and a canonical text format for models.
@@ -44,17 +46,18 @@ agent ──UNDO r1 (the human changed their mind)──────────
 | Agents want **outcomes**, but APIs expose **CRUD** | `INTENT` carries the goal, and the service answers with concrete **proposals** |
 | Agents make mistakes | Nothing happens until `COMMIT`. Every proposal lists its **effects, cost, risk and undo window**, and its hash binds the commit to exactly what was shown |
 | "Are you sure?" isn't a protocol primitive | **Policy-gated auto-commit**: the human's grant decides what can skip review. Low-risk, undoable changes take one round trip; costly, risky or irreversible ones stop for review |
-| Undo is an afterthought | Receipts carry an undo window, and `UNDO` is a verb |
+| Undo is an afterthought | Reversible proposals declare an undo window, receipts carry it, and `UNDO` is a verb (effects that can't be reversed, like a sent email, are marked as such) |
 | Context windows are expensive | Every request carries a **token budget**. Replies fit inside it and leave `EXPAND` handles for the rest |
 | Models read text; APIs return JSON for code | **Lens** is a canonical, deterministic, compact text rendering of every message, defined in the spec and byte-identical across implementations |
-| API keys are all-or-nothing | **Grants** are Ed25519 capability chains with spend caps, expiry, service and capability scopes, and risk ceilings. They're verified offline and can be delegated to sub-agents but only narrowed |
-| A human approval is a checkbox in someone's UI | **Consent** is a one-shot signature over the exact proposal hash |
+| Credentials are scoped to resources, not to money, risk or a specific action | **Grants** are Ed25519 capability chains with spend caps, expiry, service and capability scopes, and risk ceilings. They're verified offline and can be delegated to sub-agents but only narrowed |
+| A human approval is a checkbox in someone's UI | **Consent** is a one-shot signed grant for `COMMIT` of one exact proposal hash, and nothing else |
 | Errors say *what* failed | Errors say **how to fix it**, with machine-applicable patches. Ambiguity is a first-class reply (`CLARIFY`), not an error |
 
 ## See it
 
 `npm run demo` runs this over real TCP sockets. Everything under `│` is exactly what the
-model reads ([full transcript](docs/demo-transcript.txt)).
+model reads. The human's taps are simulated in code. Excerpt from
+[this run's full transcript](docs/demo-transcript.txt):
 
 ```
 1. 👤 human delegates to the agent with a policy, not a password:
@@ -68,37 +71,43 @@ model reads ([full transcript](docs/demo-transcript.txt)).
    │   2. Design review · 2026-09-25T16:00:00Z · ana.ruiz@acme.co, lee@acme.co
    │   3. Pipeline sync with Ana · 2026-09-26T11:00:00Z · ana.li@acme.co
 
-4. 🤖 agent picks option 1. The service knows it's low-risk and undoable, and the policy allows that, so it commits in the same round trip:
-   │ ✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_F3BQMFcO) · undo until 2026-09-25T02:06:32Z
+4. 🤖 agent picks option 1. It's low-risk and undoable, and the policy allows that, so it commits in the same round trip:
+   → INTENT calendar.reschedule {"event":"e2","day":"2026-09-27"} auto
+   │ ✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_JXmu6mtf) · undo until 2026-09-25T02:17:34Z
    │   ~ update event/e2.start: 2026-09-25T14:00:00Z → 2026-09-27T09:30:00Z
    │   > send ana.ruiz@acme.co — updated invite
 
-5. 👤 human "wait, not that day." The agent undoes it:
-   │ ↶ undid r_F3BQMFcO: Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r__7benwvw)
+5. 👤 human (simulated) "wait, not that day." The agent undoes it:
+   → UNDO r_JXmu6mtf
+   │ ↶ undid r_JXmu6mtf: Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_KRSogfx_)
 
-6. 🤖 agent browses a 60-item menu with a 250-token budget; the rest waits behind a handle:
+6. 🤖 agent searches the 60-item menu for vegan meals with a 250-token budget; the rest waits behind a handle:
+   → ASK shop.search {tag:"vegan"} budget=250
    │ items[7]{sku,name,usd,cal,protein}:
    │   m005,Falafel Plate,16.47,632,46
    │   m007,Tofu Pad Thai,19.21,738,30
    │   …
-   │ … 8 more at data — EXPAND h_20F74mmpWC1f (~155 tokens)
+   │ … 8 more at data — EXPAND h_KN9Sbg8526kK (~155 tokens)
 
 7. 🤖 agent orders 4 meals. It's over the 40.00 USD per-action limit, so no auto-commit, just proposals:
-   │ 2 proposals — undo: 2h · expires: 2026-09-24T02:17Z:
-   │ [p_pQeWkT0J] 4 meals for 2026-09-26 — 71.36 USD
+   → INTENT shop.order {items:[m005×2, m007×2], deliver:"2026-09-26"} auto
+   │ 2 proposals — undo: 2h · expires: 2026-09-24T02:28Z:
+   │ [p_GCFpf4dl] 4 meals for 2026-09-26 — 71.36 USD
    │   + create order/o1001 — 2× Falafel Plate, 2× Tofu Pad Thai
    │   $ charge card ••4242 — 71.36 USD
    │   cost: 71.36 USD · risk: low
-   │ [p_6eVDOzhz] 4 meals for 2026-09-26 (express, by noon) — 80.35 USD
+   │   …
+   │ [p_A4Dy2FmC] 4 meals for 2026-09-26 (express, by noon) — 80.35 USD
    │   …
 
-8. 🤖 agent commits [p_pQeWkT0J]:
+8. 🤖 agent commits [p_GCFpf4dl]:
    │ ✗ consent_required: cost exceeds the per-commit limit of 40.00 USD; your principal must approve this exact proposal
 
-9. 👤 human gets a push notification, reads the exact effects and taps Approve. That signs a one-time consent bound to the hash:
+9. 👤 human (simulated) gets a push notification, reads the exact effects and taps Approve, which signs a one-time consent for this proposal only:
+   → COMMIT p_GCFpf4dl + consent grant
    │ … authorizing card (30%)
    │ … order placed with kitchen (90%)
-   │ ✓ 4 meals for 2026-09-26 — 71.36 USD (receipt r_rQ_LoZx9) · undo until 2026-09-24T04:06:32Z
+   │ ✓ 4 meals for 2026-09-26 — 71.36 USD (receipt r_SnSl2Gc2) · undo until 2026-09-24T04:17:34Z
 
 11. 🤖 sub-agent (holding a narrowed, read-only grant) tries to place an order anyway:
    │ ✗ forbidden: does not allow COMMIT
@@ -108,27 +117,27 @@ model reads ([full transcript](docs/demo-transcript.txt)).
 ## Numbers
 
 The same tasks over the same data: a conventional REST-style MCP server (one tool per
-endpoint, JSON results) versus Parley through its MCP bridge. Token counts are real BPE
-counts (o200k). "Total input" is what you actually pay for: each turn re-reads the tool
-definitions and the conversation so far. [Method and raw output →](bench/RESULTS.md)
+endpoint, JSON results) versus Parley through its MCP bridge. Counts are real BPE tokens
+(o200k), and runs are deterministic. **Total input** is what you actually pay for: every
+turn re-reads the tool definitions and the conversation so far.
+[Method, raw payloads and caveats →](bench/RESULTS.md)
 
-| Task | Calls | Total input tokens | Saved |
-|---|---|---|---|
-| Reschedule a meeting into a free slot | 3 → **1** | 3,494 → 1,456 | **58%** |
-| Find vegan meals under 700 kcal and order four | 2 → 2 | 3,289 → 2,567 | **22%** |
-| Read the full 60-item menu | 1 → 1 | 4,318 → 2,401 | **44%** |
-| Skim the menu (800-token budget) | 1 → 1 | 4,318 → 1,864 | **57%** |
-| **All tasks, vs pretty JSON** (the usual MCP default) | | 15,419 → 8,288 | **46%** |
-| **All tasks, vs minified JSON** (REST's best case) | | 12,598 → 8,286 | **34%** |
+| Task | Calls (REST → Parley) | Total input: REST minified JSON | REST pretty JSON | Parley | Saved vs minified | vs pretty |
+|---|---|---|---|---|---|---|
+| Reschedule a meeting (REST: search → free slots → update) | 3 → 1 | 3,679 | 3,834 | 1,454 | **60%** | 62% |
+| Reschedule a meeting (REST: one outcome-level endpoint) | 1 → 1 | 1,545 | 1,566 | 1,454 | **6%** | 7% |
+| Find vegan meals < 700 kcal and order four | 2 → 2 | 3,080 | 3,542 | 2,567 | **17%** | 28% |
+| Read the full 60-item menu | 1 → 1 | 3,388 | 4,488 | 2,401 | **29%** | 47% |
+| Skim the menu (first 30 items: REST limit=30, Parley budget=800) | 1 → 1 | 2,403 | 2,963 | 1,867 | **22%** | 37% |
+| **All tasks** (CRUD reschedule row) | | 12,550 | 14,827 | 8,289 | **34%** | 44% |
 
-And the Parley agent did more with those tokens. It saw every effect before anything
-happened, acted only within its principal's signed policy, and got an undo window back.
-The REST agent had none of that.
+How to read this honestly:
+- **Minified JSON is the fair baseline.** Against it Parley saves 34% overall. Pretty-printed JSON is shown because many servers return it.
+- **Most of the reschedule win is API design, not protocol.** Against a REST server that also offers an outcome-level `reschedule_event` endpoint, Parley saves only 6%. The protocol's contribution there is what comes back: effects, policy and undo, which the REST endpoint doesn't give.
+- **Lens is where the protocol itself saves tokens.** The same 60 menu items cost 1,095 tokens in Lens against 1,919 in minified JSON.
+- **Tokens aren't the point of the preview step.** An early version of this benchmark (before auto-commit) had Parley *losing* on multi-step tasks, because proposals cost a round trip. That led to [policy-gated auto-commit](SPEC.md#431-policy-gated-auto-commit) and to hoisting shared proposal attributes in Lens.
 
-> Honesty note: our first benchmark run showed Parley *losing* on multi-step tasks,
-> because the preview step costs a round trip. That result led to policy-gated
-> auto-commit and to Lens hoisting shared proposal attributes. Both changes are in
-> [SPEC §4.3.1](SPEC.md#431-policy-gated-auto-commit) and §9. Run `npm run bench` yourself.
+`npm run bench` reproduces all of it.
 
 ## Tested with a real model
 
@@ -142,7 +151,8 @@ hit `consent_required` at $53.95, and stopped. Unprompted, it told the user:
 
 > *"I didn't try to get around the limit. Splitting it into two orders would have dodged the check. Even the cheapest four meals come to $53.95, so no single order fits under $40."*
 
-Then it handed the human the exact `parley approve` command.
+Then it handed the human the approval command. (It ran without shell access. See
+[key placement](#keep-the-principal-key-away-from-the-agent) for why that matters.)
 [Full unedited transcript →](docs/claude-code-session.md) (9 turns, $0.19)
 
 ## The protocol in one screen
@@ -187,6 +197,9 @@ Read the [full specification](SPEC.md). It's short on purpose.
 npm install parley-protocol        # TypeScript/JavaScript: Node ≥ 20, Bun, Deno (web-standard APIs only)
 pip install parley-protocol        # Python ≥ 3.10
 ```
+
+> Packages aren't published yet. Until they are: `git clone`, then `npm install && npm run build && npm link -w parley-protocol`
+> for the `parley` CLI, and `pip install ./python`.
 
 ### Build a service
 
@@ -235,7 +248,7 @@ console.log(r.lens); // ← give this to your model
 if (r.kind === "PROPOSALS") await cal.commit(r.proposals[0]);
 ```
 
-Python has the same API in snake_case. See [python/README.md](python/README.md).
+Python has the same concepts in snake_case (`issue_grant`, `consent_grant`, `lens`, `connect`), with decorators and a `Plan` dataclass instead of chaining. The CLI and MCP bridge are TypeScript-only. See [python/README.md](python/README.md).
 
 ### Delegate like you mean it
 
@@ -245,7 +258,7 @@ parley grant --svc cal.example.com --svc shop.example \
              --risk low --per 40USD --spend 100USD --exp 8h   # signed policy for your agent
 parley inspect <token>                                   # read any grant chain
 parley delegate <token> --to <sub-agent key> --verbs ASK,INTENT   # narrower authority for a sub-agent
-parley approve <hash>                                    # one-time consent for one exact proposal
+parley approve <pc1.code>                               # review and sign a one-time consent for one proposal
 parley do parley://cal.example.com calendar.reschedule event=Ana   # interactive: intent → pick → commit
 ```
 
@@ -253,29 +266,44 @@ parley do parley://cal.example.com calendar.reschedule event=Ana   # interactive
 
 The bridge exposes any Parley services as an MCP server, so every MCP client (Claude
 Code, Claude Desktop, Cursor and others) can use them now. Tool results are Lens.
-When a commit needs consent, the bridge asks **the human** through MCP elicitation.
-The model can never approve its own request.
 
 ```sh
-parley init && parley grant --risk low --per 25USD --exp 24h
+parley init
+parley grant --svc cal.example.com --svc shop.example --risk low --per 25USD --spend 100USD --exp 24h
 claude mcp add parley -- npx parley-protocol mcp parley://127.0.0.1:7447 https://shop.example/parley
 ```
 
 Try it against the examples: `npm run build && PARLEY_TRUST=$(parley whoami | awk '/principal/{print $2}') node examples/serve.ts`.
+
+When a commit needs consent, the bridge never approves on the model's behalf. If the
+client supports MCP elicitation, it asks **the human** in the client's UI. Otherwise it
+tells the model to ask the human to run `parley approve <code>`, which shows the exact
+action and requires an interactive confirmation.
+
+### Keep the principal key away from the agent
+
+A grant is only as strong as the principal key's isolation. `parley init` puts the
+principal key and the agent key in `~/.parley` for convenience. **If your agent has
+shell or file access (Claude Code does), it could read the principal key and sign its
+own consent.** For anything that matters, keep the principal key somewhere the agent
+can't reach: another OS user, another machine, or a phone. Set `PARLEY_PRINCIPAL_HOME`
+to that location and approve there, and the agent's machine never holds it. Also pair
+`--per` with `--spend`: a per-action cap alone can be dodged by splitting a purchase,
+and `--spend` bounds the total.
 
 ## How it compares
 
 | | REST / HTTP APIs | MCP | **Parley** |
 |---|---|---|---|
 | Unit of interaction | resource (CRUD) | tool call (usually wraps an endpoint) | **intent → proposal → commit** |
-| Preview before side effects | ✗ | ✗ | **✓** effects, cost, risk and undo on every proposal |
-| Undo | per-API, if at all | ✗ | **✓** a protocol verb with windows |
-| Delegation | API keys / OAuth scopes | OAuth (transport-level) | **✓** attenuable capability chains: spend caps, risk ceilings, sub-agent delegation, offline verification |
-| Human approval | app-specific | elicitation (unbound) | **✓** consent signed over the exact proposal hash |
-| Context budget | ✗ | ✗ | **✓** every reply fits the budget, with `EXPAND` for the rest |
-| Model-native format | ✗ JSON | ✗ text/JSON, up to each server | **✓** Lens: canonical, compact, deterministic |
-| Errors | status codes | free text | **✓** machine-applicable fixes, plus `CLARIFY` for ambiguity |
-| Idempotency and replay safety | per-API | ✗ | **✓** commits are idempotent; proofs are time-bound and key-bound |
+| Preview before side effects | rare, per-API (dry-run flags) | tool annotations (`destructiveHint` …) as hints only; no effect preview | **✓** effects, cost, risk and undo window on every proposal, bound by hash |
+| Undo | per-API, if at all | not in the protocol | **✓** a protocol verb with declared windows |
+| Delegation | API keys, OAuth scopes (resource-scoped) | OAuth at the transport | **✓** attenuable capability chains: spend caps, risk ceilings, sub-agent delegation, offline verification |
+| Human approval | app-specific | elicitation (not bound to an action) | **✓** a consent grant signed over the exact proposal hash |
+| Context budget | pagination / field selection, per-API | list pagination only | **✓** every reply fits the requested budget, with `EXPAND` for the rest |
+| Model-facing format | JSON | text or structured content, per server; no canonical form | **✓** Lens: canonical, compact, byte-identical across implementations |
+| Errors | status codes, RFC 9457 problem details | JSON-RPC codes, `isError` plus free text | **✓** machine-applicable fixes, and `CLARIFY` for ambiguity |
+| Idempotency and replay | per-API (`Idempotency-Key`) | `idempotentHint` (hint only) | **✓** commits are idempotent; proofs are time-bound and key-bound |
 
 Parley doesn't replace MCP's role as an integration layer. The bridge runs *on* MCP.
 What Parley replaces is the thing MCP servers wrap: an API designed for code rather than
@@ -288,14 +316,16 @@ for delegated agents.
 | [`SPEC.md`](SPEC.md) | The protocol, v1 draft |
 | [`conformance/`](conformance) | Language-neutral test vectors: canonical JSON, keys, hashes, proofs, grants, Lens and token estimates |
 | [`ts/`](ts) | Reference implementation (TypeScript, **zero runtime dependencies**, WebCrypto): service, client, transports, CLI, MCP bridge |
-| [`python/`](python) | Independent second implementation (Python), built against the spec and passing the same vectors |
+| [`python/`](python) | Second implementation (Python), started from the spec and vectors, passing all of them, and interoperating with TS |
 | [`examples/`](examples) | Calendar and meal-shop services, plus the narrated demo |
 | [`bench/`](bench) | The token benchmark above |
 | [`docs/design.md`](docs/design.md) | Why it's built this way: every major decision and the alternatives we rejected |
 
-Two independent implementations interoperate in both directions over TCP and HTTP. The
-Python suite also renders every TypeScript reply through its own Lens renderer and
-checks the output is byte-identical.
+The two implementations interoperate in both directions over TCP and HTTP. The Python
+suite also renders every TypeScript reply and event through its own Lens renderer and
+checks the output is byte-identical. Writing the second implementation surfaced real
+bugs in the first, including a consent-scoping hole and fail-open caveats, and every
+fix went into the spec and vectors. See [design notes](docs/design.md).
 
 ```sh
 npm install && npm test          # TypeScript: unit, conformance, transports, MCP bridge, TS→Python interop
@@ -325,8 +355,8 @@ exactly may this do, for whom, up to how much, until when, and can it hand a nar
 slice to a helper?" That's a capability chain (in the lineage of macaroons and Biscuit)
 with caveats a service can check offline. [More →](docs/design.md#grants)
 
-**Is it production-ready?** It's a v1 draft with two conformant implementations and a
-test suite. The protocol surface is deliberately small. Before 1.0: revocation lists,
+**Is it production-ready?** Not yet. It's a v1 draft with two conformant implementations,
+~200 tests and one security review. The reference services keep state in memory. The protocol surface is deliberately small. Before 1.0: revocation lists,
 multi-party atomic commits (`HOLD` across services), and a QUIC transport. See the
 [roadmap](docs/design.md#roadmap). Feedback on the spec is the most valuable
 contribution right now.
