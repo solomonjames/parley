@@ -70,7 +70,7 @@
     "@anthropic-ai/sdk": "^0.128.0",
     "@types/node": "^22",
     "typescript": "^5.9",
-    "vitest": "^3"
+    "vitest": "^5.0.1"
   },
   "author": "James Solomon",
   "homepage": "https://solomonjames.github.io/parley/",
