@@ -57,7 +57,9 @@ sender's frames on that connection.
 - A **reply** frame has a `"kind"` and a `"re"` naming the request `id` it answers.
 
 Receivers MUST ignore unknown fields. A receiver that gets an unknown `verb` MUST reply
-with `ERROR` `bad_frame`. A frame MUST NOT exceed 1 MiB when serialized.
+with `ERROR` `bad_frame`. A frame MUST NOT exceed 1 MiB when serialized. Receivers MUST
+reject larger frames (`bad_frame`, or HTTP 413 on the bridge) without buffering them
+whole, and a stream connection MUST stay usable after the rejection.
 
 ### 2.2 Replies
 
@@ -184,10 +186,14 @@ The principal's grant, not the agent, decides what may skip the preview. Low-ris
 reversible actions inside the policy take one round trip. Anything costlier, riskier or
 irreversible still stops for review.
 
+The authorization and the spend reservation (§6.3) for an auto-commit happen atomically,
+exactly as for `COMMIT`.
+
 For an auto `INTENT`, the proof target is `auto:{capability}:{frame id}` (§6.5), and the
 frame id MUST be unique per agent key for at least 600 seconds, not merely per connection.
 Clients SHOULD use at least 64 random bits. A service
-MUST remember `(proof.key, frame id)` for auto requests for at least 600 seconds and
+MUST remember `(proof.key, frame id)` for auto requests until at least 900 seconds after
+the later of its arrival and `proof.ts` (outliving every proof that could carry it), and
 answer a repeat with the original reply (`"replay": true` on receipts), never committing twice.
 
 ### 4.4 `COMMIT` — make it happen
@@ -199,12 +205,21 @@ answer a repeat with the original reply (`"replay": true` on receipts), never co
 
 `hash` MUST equal the proposal's `hash` (§5.1). A service MUST reject a mismatch with
 `conflict`, which guarantees that the agent commits exactly what it (and possibly a
-human) saw.
+human) saw. The `conflict` error MUST NOT reveal the correct hash.
+
+**Who may commit.** A proposal may be committed only by the holder key whose verified
+proof was on the `INTENT` that produced it, and only with a grant from the same
+principal, if that `INTENT` was authorized by one. A proposal from an `INTENT` that carried
+no grants and proof can be viewed but never committed. This stops one party from
+preparing a proposal, with effects of its choosing, for someone else's agent to commit.
 
 Reply: `RECEIPT`, optionally preceded by `EVENT`s.
 
 **Idempotency:** `COMMIT` of an already-committed proposal MUST return the original
-receipt with `"replay": true` and MUST NOT execute again.
+receipt with `"replay": true` and MUST NOT execute again. A replay is authorized like a
+commit, by the same requester and principal, except that `per`, `spend` and `risk` are
+not re-evaluated, because the commit already happened. So a retry after a lost response
+never turns into a consent prompt, and other principals can't read the receipt.
 
 ### 4.5 `UNDO` — reverse a receipt within its window
 
@@ -224,7 +239,9 @@ receipt with `"replay": true`.
 ```
 
 Reply: `ANSWER` containing the next slice of the elided value, possibly with further
-`more` handles. Handles SHOULD live at least 10 minutes.
+`more` handles. Handles SHOULD live at least 10 minutes. A handle created for a request
+that carried a verified proof MUST be expandable only with a proof from the same holder
+key (proof target: the handle).
 
 ---
 
@@ -336,9 +353,10 @@ not a list) and `{"risk": "extreme"}` both fail.
 `per`, `spend`, `risk` and `only` are ignored (satisfied) for verbs other than `COMMIT`.
 For `UNDO`, `can` is checked against the capability of the receipt being undone.
 
-When a commit succeeds, the service MUST add its cost to the spend total of every block
-in the authorizing grant that carries a `spend` caveat. Totals are not reduced on
-`UNDO` in v1 (conservative).
+The service MUST **reserve** the cost against every `spend` block of the authorizing
+grant atomically with the check, before executing, so that concurrent or overlapping
+commits can't together exceed a cap. A reservation is released if execution fails. Totals
+are not reduced on `UNDO` in v1 (conservative).
 
 ### 6.4 Verification
 
@@ -381,7 +399,11 @@ service MUST reply `ERROR` `consent_required` with:
 ```
 
 The agent shows this to the principal, for example in a CLI prompt, a push
-notification or a page. If the principal approves, they sign a **consent grant**:
+notification or a page. The consent request comes from the service, so the agent's
+tooling MUST check that its `proposal`, `hash`, `service` and `capability` match the
+proposal the agent actually received from that service. It MUST show the human that
+proposal's effects, cost, risk and undo, not the service-written summary alone. A
+mismatched consent request is never shown for signing. If the principal approves, they sign a **consent grant**:
 a root grant with `iss` = principal, `sub` = agent key and exactly these caveats:
 
 ```json
@@ -589,4 +611,7 @@ them in the proposal. For an undo receipt, the first line is
 - Proposal hashes bind consent to exact effects; a service cannot swap in different effects after approval.
 - `ASK` and `INTENT` are side-effect free, so agents can explore freely and safely.
 - Replay protection: proofs are time-bound and `COMMIT` is idempotent.
+- `auto` proofs bind the frame id, not the params (floats have no canonical form), so an
+  on-path attacker who can rewrite frames could change auto params. Run Parley over TLS
+  (`parleys://`, `https://`) or another authenticated transport.
 - v1 does not define revocation. Keep grant lifetimes short (`exp`). Revocation lists are planned for v2.

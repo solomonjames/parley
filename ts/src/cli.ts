@@ -4,7 +4,8 @@ import { parseArgs } from "node:util";
 import { createInterface } from "node:readline/promises";
 import { consentGrant, decodeConsentCode, delegateGrant, inspectGrant, issueGrant, type Caveat } from "./grants.js";
 import { agentKey, home, loadGrants, principalKey, saveGrant } from "./home.js";
-import { effectLine, fmtTime, lean } from "./lens.js";
+import { effectLine, fmtTime, lean, lens } from "./lens.js";
+import { proposalHash } from "./crypto.js";
 import { runMcpBridge } from "./mcp.js";
 import { connect } from "./node.js";
 import type { Client } from "./client.js";
@@ -129,7 +130,14 @@ async function main() {
       const consent = decodeConsentCode(rest[0] ?? die("usage: parley approve <pc1.… code>"));
       if (consent.principal !== p.public) die(`this consent is for principal ${consent.principal}, not ${p.public}`);
       const agent = o.to ?? (await agentKey())?.public ?? die("no agent key");
-      console.log(`${consent.summary}\n  service: ${consent.service} · ${consent.capability} · proposal ${consent.proposal}\n  expires: ${fmtTime(consent.expires)} · hash ${consent.hash}`);
+      if (consent.detail) {
+        const d = consent.detail;
+        if (d.id !== consent.proposal || d.hash !== consent.hash || d.capability !== consent.capability || (await proposalHash(d)) !== consent.hash) die("✗ this consent code's proposal doesn't match its hash: refusing");
+        console.log(`at ${consent.service}:\n` + lens({ parley: 1, id: "-", re: "-", kind: "PROPOSALS", proposals: [d] }).split("\n").slice(1).join("\n"));
+      } else {
+        console.log(`⚠ no proposal details in this code; only the service's summary:\n${consent.summary}\n  service: ${consent.service} · ${consent.capability} · proposal ${consent.proposal}`);
+      }
+      console.log(`  approval expires: ${fmtTime(consent.expires)}`);
       if (!process.stdin.isTTY) die("✗ approval needs an interactive terminal: a human has to confirm");
       const rl = createInterface({ input: process.stdin, output: process.stdout });
       const ok = /^y/i.test(await rl.question("\napprove this exact action? [y/N] › "));
@@ -189,10 +197,12 @@ async function interactive(c: Client, capability: string, params: Record<string,
       if (res.kind === "ERROR" && res.code === "consent_required") {
         console.log(res.lens);
         const p = await principalKey();
-        if (p && p.public === res.consent!.principal) {
+        const k = res.consent!;
+        if (k.proposal !== chosen.id || k.hash !== chosen.hash || k.capability !== chosen.capability || k.service !== (await c.audience())) die("✗ the service's consent request doesn't match the proposal shown; not signing");
+        if (p && p.public === k.principal) {
           console.log(`\n  ${chosen.summary}\n${chosen.effects.map((e) => "    " + effectLine(e)).join("\n")}`);
           if (/^y/i.test(await rl.question("\n[principal] approve this exact proposal? [y/N] › "))) {
-            const token = await consentGrant({ principal: p, agent: (await agentKey())!.public, consent: res.consent! });
+            const token = await consentGrant({ principal: p, agent: (await agentKey())!.public, consent: { ...k, expires: Math.min(k.expires, chosen.expires) } });
             res = await c.commit(chosen, { grants: [token], onEvent: (e) => console.log(e.lens) });
           }
         }

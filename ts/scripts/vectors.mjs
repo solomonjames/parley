@@ -52,6 +52,8 @@ const consent = await P.issueGrant({ principal, to: agent.public, iat: now, nonc
 const badRisk = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n5", caveats: [{ risk: "extreme" }] });
 const badSvc = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n6", caveats: [{ svc: "shop.example.evil" }] });
 const badExp = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n7", caveats: [{ exp: "tomorrow" }] });
+const protoRisk = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n8", caveats: [{ risk: "toString" }] });
+const nullCav = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n9", caveats: [null] });
 const unknownCav = await P.issueGrant({ principal, to: agent.public, iat: now, nonce: "n3", caveats: [{ region: "eu" }] });
 const forged = await P.issueGrant({ principal: mallory, to: agent.public, iat: now, nonce: "n4", caveats: [] });
 const rootBlocks = P.decodeGrant(root);
@@ -82,6 +84,8 @@ const cases = [
   ["malformed risk level fails closed", badRisk, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(1) }, { ok: false, code: "forbidden" }],
   ["svc must be a list (no substring match)", badSvc, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "forbidden" }],
   ["exp must be an integer", badExp, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "forbidden" }],
+  ["risk level must be an own key (no prototype names)", protoRisk, agent.public, { service: "shop.example", verb: "COMMIT", capability: "shop.order", now, proposal: commit(1, "high") }, { ok: false, code: "forbidden" }],
+  ["null caveat fails closed", nullCav, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "forbidden" }],
   ["unknown caveat fails closed", unknownCav, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "forbidden" }],
   ["forged issuer", forged, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],
   ["tampered caveats", tampered, agent.public, { service: "shop.example", verb: "ASK", capability: "shop.search", now }, { ok: false, code: "unauthorized" }],

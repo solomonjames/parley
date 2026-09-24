@@ -5,6 +5,8 @@ import { lens } from "./lens.js";
 import type { Service } from "./service.js";
 import type { Answer, Brief, Clarify, ErrorReply, Event, FinalReply, Proposal, Proposals, ReceiptReply, Request, Verb } from "./types.js";
 
+const MAX_REPLY = 16 << 20;
+
 export interface Transport {
   request(frame: Request, onEvent?: (e: Event) => void): Promise<FinalReply>;
   close(): void;
@@ -132,6 +134,7 @@ export function http(endpoint: string, init: { headers?: Record<string, string> 
       for (;;) {
         const { value, done } = await reader.read();
         if (value) buf += value;
+        if (buf.length > MAX_REPLY) throw new Error("reply exceeds 16 MiB without a newline");
         let nl: number;
         while ((nl = buf.indexOf("\n")) >= 0) {
           const line = buf.slice(0, nl).trim();
@@ -163,6 +166,12 @@ export function lines(write: (line: string) => void, close: () => void): Transpo
     },
     feed(chunk) {
       buf += chunk;
+      if (buf.length > MAX_REPLY && buf.indexOf("\n") < 0) {
+        buf = "";
+        this.fail(new Error("reply exceeds 16 MiB without a newline"));
+        close();
+        return;
+      }
       let nl: number;
       while ((nl = buf.indexOf("\n")) >= 0) {
         const line = buf.slice(0, nl).trim();

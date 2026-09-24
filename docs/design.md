@@ -194,6 +194,28 @@ spec.
   far broader than one proposal. Each fix went into the spec and vectors, not just the
   code.
 
+## Security review
+
+After both implementations existed, the TypeScript reference got an adversarial audit.
+It confirmed 15 findings, and every one now has a regression test in
+`ts/test/security.test.ts` plus, where it's protocol-level, a SPEC change:
+
+- **High:** a malformed or aborted HTTP request crashed the bridge process. Concurrent
+  commits could exceed a `spend` cap, because spend was counted after execution; it's
+  now reserved atomically (§6.3). A malicious service could get the MCP bridge to ask
+  the human to sign a consent for a *different* service's proposal behind a friendly
+  summary. Consent is now built only from the proposal the bridge showed, and it's
+  checked against the service's request (§6.6).
+- **Medium:** a proposal from an anonymous `INTENT` could be committed by someone else's
+  agent. Proposals are now bound to the requesting key (§4.4). A replayed `COMMIT` could
+  leak another principal's receipt, and the `conflict` error leaked the hash. A retried
+  commit could be refused by the spend it had itself used up. Levenshtein "did you mean"
+  suggestions were a CPU DoS on huge names.
+- **Low:** unbound `EXPAND` handles, a dedupe window shorter than proof validity,
+  `risk: "toString"` failing open, a mismatched `re` on concurrent failing `UNDO`s,
+  grant selection that ignored the proposal's principal, an unenforced 1 MiB frame
+  limit, unbounded state maps, and `checkGrant` throwing on a `null` caveat.
+
 ## Non-goals and known limits (v1)
 
 - **The principal key must be isolated from the agent.** Everything rests on it. If an

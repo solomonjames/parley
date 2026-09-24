@@ -6,7 +6,7 @@
 import { b64u, fromUtf8, unb64u, utf8 } from "./b64.js";
 import { canonical } from "./canonical.js";
 import { keyPair, sha256, sign, verify, type KeyPair } from "./crypto.js";
-import type { ConsentRequest, Money, Proof, Risk, Verb } from "./types.js";
+import type { ConsentRequest, Money, Proof, Proposal, Risk, Verb } from "./types.js";
 import { fmtMoney } from "./lens.js";
 
 export type Limit = { max: number; currency: string };
@@ -79,12 +79,17 @@ export function consentGrant(opts: { principal: KeyPair | string; agent: string;
   });
 }
 
-/** A consent request packed for a human to approve out of band (`parley approve <code>`). */
-export function consentCode(c: ConsentRequest): string {
-  return "pc1." + b64u(utf8(canonical(c)));
+/**
+ * A consent request packed for a human to approve out of band (`parley approve <code>`).
+ * `detail` carries the full proposal (as the agent saw it) so the approver can show its
+ * effects and re-check the hash, instead of trusting a service-written summary.
+ */
+export function consentCode(c: ConsentRequest, detail?: Omit<Proposal, "data">): string {
+  const { data: _d, ...d } = (detail ?? {}) as Proposal;
+  return "pc1." + b64u(utf8(canonical(detail ? { ...c, detail: d } : c)));
 }
 
-export function decodeConsentCode(code: string): ConsentRequest {
+export function decodeConsentCode(code: string): ConsentRequest & { detail?: Proposal } {
   if (!code.startsWith("pc1.")) throw new Error("not a consent code (expected pc1.…)");
   const c = JSON.parse(fromUtf8(unb64u(code.slice(4))));
   for (const k of ["proposal", "hash", "service", "capability", "principal", "summary"]) if (typeof c[k] !== "string") throw new Error(`consent code missing ${k}`);
@@ -121,7 +126,7 @@ export interface CheckContext {
 }
 
 export type GrantCheck =
-  | { ok: true; id: string; iss: string; holder: string; spendBlocks: string[] }
+  | { ok: true; id: string; iss: string; holder: string; spendBlocks: { id: string; max: number }[] }
   | { ok: false; code: "unauthorized" | "forbidden" | "consent_required"; reason: string; iss?: string; need?: Caveat[] };
 
 const CONSENTABLE = new Set(["per", "spend", "risk"]);
@@ -135,7 +140,7 @@ function malformed(k: string, v: unknown): string | null {
     k === "svc" || k === "verbs" || k === "can" ? strList(v)
     : k === "exp" || k === "nbf" ? Number.isSafeInteger(v)
     : k === "per" || k === "spend" ? isLimit(v)
-    : k === "risk" ? typeof v === "string" && v in RISK_ORDER
+    : k === "risk" ? typeof v === "string" && Object.hasOwn(RISK_ORDER, v)
     : k === "only" ? typeof v === "string"
     : true; // unknown keys are handled by the switch
   return ok ? null : `malformed caveat ${JSON.stringify({ [k]: v })}`;
@@ -147,6 +152,14 @@ export function matchCapability(pattern: string, cap: string): boolean {
 
 /** Verify a grant token against a request (SPEC §6.4). Never throws. */
 export async function checkGrant(token: string, ctx: CheckContext): Promise<GrantCheck> {
+  try {
+    return await checkGrantUnsafe(token, ctx);
+  } catch (e) {
+    return { ok: false, code: "forbidden", reason: `malformed grant content: ${(e as Error).message}` };
+  }
+}
+
+async function checkGrantUnsafe(token: string, ctx: CheckContext): Promise<GrantCheck> {
   let blocks: Block[];
   try {
     blocks = decodeGrant(token);
@@ -172,11 +185,15 @@ export async function checkGrant(token: string, ctx: CheckContext): Promise<Gran
   const p = ctx.verb === "COMMIT" ? ctx.proposal : undefined;
   const hard: { c: Caveat; why: string }[] = [];
   const soft: { c: Caveat; why: string }[] = [];
-  const spendBlocks: string[] = [];
+  const spendBlocks: { id: string; max: number }[] = [];
 
   for (const b of blocks) {
     const id = await sha256(b.s);
     for (const c of b.p.caveats as Record<string, any>[]) {
+      if (!c || typeof c !== "object" || Array.isArray(c)) {
+        hard.push({ c: c as unknown as Caveat, why: `malformed caveat ${JSON.stringify(c)}` });
+        continue;
+      }
       const keys = Object.keys(c);
       const k = keys.length === 1 ? keys[0] : "";
       const v = c[k];
@@ -195,7 +212,7 @@ export async function checkGrant(token: string, ctx: CheckContext): Promise<Gran
             const total = (ctx.spent?.(id) ?? 0) + p.cost.amount;
             if (p.cost.currency !== v.currency || total > v.max) why = `would exceed the spend limit of ${fmtMoney({ amount: v.max, currency: v.currency })}`;
           }
-          if (ctx.verb === "COMMIT") spendBlocks.push(id);
+          if (ctx.verb === "COMMIT" && !why) spendBlocks.push({ id, max: v.max });
           break;
         case "risk": if (p && RISK_ORDER[p.risk] > RISK_ORDER[v as Risk]) why = `risk ${p.risk} exceeds ceiling ${v}`; break;
         case "only": if (ctx.verb === "COMMIT" && p?.hash !== v) why = "grant is bound to a different proposal"; break;

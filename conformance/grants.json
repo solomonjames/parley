@@ -483,6 +483,50 @@
       }
     },
     {
+      "name": "risk level must be an own key (no prototype names)",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJyaXNrIjoidG9TdHJpbmcifV0sImlhdCI6MTc5MDAwMDAwMCwiaXNzIjoiZWQyNTUxOTppb2pqM1hRSjhaWDlVdHN0UExwZGNzcG5DYjhkbEJJYjgzU0lBYlFQYjF3Iiwibm9uY2UiOiJuOCIsInN1YiI6ImVkMjU1MTk6Z1RsM0RxaDlGMTlXbzFSbXcweC16TXVOaXBHMDdqZWlYZllQVzRfSnM1USJ9LCJzIjoiU013MDFST2VfM0N0dTlHenRZOEF0NFIzV3l4amtEX0N0Vk13TmVYNl9laE8wNWpmT1NIaHJnZ05BTk1kdFlwYnFyMXlYdXpYazdzSUQ3ODZ4Znp4Q3cifV0",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "COMMIT",
+        "capability": "shop.order",
+        "now": 1790000000,
+        "proposal": {
+          "hash": "HASH_X",
+          "cost": {
+            "amount": 1,
+            "currency": "USD"
+          },
+          "risk": "high"
+        }
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
+      "name": "null caveat fails closed",
+      "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbbnVsbF0sImlhdCI6MTc5MDAwMDAwMCwiaXNzIjoiZWQyNTUxOTppb2pqM1hRSjhaWDlVdHN0UExwZGNzcG5DYjhkbEJJYjgzU0lBYlFQYjF3Iiwibm9uY2UiOiJuOSIsInN1YiI6ImVkMjU1MTk6Z1RsM0RxaDlGMTlXbzFSbXcweC16TXVOaXBHMDdqZWlYZllQVzRfSnM1USJ9LCJzIjoiNjRuTGtCYTgyY1ZFZ25ETlNJdGZsUjlfakJaaUVNN056WjZPcG00aHNMMmRBZGd4aFEyYXgtSVlkU3hVRXUydXNVU3B5NDgydWZ5c1M1YUVNdTgxRFEifV0",
+      "trusted": [
+        "ed25519:iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w"
+      ],
+      "proofKey": "ed25519:gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
+      "ctx": {
+        "service": "shop.example",
+        "verb": "ASK",
+        "capability": "shop.search",
+        "now": 1790000000
+      },
+      "expect": {
+        "ok": false,
+        "code": "forbidden"
+      }
+    },
+    {
       "name": "unknown caveat fails closed",
       "token": "pg1.W3sicCI6eyJjYXZlYXRzIjpbeyJyZWdpb24iOiJldSJ9XSwiaWF0IjoxNzkwMDAwMDAwLCJpc3MiOiJlZDI1NTE5OmlvamozWFFKOFpYOVV0c3RQTHBkY3NwbkNiOGRsQkliODNTSUFiUVBiMXciLCJub25jZSI6Im4zIiwic3ViIjoiZWQyNTUxOTpnVGwzRHFoOUYxOVdvMVJtdzB4LXpNdU5pcEcwN2plaVhmWVBXNF9KczVRIn0sInMiOiJ0Q3V5N0JQRjNCRVBnUE05cjNPWEpjM1Q1Rmthczc4cWlvVDljdWI5b0plbjVDUk5GMzlDdFppcU1GazRXR1pTLVV2X05pakpLSUkxS1FHbHdNcENBZyJ9XQ",
       "trusted": [

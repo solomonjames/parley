@@ -65,7 +65,8 @@ export const clarify = (question: string, options: { label: string; params: Reco
 interface AskDef { summary: string; params?: ParamSchema; run(ctx: Ctx): unknown }
 interface IntentDef { summary: string; params?: ParamSchema; risk?: Risk; plan(ctx: Ctx): Plan | Plan[] | Clarification | Promise<Plan | Plan[] | Clarification> }
 
-interface StoredProposal { proposal: Proposal; plan: Plan; principal: string | null }
+/** `requester`: the holder key whose verified proof asked for this proposal; only it may commit it. */
+interface StoredProposal { proposal: Proposal; plan: Plan; principal: string | null; requester: string | null; created: number }
 interface StoredReceipt { receipt: Receipt; plan: Plan; result: unknown; principal: string; undone?: Promise<ReceiptReply | ErrorReply> }
 
 const DAY = 86400;
@@ -127,7 +128,7 @@ export class Service {
         case "INTENT": return await this.onIntent(req, budget, emit);
         case "COMMIT": return await this.onCommit(req, budget, emit);
         case "UNDO": return await this.onUndo(req, budget, emit);
-        case "EXPAND": return this.onExpand(req, budget);
+        case "EXPAND": return await this.onExpand(req, budget);
         default:
           throw new ParleyError("bad_frame", `unknown verb ${JSON.stringify((req as any).verb)}`, { fix: [fix("use one of HELLO, ASK, INTENT, COMMIT, UNDO, EXPAND")] });
       }
@@ -156,7 +157,10 @@ export class Service {
   }
 
   /** Verify grants on a request; returns the authorizing check, or throws the right error. */
-  private async authorize(req: Request, verb: Verb, capability: string, target: string, proposal?: Proposal): Promise<(GrantCheck & { ok: true }) | null> {
+  private async authorize(
+    req: Request, verb: Verb, capability: string, target: string, proposal?: Proposal,
+    o: { principal?: string | null; replay?: boolean } = {},
+  ): Promise<(GrantCheck & { ok: true }) | null> {
     const grants = req.grants ?? [];
     const required = verb === "COMMIT" || verb === "UNDO" || this.opts.requireGrants;
     if (!grants.length) {
@@ -172,7 +176,14 @@ export class Service {
         proposal: proposal && { hash: proposal.hash, cost: proposal.cost, risk: proposal.risk },
         spent: (id) => this.spent.get(id) ?? 0,
       });
+      // Only grants from the principal the proposal was made for can act on it.
+      if (o.principal && c.iss && c.iss !== o.principal) {
+        checks.push({ ok: false, code: "forbidden", reason: "grant is from a different principal than this proposal's", iss: c.iss });
+        continue;
+      }
       if (c.ok) return c;
+      // Replaying an already-executed commit must not be blocked by money/risk limits it already used up.
+      if (o.replay && c.code === "consent_required") return { ok: true, id: "", iss: c.iss!, holder: req.proof!.key, spendBlocks: [] };
       checks.push(c);
     }
     // ASK/INTENT don't need a grant here, so a grant that doesn't apply just means "anonymous".
@@ -195,7 +206,7 @@ export class Service {
     validateParams(def.params, params);
     const auth = await this.authorize(req, "ASK", req.capability, req.capability);
     const data = await def.run({ params, principal: auth?.iss ?? null });
-    return fit({ parley: 1, id: randomId("s", 6), re: req.id, kind: "ANSWER", data: data ?? null }, budget, this.handles);
+    return fit({ parley: 1, id: randomId("s", 6), re: req.id, kind: "ANSWER", data: data ?? null }, budget, this.handles, verifiedKey(req));
   }
 
   /** Policy-gated auto-commit (SPEC §4.3.1): only if a grant authorizes it outright and it is undoable. */
@@ -230,7 +241,8 @@ export class Service {
     }
     const reply = this.planIntent(def, req, budget, emit, principal);
     if (autoKey) {
-      this.autoSeen.set(autoKey, { reply, exp: this.now() + 600 });
+      // outlive every proof that could carry this frame id: proofs are valid for ±300s around ts
+      this.autoSeen.set(autoKey, { reply, exp: Math.max(this.now(), req.proof!.ts) + 900 });
       if (this.autoSeen.size > 10_000) for (const [k, v] of this.autoSeen) if (v.exp <= this.now()) this.autoSeen.delete(k);
     }
     return reply;
@@ -258,7 +270,7 @@ export class Service {
         ...(plan.data !== undefined ? { data: plan.data } : {}),
       };
       const proposal = { ...p, hash: await proposalHash(p) } as Proposal;
-      this.proposals.set(proposal.id, { proposal, plan, principal });
+      this.proposals.set(proposal.id, { proposal, plan, principal, requester: verifiedKey(req), created: now });
       proposals.push(proposal);
     }
     this.sweep(now);
@@ -267,37 +279,66 @@ export class Service {
       const ok = await this.autoAuth(req, proposals[0]);
       if (ok && (!stored.principal || stored.principal === ok.iss)) {
         const out = await this.execute(stored, ok, req.id, emit);
-        return out.kind === "RECEIPT" ? fit({ ...out, auto: true }, budget, this.handles) : out;
+        return out.kind === "RECEIPT" ? fit({ ...out, auto: true }, budget, this.handles, verifiedKey(req)) : out;
       }
     }
-    return fit({ parley: 1, id: randomId("s", 6), re: req.id, kind: "PROPOSALS", proposals }, budget, this.handles);
+    return fit({ parley: 1, id: randomId("s", 6), re: req.id, kind: "PROPOSALS", proposals }, budget, this.handles, verifiedKey(req));
   }
 
+  private sweeps = 0;
+  /** Bound memory: forget expired uncommitted proposals, and receipts a day after their undo window. */
   private sweep(now: number) {
-    if (this.proposals.size < 5000) return;
+    if (++this.sweeps % 100 !== 0 && this.proposals.size < 5000) return;
     for (const [id, s] of this.proposals) if (s.proposal.expires < now - 3600 && !this.commits.has(id)) this.proposals.delete(id);
+    for (const [id, r] of this.receipts) {
+      if ((r.receipt.undo?.until ?? r.receipt.at) + DAY < now) {
+        this.receipts.delete(id);
+        this.commits.delete(r.receipt.proposal);
+        this.proposals.delete(r.receipt.proposal);
+      }
+    }
+    for (const [k, v] of this.autoSeen) if (v.exp <= now) this.autoSeen.delete(k);
   }
 
   private async onCommit(req: Request & { verb: "COMMIT" }, budget: number, emit: (e: Event) => void): Promise<FinalReply> {
     const stored = this.proposals.get(req.proposal);
     if (!stored) throw new ParleyError("not_found", `no proposal ${JSON.stringify(req.proposal)}`, { fix: [fix("send INTENT again to get fresh proposals")] });
-    const { proposal, plan } = stored;
-    if (req.hash !== proposal.hash) throw new ParleyError("conflict", "hash does not match the proposal; you would commit something other than what you saw", { fix: [fix(`use hash ${proposal.hash} after re-reading the proposal, or send INTENT again`)] });
-    const auth = (await this.authorize(req, "COMMIT", proposal.capability, proposal.hash, proposal))!;
+    const { proposal } = stored;
+    if (req.hash !== proposal.hash) throw new ParleyError("conflict", "hash does not match the proposal; you would commit something other than what you saw", { fix: [fix("re-read the proposal, or send INTENT again")] });
     const existing = this.commits.get(proposal.id);
     if (existing) {
+      // Idempotent replay (SPEC §4.4): same principal and requester only; limits already spent don't block it.
+      const auth = (await this.authorize(req, "COMMIT", proposal.capability, proposal.hash, proposal, { principal: stored.principal, replay: true }))!;
+      this.checkRequester(stored, auth);
       const prior = await existing;
+      if (prior.kind === "RECEIPT" && this.receipts.get(prior.receipt.id)?.principal !== auth.iss) throw new ParleyError("forbidden", "this proposal was committed by a different principal");
       return prior.kind === "RECEIPT" ? { ...prior, id: randomId("s", 6), re: req.id, replay: true } : { ...prior, id: randomId("s", 6), re: req.id };
     }
+    const auth = (await this.authorize(req, "COMMIT", proposal.capability, proposal.hash, proposal, { principal: stored.principal }))!;
+    this.checkRequester(stored, auth);
     if (this.now() >= proposal.expires) throw new ParleyError("expired", "this proposal has expired", { fix: [fix("send INTENT again to get a fresh proposal")] });
-    if (stored.principal && stored.principal !== auth.iss) throw new ParleyError("forbidden", "this proposal was made for a different principal");
     const out = await this.execute(stored, auth, req.id, emit);
-    return out.kind === "RECEIPT" ? fit(out, budget, this.handles) : out;
+    return out.kind === "RECEIPT" ? fit(out, budget, this.handles, auth.holder) : out;
+  }
+
+  /** Only the agent that asked for a proposal (with a verified proof) may commit it. */
+  private checkRequester(stored: StoredProposal, auth: GrantCheck & { ok: true }) {
+    if (!stored.requester) throw new ParleyError("forbidden", "this proposal came from an anonymous INTENT and can't be committed", { fix: [fix("send INTENT again with your grant, then commit that proposal")] });
+    if (stored.requester !== auth.holder) throw new ParleyError("forbidden", "only the agent that requested this proposal can commit it", { fix: [fix("send INTENT yourself, then commit your own proposal")] });
   }
 
   private execute(stored: StoredProposal, auth: GrantCheck & { ok: true }, reqId: string, emit: (e: Event) => void): Promise<ReceiptReply | ErrorReply> {
     const { proposal, plan } = stored;
     const req = { id: reqId };
+    // Reserve spend synchronously, before any await, so concurrent commits can't overshoot a cap.
+    const cost = proposal.cost?.amount ?? 0;
+    const over = auth.spendBlocks.find((b) => (this.spent.get(b.id) ?? 0) + cost > b.max);
+    if (cost && over) {
+      return Promise.resolve(this.errorReply(reqId, new ParleyError("consent_required", "would exceed the spend limit (other commits are in flight); your principal must approve this exact proposal", {
+        consent: { proposal: proposal.id, hash: proposal.hash, service: this.id, capability: proposal.capability, principal: auth.iss, summary: proposal.summary, expires: proposal.expires },
+      })));
+    }
+    if (cost) for (const b of auth.spendBlocks) this.spent.set(b.id, (this.spent.get(b.id) ?? 0) + cost);
     const run = (async (): Promise<ReceiptReply | ErrorReply> => {
       const ctx: CommitCtx = {
         principal: auth.iss,
@@ -305,7 +346,6 @@ export class Service {
       };
       try {
         const result = await plan.apply(ctx);
-        if (proposal.cost) for (const b of auth.spendBlocks) this.spent.set(b, (this.spent.get(b) ?? 0) + proposal.cost.amount);
         const at = this.now();
         const receipt: Receipt = {
           id: randomId("r", 6), proposal: proposal.id, capability: proposal.capability, summary: proposal.summary, at,
@@ -316,6 +356,7 @@ export class Service {
         return { parley: 1, id: randomId("s", 6), re: req.id, kind: "RECEIPT", receipt };
       } catch (e) {
         this.commits.delete(proposal.id); // failed commits may be retried
+        if (cost) for (const b of auth.spendBlocks) this.spent.set(b.id, (this.spent.get(b.id) ?? 0) - cost);
         return this.errorReply(req.id, e);
       }
     })();
@@ -330,7 +371,7 @@ export class Service {
     if (auth.iss !== stored.principal) throw new ParleyError("forbidden", "only the principal who committed this can undo it");
     if (stored.undone) {
       const prior = await stored.undone;
-      return prior.kind === "RECEIPT" ? { ...prior, id: randomId("s", 6), re: req.id, replay: true } : prior;
+      return prior.kind === "RECEIPT" ? { ...prior, id: randomId("s", 6), re: req.id, replay: true } : { ...prior, id: randomId("s", 6), re: req.id };
     }
     const { receipt, plan } = stored;
     if (!receipt.undo || !plan.revert) throw new ParleyError("forbidden", "this action is irreversible");
@@ -352,18 +393,28 @@ export class Service {
       }
     })();
     const out = await stored.undone;
-    return out.kind === "RECEIPT" ? fit(out, budget, this.handles) : out;
+    return out.kind === "RECEIPT" ? fit(out, budget, this.handles, auth.holder) : out;
   }
 
-  private onExpand(req: Request & { verb: "EXPAND" }, budget: number): FinalReply {
+  private async onExpand(req: Request & { verb: "EXPAND" }, budget: number): Promise<FinalReply> {
     const parked = this.handles.get(req.handle);
     if (!parked) throw new ParleyError("expired", `handle ${JSON.stringify(req.handle)} is unknown or expired`, { fix: [fix("repeat the original request")] });
+    // Handles from authenticated replies expand only for the same holder key (SPEC §4.6).
+    if (parked.owner) {
+      const err = await checkProof(req.proof, { aud: this.id, verb: "EXPAND", target: req.handle }, this.now());
+      if (err || req.proof!.key !== parked.owner) throw new ParleyError("unauthorized", "this handle belongs to another agent", { fix: [fix("expand it with the same key that made the original request")] });
+    } else if (this.opts.requireGrants) {
+      throw new ParleyError("unauthorized", "EXPAND needs a grant from your principal");
+    }
     const data = parked.kind === "array" ? { items: parked.items } : { text: parked.text };
-    return fit({ parley: 1, id: randomId("s", 6), re: req.id, kind: "ANSWER", data }, budget, this.handles);
+    return fit({ parley: 1, id: randomId("s", 6), re: req.id, kind: "ANSWER", data }, budget, this.handles, parked.owner ?? null);
   }
 }
 
 export const service = (opts: ServiceOptions) => new Service(opts);
+
+/** The holder key of a request whose proof has already been verified by authorize() (grants present ⇒ proof checked). */
+const verifiedKey = (req: Request): string | null => (req.grants?.length && req.proof ? req.proof.key : null);
 
 // ---- effect helpers ----
 export const create = (target: string, detail?: string): Effect => ({ op: "create", target, ...(detail ? { detail } : {}) });

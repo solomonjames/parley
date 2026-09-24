@@ -12,6 +12,7 @@ export function distance(a: string, b: string): number {
 }
 
 export function closest(word: string, options: string[]): string | undefined {
+  if (word.length > 64) return undefined; // suggestions are for typos; don't pay O(n·m) on garbage
   let best: string | undefined, bestD = Infinity;
   for (const o of options) {
     const dd = distance(word.toLowerCase(), o.toLowerCase());

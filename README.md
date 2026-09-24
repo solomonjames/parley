@@ -356,7 +356,8 @@ slice to a helper?" That's a capability chain (in the lineage of macaroons and B
 with caveats a service can check offline. [More →](docs/design.md#grants)
 
 **Is it production-ready?** Not yet. It's a v1 draft with two conformant implementations,
-~200 tests and one security review. The reference services keep state in memory. The protocol surface is deliberately small. Before 1.0: revocation lists,
+~220 tests, and an adversarial security audit whose 15 findings are all fixed and covered
+by regression tests ([details](docs/design.md#security-review)). The reference services keep state in memory. The protocol surface is deliberately small. Before 1.0: revocation lists,
 multi-party atomic commits (`HOLD` across services), and a QUIC transport. See the
 [roadmap](docs/design.md#roadmap). Feedback on the spec is the most valuable
 contribution right now.

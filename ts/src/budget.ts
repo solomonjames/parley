@@ -6,7 +6,8 @@ import { randomId } from "./crypto.js";
 import { est, lean, lens } from "./lens.js";
 import type { More, Reply } from "./types.js";
 
-export type Parked = { kind: "array"; items: unknown[] } | { kind: "text"; text: string };
+/** `owner`: the holder key allowed to EXPAND it (null for anonymous replies). */
+export type Parked = ({ kind: "array"; items: unknown[] } | { kind: "text"; text: string }) & { owner?: string | null };
 
 export interface HandleStore {
   put(handle: string, value: Parked): void;
@@ -64,7 +65,7 @@ function roots(r: Reply): { deep: Path[]; list: Path[] } {
 }
 
 /** Fit `reply` within `budget` estimated tokens of Lens. Returns a new reply (input untouched). */
-export function fit<R extends Reply>(reply: R, budget: number, store: HandleStore): R {
+export function fit<R extends Reply>(reply: R, budget: number, store: HandleStore, owner: string | null = null): R {
   const original = structuredClone(reply) as any;
   const r = structuredClone(reply) as any;
   const cut = new Map<string, { path: Path; kept: number; handle: string }>();
@@ -75,7 +76,7 @@ export function fit<R extends Reply>(reply: R, budget: number, store: HandleStor
       const full = getAt(original, path);
       if (getAt(r, path) === undefined) continue; // an ancestor was elided; its remainder carries this
       const rest = typeof full === "string" ? full.slice(kept) : full.slice(kept);
-      if (handles) store.put(handle, typeof rest === "string" ? { kind: "text", text: rest } : { kind: "array", items: rest });
+      if (handles) store.put(handle, typeof rest === "string" ? { kind: "text", text: rest, owner } : { kind: "array", items: rest, owner });
       out.push({ handle, path: path.join("."), remaining: rest.length, est: typeof rest === "string" ? est(rest) : est(lean(rest)) });
     }
     return out;

@@ -6,9 +6,10 @@
  */
 import { consentCode, consentGrant } from "./grants.js";
 import { loadGrants, principalKey, saveGrant } from "./home.js";
-import { keyPair } from "./crypto.js";
+import { keyPair, proposalHash } from "./crypto.js";
+import { lens } from "./lens.js";
 import type { Client } from "./client.js";
-import type { ErrorReply } from "./types.js";
+import type { ConsentRequest, ErrorReply, Proposal } from "./types.js";
 
 const VERSION = "0.1.0";
 type Json = Record<string, any>;
@@ -31,7 +32,7 @@ export async function runMcpBridge(clients: Client[], io: { input: NodeJS.Readab
   const services = new Map<string, Client>();
   // The bridge remembers each proposal's hash so the model only handles short ids,
   // while COMMIT still binds to exactly what was shown.
-  const seen = new Map<string, string>();
+  const seen = new Map<string, { service: string; proposal: Proposal }>();
   const briefs: string[] = [];
   for (const c of clients) {
     const b = await c.hello(1500);
@@ -45,19 +46,32 @@ export async function runMcpBridge(clients: Client[], io: { input: NodeJS.Readab
   let nextId = 1;
   const waiting = new Map<number, (r: Json) => void>();
   const write = (m: Json) => io.output.write(JSON.stringify(m) + "\n");
-  const request = (method: string, params: Json) =>
+  const request = (method: string, params: Json, timeoutMs = 10 * 60_000) =>
     new Promise<Json>((resolve) => {
       const id = nextId++;
-      waiting.set(id, resolve);
+      const timer = setTimeout(() => (waiting.delete(id), resolve({})), timeoutMs); // no answer = no approval
+      waiting.set(id, (r) => (clearTimeout(timer), waiting.delete(id), resolve(r)));
       write({ jsonrpc: "2.0", id: `parley-${id}`, method, params });
     });
 
-  async function askHuman(err: ErrorReply, c: Client): Promise<string | null> {
-    const consent = err.consent!;
+  /**
+   * The consent to sign is built from the proposal *this bridge showed the model*, never from
+   * the service's error: a service must not be able to get the principal to sign for
+   * something else (another hash, service, or capability) behind a friendly summary.
+   */
+  async function consentFor(err: ErrorReply, c: Client, p: Proposal): Promise<ConsentRequest | null> {
+    const k = err.consent;
+    if (!k || k.proposal !== p.id || k.hash !== p.hash || k.capability !== p.capability || k.service !== (await c.audience())) return null;
+    if ((await proposalHash(p)) !== p.hash) return null;
+    return { proposal: p.id, hash: p.hash, service: k.service, capability: p.capability, principal: k.principal, summary: p.summary, expires: Math.min(k.expires, p.expires) };
+  }
+
+  async function askHuman(consent: ConsentRequest, err: ErrorReply, c: Client, p: Proposal): Promise<string | null> {
     const principal = await principalKey();
     if (!clientCaps.elicitation || !principal || principal.public !== consent.principal) return null;
+    const shown = lens({ parley: 1, id: "-", re: "-", kind: "PROPOSALS", proposals: [p] }).split("\n").slice(1).join("\n");
     const res = await request("elicitation/create", {
-      message: `Approve this action?\n\n${consent.summary}\n\n${err.message}\n\nproposal ${consent.proposal} · hash ${consent.hash}`,
+      message: `Approve this action at ${consent.service}?\n\n${shown}\n\nWhy you're asked: ${err.message}`,
       requestedSchema: { type: "object", properties: { approve: { type: "boolean", title: "Approve", description: "Sign a one-time consent for exactly this proposal" } }, required: ["approve"] },
     });
     if (res.result?.action !== "accept" || res.result?.content?.approve !== true) return null;
@@ -78,22 +92,25 @@ export async function runMcpBridge(clients: Client[], io: { input: NodeJS.Readab
         return { text: (await c.ask(a.capability, a.params ?? {}, { budget })).lens };
       case "parley_intent": {
         const r = await c.intent(a.capability, a.params ?? {}, { goal: a.goal, budget, auto: a.auto === true });
-        if (r.kind === "PROPOSALS") for (const p of r.proposals) seen.set(p.id, p.hash);
+        if (r.kind === "PROPOSALS") for (const p of r.proposals) seen.set(p.id, { service: a.service, proposal: p });
         return { text: r.lens };
       }
       case "parley_undo": return { text: (await c.undo(a.receipt)).lens };
       case "parley_commit": {
         const events: string[] = [];
-        const hash = a.hash ?? seen.get(a.proposal);
-        if (!hash) return { text: `✗ not_found: unknown proposal ${a.proposal}; call parley_intent first`, isError: true };
-        const p = { id: a.proposal, hash };
+        // Only proposals this bridge has shown can be committed: the model never supplies a hash.
+        const known = seen.get(a.proposal);
+        if (!known || known.service !== a.service) return { text: `✗ not_found: unknown proposal ${a.proposal} at ${a.service}; call parley_intent first`, isError: true };
+        const p = known.proposal;
         let r = await c.commit(p, { grants: loadGrants("consents"), onEvent: (e) => events.push(e.lens) });
         if (r.kind === "ERROR" && r.code === "consent_required") {
-          const token = await askHuman(r, c);
+          const consent = await consentFor(r, c, p);
+          if (!consent) return { text: r.lens + "\n  → the service's consent request doesn't match this proposal; not asking the user to sign it.", isError: true };
+          const token = await askHuman(consent, r, c, p);
           if (token) r = await c.commit(p, { grants: [token], onEvent: (e) => events.push(e.lens) });
           else if (r.kind === "ERROR") {
             return {
-              text: r.lens + `\n  → only the user can approve this. Ask them to review it and run, in their own terminal: parley approve ${consentCode(r.consent!)}  — then call parley_commit again.`,
+              text: r.lens + `\n  → only the user can approve this. Ask them to review it and run, in their own terminal: parley approve ${consentCode(consent, p)}  — then call parley_commit again.`,
               isError: true,
             };
           }
