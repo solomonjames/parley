@@ -44,6 +44,10 @@ export function shop(opts: { trust: string[] | ((principal: string) => boolean);
           .filter((m) => !params.max_cal || m.cal <= params.max_cal)
           .map((m) => ({ sku: m.sku, name: m.name, usd: m.price / 100, cal: m.cal, protein: m.protein })),
     })
+    .ask("shop.orders", {
+      summary: "Your orders",
+      run: () => [...orders.values()].map((o) => ({ id: o.id, usd: o.total / 100, status: o.status })),
+    })
     .intent("shop.order", {
       summary: "Order meals for delivery",
       params: { items: [{ sku: "string", qty: "int" }], deliver: "date" },

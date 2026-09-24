@@ -13,12 +13,14 @@ type Json = Record<string, any>;
 const str = { type: "string" };
 const obj = (properties: Record<string, unknown>, required: string[]) => ({ type: "object", properties, required });
 
-export const INSTRUCTIONS = "Parley services. Read with parley_ask; change things with parley_intent then parley_commit; parley_undo reverses a receipt.\n\n";
+export const INSTRUCTIONS =
+  "Parley acts for the user under their signed policy. To do something, call parley_intent with the user's goal (names, days are fine: no lookups needed) " +
+  "and auto:true if they asked for exactly this; it finishes in one call when the policy allows. parley_ask is for questions. If approval is needed, tell the user.\n\n";
 export const TOOLS = [
   { name: "parley_ask", description: "Read (never changes anything). Pass `handle` to expand an elided result.", inputSchema: obj({ service: str, capability: str, params: { type: "object" }, handle: str, budget: { type: "integer" } }, ["service"]) },
   {
     name: "parley_intent",
-    description: "Request a change. Returns proposals (effects, cost, risk, undo) to commit, or a question. auto:true commits the first proposal at once if your grant allows and it is undoable.",
+    description: "Do something: the user's goal as params (names, days are fine). auto:true finishes now if their policy allows; else returns proposals (effects, cost, risk, undo) or a question.",
     inputSchema: obj({ service: str, capability: str, params: { type: "object" }, goal: str, auto: { type: "boolean" }, budget: { type: "integer" } }, ["service", "capability"]),
   },
   { name: "parley_commit", description: "Execute a proposal by id, exactly as shown. Only what the user wants.", inputSchema: obj({ service: str, proposal: str }, ["service", "proposal"]) },

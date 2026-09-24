@@ -4,16 +4,16 @@ Tokenizer: o200k_base (gpt-tokenizer). Claude's tokenizer differs; the ratios ar
 
 **Total input** counts what you pay for: each model turn re-reads the tool definitions plus the conversation so far (calls and results), and there's one final turn to answer.
 
-Tool definitions in context every turn: REST MCP **729** tokens (10 tools) vs Parley **640** (4 generic tools + service briefs).
+Tool definitions in context every turn: REST MCP **761** tokens (11 tools) vs Parley **689** (4 generic tools + service briefs).
 
 | Task | Calls (REST → Parley) | Total input: REST minified JSON | REST pretty JSON | Parley | Saved vs minified | vs pretty |
 |---|---|---|---|---|---|---|
-| Reschedule a meeting (REST: search → free slots → update) | 3 → 1 | 3,679 | 3,834 | 1,454 | **60%** | 62% |
-| Reschedule a meeting (REST: one outcome-level endpoint) | 1 → 1 | 1,545 | 1,566 | 1,454 | **6%** | 7% |
-| Find vegan meals < 700 kcal and order four | 2 → 2 | 3,080 | 3,542 | 2,567 | **17%** | 28% |
-| Read the full 60-item menu | 1 → 1 | 3,388 | 4,488 | 2,401 | **29%** | 47% |
-| Skim the menu (first 30 items: REST limit=30, Parley budget=800) | 1 → 1 | 2,403 | 2,963 | 1,867 | **22%** | 37% |
-| **All tasks** (CRUD reschedule row) | | 12,550 | 14,827 | 8,289 | **34%** | 44% |
+| Reschedule a meeting (REST: search → free slots → update) | 3 → 1 | 3,807 | 3,962 | 1,552 | **59%** | 61% |
+| Reschedule a meeting (REST: one outcome-level endpoint) | 1 → 1 | 1,609 | 1,630 | 1,552 | **4%** | 5% |
+| Find vegan meals < 700 kcal and order four | 2 → 2 | 3,176 | 3,638 | 2,714 | **15%** | 25% |
+| Read the full 60-item menu | 1 → 1 | 3,452 | 4,552 | 2,499 | **28%** | 45% |
+| Skim the menu (first 30 items: REST limit=30, Parley budget=800) | 1 → 1 | 2,467 | 3,027 | 1,965 | **20%** | 35% |
+| **All tasks** (CRUD reschedule row) | | 12,902 | 15,179 | 8,730 | **32%** | 42% |
 
 Result tokens read, per task (minified REST → Parley): 316 → 129 · 62 → 129 · 462 → 308 · 1919 → 1095 · 932 → 558
 
@@ -68,7 +68,7 @@ Result tokens read, per task (minified REST → Parley): 316 → 129 · 62 → 1
 ### Reschedule, Parley (1 call, auto-commit)
 
 ```
-✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_Fgb6EIWi) · undo until 2026-09-25T02:25:28Z
+✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_Fgb6EIWi) · undo until 2026-09-25T14:04:53Z
   ~ update event/e2.start: 2026-09-25T14:00:00Z → 2026-09-27T09:30:00Z
   > send ana.ruiz@acme.co — updated invite
   result:

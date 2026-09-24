@@ -39,6 +39,7 @@ const REST_TOOLS = [
   { name: "reschedule_event", description: "Move a meeting matching a query to the first free slot on a day. Attendees are notified.", inputSchema: obj({ query: S("Search text"), day: S("Day in YYYY-MM-DD format") }, ["query", "day"]) },
   { name: "search_meals", description: "Search the meal delivery menu. Filter by text, dietary tag, or maximum calories.", inputSchema: obj({ query: S(), tag: { type: "string", enum: ["high-protein", "spicy", "vegetarian", "vegan"] }, max_cal: I("Maximum calories"), limit: I("Max results") }) },
   { name: "create_order", description: "Place a meal order for a delivery date. Charges the saved card.", inputSchema: obj({ items: { type: "array", items: obj({ sku: S(), qty: I() }, ["sku", "qty"]) }, deliver: S("Delivery date YYYY-MM-DD") }, ["items", "deliver"]) },
+  { name: "list_orders", description: "List your meal orders with their totals and status.", inputSchema: obj({}) },
   { name: "tip_courier", description: "Tip the courier for an order. Charges the saved card.", inputSchema: obj({ order: S("Order id"), usd: { type: "number" } }, ["order", "usd"]) },
 ];
 const restDefs = JSON.stringify(REST_TOOLS);
