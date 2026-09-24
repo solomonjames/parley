@@ -109,6 +109,7 @@ function sidebar() {
         { text: "Why Parley", link: "/why" },
         { text: "Quickstart", link: "/guide/quickstart" },
         { text: "Playground", link: "/playground" },
+        { text: "Test drive", link: "/guide/test-drive" },
         { text: "Use it from Claude Code", link: "/guide/claude-code" },
         { text: "Integrations", link: "/guide/integrations" },
         { text: "Hosted demo", link: "/guide/hosted-demo" },
@@ -128,6 +129,7 @@ function sidebar() {
       items: [
         { text: "Build a service", link: "/guide/build-a-service" },
         { text: "Wrap any REST API", link: "/guide/openapi" },
+        { text: "Docker", link: "/guide/docker" },
         { text: "Python", link: "/guide/python" },
         { text: "Security model", link: "/guide/security" },
         { text: "Troubleshooting", link: "/guide/troubleshooting" },
@@ -138,6 +140,7 @@ function sidebar() {
       items: [
         { text: "Specification", link: "/reference/spec" },
         { text: "CLI", link: "/reference/cli" },
+        { text: "Verified releases", link: "/reference/verified-releases" },
         { text: "Design decisions", link: "/reference/design" },
         { text: "Benchmark", link: "/reference/benchmark" },
         { text: "A real Claude session", link: "/reference/claude-session" },

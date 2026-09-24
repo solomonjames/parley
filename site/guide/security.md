@@ -12,7 +12,7 @@ Every protection below assumes the agent can't sign with the principal's key. If
 
 - keep the principal key on another OS user, another machine, or a phone;
 - set `PARLEY_PRINCIPAL_HOME` to where it lives, and approve consent there;
-- give the agent's machine only the agent key and its grants.
+- give the agent's machine only the agent key and its grants: `parley install` does exactly that by default, and `parley grant-import` brings over a grant issued elsewhere.
 
 The spec requires this of tooling: implementations must not let an agent trigger signing with the principal key ([SPEC §6.6](/reference/spec#66-multiple-grants-and-consent)).
 

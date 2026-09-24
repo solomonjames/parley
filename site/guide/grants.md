@@ -27,7 +27,7 @@ parley inspect <token>
 
 Unknown caveats, and caveats with malformed values, fail closed. An older service never over-authorizes a newer grant.
 
-Pair `per` with `spend`. A per-action cap alone can be dodged by splitting a purchase; `spend` bounds the total, and services reserve it atomically before executing, so concurrent commits can't exceed it together.
+Pair `per` with `spend`. A per-action cap alone can be dodged by splitting a purchase; `spend` bounds the total, and services reserve it atomically before executing, so concurrent commits can't exceed it together. Totals are counted per service: a grant used at two services has two independent totals, so scope money grants with `svc`.
 
 ## Proof of possession
 

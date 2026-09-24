@@ -7,11 +7,22 @@ npx parley-protocol install                  # detects your AI tools and configu
 npx parley-protocol install --target cursor --local   # one tool, this project only
 ```
 
-`install` (alias: `setup`) creates an agent key, a starter policy (low-risk actions, up to 25.00 USD each and 100.00 USD in total, for 30 days; anything else asks you), and registers the bridge with each tool. For Claude Code, Codex, Gemini CLI and Cursor it also writes a short, marker-fenced `PARLEY` block of agent instructions, because subagents don't see MCP server instructions. Add services with `parley add <url>`; the bridge serves everything in `parley services`.
+`install` (alias: `setup`) creates an agent key and registers the bridge with each tool. For Claude Code, Codex, Gemini CLI and Cursor it also writes a short, marker-fenced `PARLEY` block of agent instructions, because subagents don't see MCP server instructions. Add services with `parley add <url>`; the bridge serves everything in `parley services`.
 
-::: warning Before you rely on it
-`install` creates the principal key on the same machine for convenience, and warns you, because an agent with shell access could read it. For real use, pass `--no-principal` and keep the principal key on another OS user or device, issuing the grant from there ([security model](/guide/security)).
-:::
+## Where your key lives
+
+By default, `install` creates **only the agent key** on this machine. Your principal key, the one that signs your policy and approvals, belongs somewhere the agent can't read ([security model](/guide/security)). Issue the grant there and bring it over:
+
+```sh
+# on the principal's device (another OS user, machine or phone)
+parley grant --to <agent key> --risk low --per 25USD --spend 100USD --exp 30d
+
+# on the agent's machine
+parley grant-import <pg1.… token>
+parley doctor        # "principal key is not on this machine (recommended)"
+```
+
+Just trying it out? `parley install --with-principal` creates the principal key locally, with a warning, and signs a starter policy: low-risk actions, up to 25.00 USD each and 100.00 USD in total, for 30 days. Anything else asks you. The starter policy isn't scoped to particular services, and `spend` is counted per service, so the total applies at each service separately. Add `--svc` to your own grants to scope them.
 
 ## Configure by hand
 
@@ -22,6 +33,15 @@ Whatever the client, don't add `parley_commit` or `parley_undo` to an auto-appro
 :::
 
 ### Claude Code
+
+As a plugin, which bundles the MCP config and a `parley` skill that teaches the model consent etiquette (it runs the npm package, so it works once `parley-protocol` 0.1.0 is published):
+
+```text
+/plugin marketplace add solomonjames/parley
+/plugin install parley@parley
+```
+
+Or register the bridge directly:
 
 ```sh
 claude mcp add parley -- npx -y parley-protocol mcp
@@ -113,7 +133,7 @@ In Zed's `settings.json`:
 
 ### Windsurf (Devin Desktop)
 
-Windsurf is now Devin Desktop. Its Cascade agent reads `mcp_config.json`: open it from the Cascade panel's **…** menu, **MCPs**, **Open MCP config file**.
+Windsurf is now Devin Desktop. Its Cascade agent reads `~/.config/devin/mcp_config.json` (older Windsurf installs: `~/.codeium/windsurf/mcp_config.json`); open it from the Cascade panel's **…** menu, **MCPs**, **Open MCP config file**. `parley install` writes whichever applies.
 
 ```json
 {
@@ -141,6 +161,10 @@ mcp_servers:
 ```
 
 Consent works well here: when a commit needs the human's approval and the client supports MCP elicitation, the bridge asks through it, and Hermes routes form-mode elicitation through its own approval surface. If you restrict which tools a server exposes (`tools.include`), include all four Parley tools; the agent needs `parley_intent` to see proposals before `parley_commit`.
+
+## MCP registry
+
+Parley's MCP registry entry is `io.github.solomonjames/parley` ([`server.json`](https://github.com/solomonjames/parley/blob/main/server.json): npm package `parley-protocol`, stdio transport, argument `mcp`). It's published with the first release; then clients that browse the registry can install it from there.
 
 ## Services to try
 

@@ -15,15 +15,15 @@ The `parley` command ships with the TypeScript package: `npx parley-protocol <co
 Sets Parley up for your AI tools in one step (alias: `setup`):
 
 1. creates an agent key in `~/.parley` if there isn't one;
-2. creates a principal key on this machine, unless one exists or you pass `--no-principal`, and warns that an agent with shell access could read it;
-3. if you have no grants yet, signs a starter policy: low-risk actions, up to 25.00 USD each and 100.00 USD in total, for 30 days, with anything else needing your approval;
+2. creates a principal key here **only** with `--with-principal` (or if you say yes at the prompt), warning that an agent with shell access could read it;
+3. with a local principal and no grants yet, signs a starter policy: low-risk actions, up to 25.00 USD each and 100.00 USD in total, for 30 days, with anything else needing your approval;
 4. registers the MCP bridge with each detected tool (or those in `--target`) and, for Claude Code, Codex, Gemini CLI and Cursor (`--local`), writes a marker-fenced `PARLEY` block of agent instructions.
 
 | Flag | Meaning |
 |---|---|
 | `--target a,b` | Only these tools: `claude-code`, `claude-desktop`, `cursor`, `windsurf`, `vscode`, `codex`, `gemini` |
 | `--local` | Write project files (`.mcp.json`, `.cursor/mcp.json`, `CLAUDE.md`, `AGENTS.md` …) instead of user-level ones |
-| `--no-principal` | Don't create a principal key here. Issue the grant from the principal's device with `parley grant --to <agent key>` |
+| `--with-principal` | Also create a principal key on this machine, for trying things out. For real use, issue the grant on another device and `parley grant-import` it |
 
 It never auto-approves Parley's tools in any client. Exactly what gets written where is on the [integrations](/guide/integrations) page.
 
@@ -54,6 +54,8 @@ Checks your node version, the agent key, **whether the principal key is readable
 | `--risk <level>` | `risk`, a ceiling | `--risk low` |
 | `--to <key>` | the holder, if not your agent key | `--to ed25519:…` |
 
+`parley grant-import <pg1.token>` saves a grant that was issued to this machine's agent key on another device, so the principal key never touches the agent's machine.
+
 `parley delegate <token> --to <key> [caveats]` narrows a grant for a sub-agent. `parley approve <pc1.code>` shows a proposal's real effects, re-checks its hash, asks for confirmation, and signs a one-time consent for it.
 
 ## Environment
@@ -69,4 +71,11 @@ Checks your node version, the agent key, **whether the principal key is readable
 
 - `parley test-drive ["task"] [--model <id>]` runs a real Claude model (default `claude-opus-5`) against the example calendar and shop in your terminal, with a throwaway policy. Anything outside it asks you to approve. It fetches the Anthropic SDK on first use; the package itself has no runtime dependencies.
 - `parley demo` is a narrated, scripted run with no API key needed.
-- `parley examples [--port 7447]` serves the example calendar and shop (calendar on the port, shop on port + 2).
+- `parley examples [--port 7447] [--host 0.0.0.0]` serves the example calendar and shop (calendar on the port, shop on port + 2). Use `--host 0.0.0.0` inside containers.
+
+See the [test drive walkthrough](/guide/test-drive) for more.
+
+## Bridges
+
+- `parley mcp [url …]`: the MCP server your AI tools run. With no URLs it serves `parley services`.
+- `parley openapi <spec|url> [--base] [--header "K: V"] [--id] [--prefix] [--port] [--http] [--host] [--preset github|petstore]`: serve a REST API as a Parley service. See [Wrap any REST API](/guide/openapi).
