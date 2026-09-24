@@ -19,6 +19,8 @@ commits come with an undo window.
 ![deps](https://img.shields.io/badge/runtime%20deps-0-2BD9A5)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
+![Claude Code](https://img.shields.io/badge/Claude%20Code-works-FFB224) ![Claude Desktop](https://img.shields.io/badge/Claude%20Desktop-works-FFB224) ![Cursor](https://img.shields.io/badge/Cursor-works-FFB224) ![Codex](https://img.shields.io/badge/Codex-works-FFB224) ![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-works-FFB224) ![VS Code](https://img.shields.io/badge/VS%20Code-works-FFB224) ![Windsurf](https://img.shields.io/badge/Windsurf%2FDevin-works-FFB224) ![any MCP client](https://img.shields.io/badge/any%20MCP%20client-works-FFB224)
+
 **[Try it in your browser](https://solomonjames.github.io/parley/playground)** · [Why Parley](docs/why.md) · [Docs](https://solomonjames.github.io/parley/) · [Spec](SPEC.md) · [Quickstart](#quickstart) · [Use from Claude Code](#use-it-from-claude-code-today) · [Benchmark](#numbers) · [Design](docs/design.md)
 
 <img src="docs/demo.svg" alt="Parley demo: an agent reschedules a meeting, undoes it, browses a menu within a token budget, and places an order that needs the human's consent" width="880">
@@ -47,6 +49,15 @@ agent ──UNDO r1 (the human changed their mind)──────────
       ◀─RECEIPT ↶ undid r1
 ```
 
+## Get started
+
+| I want to… | Do this |
+|---|---|
+| **See it work with a real model** (30 s) | `npx parley-protocol test-drive` runs Claude through a booking and a purchase that needs *your* approval. Needs an Anthropic API key. No key? Use `npx parley-protocol demo` or the [browser playground](https://solomonjames.github.io/parley/playground) |
+| **Give my AI tool safe actions** | In Claude Code: `/plugin marketplace add solomonjames/parley` then `/plugin install parley@parley`. Anywhere else: `npx parley-protocol install` (auto-detects Claude Code, Cursor, Codex, Gemini, VS Code, Windsurf and Claude Desktop). Then [add services](#use-it-from-claude-code-today) or [wrap an API](#wrap-any-rest-api-in-one-command): `parley openapi --preset github` |
+| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec |
+| **Implement the protocol** | Read the [spec](SPEC.md) and pass the [conformance vectors](conformance). Go and Rust ports are welcome |
+
 ## What changes
 
 | The agent-era problem | What Parley does |
@@ -60,6 +71,22 @@ agent ──UNDO r1 (the human changed their mind)──────────
 | Credentials are scoped to resources, not to money, risk or a specific action | **Grants** are Ed25519 capability chains with spend caps, expiry, service and capability scopes, and risk ceilings. They're verified offline and can be delegated to sub-agents but only narrowed |
 | A human approval is a checkbox in someone's UI | **Consent** is a one-shot signed grant for `COMMIT` of one exact proposal hash, and nothing else |
 | Errors say *what* failed | Errors say **how to fix it**, with machine-applicable patches. Ambiguity is a first-class reply (`CLARIFY`), not an error |
+
+**Parley is for you if**
+- ✅ your agent **spends money or changes things** for someone, and "just trust it" isn't a policy
+- ✅ you want agents to **show what they're about to do** before they do it, and undo it after
+- ✅ you want a **spend cap, a risk ceiling and an expiry** on your agent, not an all-powerful API key
+- ✅ you're tired of tool results that **blow up the context window**
+- ✅ you run a service and want agents to use it **safely and cheaply**, without writing a bespoke MCP server
+
+**What Parley is not**
+
+| | |
+|---|---|
+| **Not an agent framework.** | It doesn't run your agent or pick your model. Any agent that can call tools can speak it. |
+| **Not a replacement for MCP.** | It runs *over* MCP today. MCP is how a model finds tools; Parley is what a trustworthy tool looks like. |
+| **Not a wallet or payments rail.** | Spend caps bound what an agent may *commit* to. Money still moves through the service's own payments. |
+| **Not a sandbox.** | It constrains what an agent may ask services to do, not what code it runs on your machine. |
 
 ## See it
 
@@ -123,6 +150,8 @@ model reads. The human's taps are simulated in code. Excerpt from
 ```
 
 ## Numbers
+
+> **34% fewer total input tokens than minified-JSON REST MCP, reschedules in 1 call instead of 3, and every change previewed, policy-checked and undoable.** Four tasks, seeded runs, real BPE tokens. The caveats are below the table.
 
 The same tasks over the same data: a conventional REST-style MCP server (one tool per
 endpoint, JSON results) versus Parley through its MCP bridge. Counts are real BPE tokens
@@ -282,8 +311,16 @@ parley do parley://127.0.0.1:7447 calendar.reschedule event=Ana   # interactive:
 
 
 <!-- #region openapi -->
-You don't have to wait for services to adopt Parley. Point `parley openapi` at an OpenAPI
-spec: GET endpoints become `ASK`s, and writes become `INTENT`s whose proposal shows the
+You don't have to wait for services to adopt Parley.
+
+```sh
+GITHUB_TOKEN=… npx parley-protocol openapi --preset github   # 16 curated GitHub operations; merging a PR is high-risk, so it always asks
+```
+
+Presets pick the operations an agent should have, set risk where the default is wrong,
+project huge responses down to compact tables, and read credentials from the
+environment, never showing them to the model. `github` and `petstore` ship today. For
+anything else, point `parley openapi` at an OpenAPI spec: GET endpoints become `ASK`s, and writes become `INTENT`s whose proposal shows the
 exact HTTP request. The upstream call happens only on `COMMIT`, under your grant and with
 consent when your policy requires it. Upstream credentials (`--header`) are never shown
 to the model.
@@ -328,32 +365,47 @@ claude mcp add my-api -- npx parley-protocol mcp parley://127.0.0.1:7447
 
 
 <!-- #region claude-code -->
-The bridge exposes any Parley services as an MCP server, so every MCP client (Claude
-Code, Claude Desktop, Cursor and others) can use them now. Tool results are Lens.
+The bridge exposes Parley services as an MCP server, so every MCP client can use them now.
+Tool results are Lens.
 
-```sh
-parley init
-parley grant --svc cal.example.com --svc shop.example --risk low --per 25USD --spend 100USD --exp 24h
-claude mcp add parley -- npx parley-protocol mcp parley://127.0.0.1:7447 https://shop.example/parley
+**Claude Code plugin** (bundles the MCP server and a skill that teaches consent etiquette):
+
+```text
+/plugin marketplace add solomonjames/parley
+/plugin install parley@parley
 ```
 
-Try it against the examples: `npm run build && PARLEY_TRUST=$(parley whoami | awk '/principal/{print $2}') node examples/serve.ts`.
+**Any tool, one command.** This creates an agent key and registers the bridge (plus a short
+agent-instructions block) with every AI tool it finds:
 
-When a commit needs consent, the bridge never approves on the model's behalf. If the
-client supports MCP elicitation, it asks **the human** in the client's UI. Otherwise it
-tells the model to ask the human to run `parley approve <code>`, which shows the exact
-action and requires an interactive confirmation.
+```sh
+npx parley-protocol install                    # or --target claude-code,cursor,codex,gemini,vscode,windsurf,claude-desktop
+npx parley-protocol add https://shop.example/parley   # add services; the bridge picks them up on restart
+npx parley-protocol doctor                     # check keys, grants, services, registration
+```
+
+It never auto-approves `parley_commit` or `parley_undo` in your tool. When a commit needs
+consent, the bridge asks **you**: in the client's UI via MCP elicitation, or through
+`parley approve <code>`, which shows the exact action and needs an interactive terminal.
+The model can't approve for itself.
 
 ### Keep the principal key away from the agent
 
-A grant is only as strong as the principal key's isolation. `parley init` puts the
-principal key and the agent key in `~/.parley` for convenience. **If your agent has
-shell or file access (Claude Code does), it could read the principal key and sign its
-own consent.** For anything that matters, keep the principal key somewhere the agent
-can't reach: another OS user, another machine, or a phone. Set `PARLEY_PRINCIPAL_HOME`
-to that location and approve there, and the agent's machine never holds it. Also pair
-`--per` with `--spend`: a per-action cap alone can be dodged by splitting a purchase,
-and `--spend` bounds the total.
+Your *principal* key signs your policy and your approvals, so everything rests on it.
+`parley install` therefore creates only the agent's key. Create the principal on another
+device or OS user and send the agent a grant:
+
+```sh
+# on your phone/laptop/other user (holds the principal key)
+parley init && parley grant --to <agent key> --svc shop.example --risk low --per 25USD --spend 100USD --exp 30d
+# on the agent's machine
+parley grant-import <token>
+```
+
+To try things quickly on one machine, use `parley install --with-principal`. Be aware that
+an agent with shell access (Claude Code has it) could then read the key. Pair `--per` with
+`--spend`: a per-action cap alone can be dodged by splitting a purchase, and `--spend`
+bounds the total.
 <!-- #endregion claude-code -->
 
 ## How it compares
@@ -385,6 +437,9 @@ for delegated agents.
 | [`examples/`](examples) | Calendar and meal-shop services, plus the narrated demo |
 | [`bench/`](bench) | The token benchmark above |
 | [`docs/design.md`](docs/design.md) | Why it's built this way: every major decision and the alternatives we rejected |
+| [`plugins/`](plugins) · [`server.json`](server.json) | Claude Code plugin marketplace and the MCP registry entry |
+| [`site/`](site) | The docs site and browser playground (VitePress) |
+| [`deploy/demo/`](deploy/demo) | Hosted demo services on Cloudflare Workers (a Durable Object per agent) |
 
 The two implementations interoperate in both directions over TCP and HTTP. The Python
 suite also renders every TypeScript reply and event through its own Lens renderer and
@@ -400,32 +455,72 @@ npm run demo && npm run bench
 
 ## FAQ
 
-**Isn't this just MCP?** No. MCP standardizes how a model *finds and calls tools*.
-Parley standardizes what the tool *is*: an outcome-level interface with previews,
-undo, delegated authority, budgets and a model-native format. The two compose: the
-bridge serves Parley over MCP.
+<details>
+<summary><b>Isn't this just MCP?</b></summary>
 
-**Why a new protocol instead of HTTP conventions?** Previews, consent bound to hashes,
-capability grants, budgets and Lens have to hold *across every service* to be worth
-anything to an agent. Conventions layered on HTTP get implemented differently by every
-API, which is how we got here. Parley can still ride HTTP (the bridge) where
-infrastructure requires it. Its semantics just don't depend on it. [More →](docs/design.md)
+No. MCP standardizes how a model *finds and calls tools*. Parley standardizes what the tool *is*: an outcome-level interface with previews, undo, delegated authority, budgets and a model-native format. The two compose: the bridge serves Parley over MCP.
+</details>
 
-**Does the model need to learn a new format?** No. Lens is designed to be read cold:
-tables for uniform lists, `~ update`/`+ create`/`$ charge` effect lines, explicit costs
-and undo windows. The benchmark uses exactly what an unmodified model reads.
+<details>
+<summary><b>Why a new protocol instead of HTTP conventions?</b></summary>
 
-**Why not JWT or OAuth for delegation?** They answer "who is this?" Agents need "what
-exactly may this do, for whom, up to how much, until when, and can it hand a narrower
-slice to a helper?" That's a capability chain (in the lineage of macaroons and Biscuit)
-with caveats a service can check offline. [More →](docs/design.md#grants)
+Previews, consent bound to hashes, capability grants, budgets and Lens have to hold *across every service* to be worth anything to an agent. Conventions layered on HTTP get implemented differently by every API, which is how we got here. Parley can still ride HTTP (the bridge) where infrastructure requires it. Its semantics just don't depend on it. [More →](docs/design.md)
+</details>
 
-**Is it production-ready?** Not yet. It's a v1 draft with two conformant implementations,
-~220 tests, and an adversarial security audit whose 15 findings are all fixed and covered
-by regression tests ([details](docs/design.md#security-review)). The reference services keep state in memory. The protocol surface is deliberately small. Before 1.0: revocation lists,
-multi-party atomic commits (`HOLD` across services), and a QUIC transport. See the
-[roadmap](docs/design.md#roadmap). Feedback on the spec is the most valuable
-contribution right now.
+<details>
+<summary><b>How does this relate to A2A or ACP?</b></summary>
+
+They connect agents to agents (A2A) or agents to editors (ACP). Parley connects an agent to a *service it acts on*, with a human's authority attached. An agent reached over A2A could itself expose Parley capabilities, and they don't compete.
+</details>
+
+<details>
+<summary><b>Does the model need to learn a new format?</b></summary>
+
+No. Lens is designed to be read cold: tables for uniform lists, `~ update`/`+ create`/`$ charge` effect lines, explicit costs and undo windows. In our [real session](docs/claude-code-session.md) Claude used it correctly with no documentation.
+</details>
+
+<details>
+<summary><b>Does it only work with Claude?</b></summary>
+
+No. Any model that can call tools works. The bridge speaks MCP, and the protocol is model-agnostic. `test-drive` uses Claude because it's a convenient live demo.
+</details>
+
+<details>
+<summary><b>Why not JWT or OAuth for delegation?</b></summary>
+
+They answer "who is this?" Agents need "what exactly may this do, for whom, up to how much, until when, and can it hand a narrower slice to a helper?" That's a capability chain (in the lineage of macaroons and Biscuit) with caveats a service can check offline. [More →](docs/design.md#grants)
+</details>
+
+<details>
+<summary><b>What stops a malicious service from lying about effects?</b></summary>
+
+Nothing in v1, beyond making the lie *explicit and bound*: the commit is tied to the hash of the effects shown, and receipts record what was claimed. Signed receipts (for non-repudiation) are on the [roadmap](docs/design.md#roadmap). Only connect services you'd trust with an API key today.
+</details>
+
+<details>
+<summary><b>Is it production-ready?</b></summary>
+
+Not yet. It's a v1 draft with two conformant implementations, ~240 tests, and an adversarial security audit whose 15 findings are all fixed and covered by regression tests ([details](docs/design.md#security-review)). The reference services keep state in memory. Feedback on the spec is the most valuable contribution right now.
+</details>
+
+## Roadmap
+
+- [x] Spec v1 draft, two conformant implementations, conformance vectors
+- [x] MCP bridge, `install` for 7 AI tools, Claude Code plugin, OpenAPI adapter and presets
+- [x] Adversarial security audit (15 findings fixed)
+- [ ] Revocation lists and signed receipts
+- [ ] `HOLD`: multi-service atomic commits (flight + hotel, or neither)
+- [ ] More presets (Jira, Cloudflare, …) and reversible wrapped writes (undo mappings)
+- [ ] Go and Rust implementations. [Help wanted](CONTRIBUTING.md)
+
+## Community
+
+- **Questions and ideas:** [GitHub Discussions](https://github.com/solomonjames/parley/discussions)
+- **Spec feedback and bugs:** [issues](https://github.com/solomonjames/parley/issues/new/choose) (there's a spec-feedback template)
+- **Security:** report privately via [SECURITY.md](SECURITY.md)
+- **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). New implementations and presets are the most wanted
+
+If you use Parley in research, please cite it ([CITATION.cff](CITATION.cff)).
 
 ## License
 
