@@ -2,12 +2,20 @@
   "name": "parley-monorepo",
   "private": true,
   "type": "module",
-  "workspaces": ["ts", "examples", "bench"],
+  "workspaces": [
+    "ts",
+    "examples",
+    "bench",
+    "site"
+  ],
   "scripts": {
     "build": "npm run build -w parley-protocol",
     "test": "npm test -w parley-protocol",
     "demo": "npm run build && node examples/demo.ts",
-    "bench": "npm run build && node bench/run.ts && node bench/estimator.ts"
+    "bench": "npm run build && node bench/run.ts && node bench/estimator.ts",
+    "site": "npm run build -w parley-site"
   },
-  "engines": { "node": ">=22.18" }
+  "engines": {
+    "node": ">=22.18"
+  }
 }
