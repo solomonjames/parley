@@ -1,0 +1,9 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "parley-demo",
+  "main": "src/worker.ts",
+  "compatibility_date": "2026-09-01",
+  "durable_objects": { "bindings": [{ "name": "DEMO", "class_name": "ParleyDemo" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ParleyDemo"] }],
+  "observability": { "enabled": true }
+}

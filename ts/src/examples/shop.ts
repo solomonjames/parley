@@ -24,7 +24,7 @@ export const catalog: Meal[] = Array.from({ length: 60 }, (_, i) => ({
   tags: MENU[i % MENU.length][1],
 }));
 
-export function shop(opts: { trust: string[]; id?: string }) {
+export function shop(opts: { trust: string[] | ((principal: string) => boolean); id?: string }) {
   const orders = new Map<string, { id: string; total: number; status: string }>();
   let seq = 1000;
 

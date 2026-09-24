@@ -1,0 +1,8 @@
+{
+  "name": "parley-demo-worker",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "wrangler dev", "deploy": "wrangler deploy" },
+  "dependencies": { "parley-protocol": "*" },
+  "devDependencies": { "wrangler": "^4" }
+}

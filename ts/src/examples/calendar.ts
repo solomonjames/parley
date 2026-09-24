@@ -7,10 +7,12 @@ interface Ev { id: string; title: string; start: string; end: string; with: stri
 
 const HOUR = 3600_000;
 const iso = (ms: number) => new Date(ms).toISOString().replace(".000Z", "Z");
-const day0 = Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate()) + 86400_000;
-const at = (d: number, h: number, m = 0) => iso(day0 + d * 86400_000 + h * HOUR + m * 60_000);
 
-export function calendar(opts: { trust: string[]; id?: string }) {
+export function calendar(opts: { trust: string[] | ((principal: string) => boolean); id?: string }) {
+  // Computed per call, not at module load: some runtimes (Workers) freeze the clock during startup.
+  const now = new Date();
+  const day0 = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) + 86400_000;
+  const at = (d: number, h: number, m = 0) => iso(day0 + d * 86400_000 + h * HOUR + m * 60_000);
   let seq = 100;
   const events: Ev[] = [
     { id: "e1", title: "Standup", start: at(0, 9), end: at(0, 9, 15), with: ["team@acme.co"] },

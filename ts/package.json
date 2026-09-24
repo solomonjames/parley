@@ -29,6 +29,10 @@
     "./examples": {
       "types": "./dist/examples/index.d.ts",
       "default": "./dist/examples/index.js"
+    },
+    "./demo": {
+      "types": "./dist/examples/demo.d.ts",
+      "default": "./dist/examples/demo.js"
     }
   },
   "files": [

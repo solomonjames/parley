@@ -6,7 +6,8 @@
     "ts",
     "examples",
     "bench",
-    "site"
+    "site",
+    "deploy/demo"
   ],
   "scripts": {
     "build": "npm run build -w parley-protocol",
