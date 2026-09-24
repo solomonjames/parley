@@ -16,9 +16,7 @@ from ._json import b64url_encode, dumps, loads
 from .grants import Grant, decode_grant
 from .keys import KeyPair, sign_proof
 from .lens import lens as render_lens
-from .transport import DEFAULT_PORT, MAX_FRAME
-
-TLS_PORT = 7448
+from .transport import DEFAULT_PORT, MAX_FRAME, TLS_PORT
 OnEvent = Callable[["Reply"], Any]
 
 

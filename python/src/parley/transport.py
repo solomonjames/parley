@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import ssl as ssl_module
 import sys
 from typing import Any
 from urllib.parse import parse_qs
@@ -15,6 +16,7 @@ log = logging.getLogger("parley")
 
 MAX_FRAME = 1 << 20  # 1 MiB (SPEC §2.1)
 DEFAULT_PORT = 7447
+TLS_PORT = 7448
 
 
 def _parse(line: bytes) -> Any:
@@ -66,9 +68,12 @@ async def serve_stream(service: Service, reader: asyncio.StreamReader, writer: A
             pass
 
 
-async def serve_tcp(service: Service, host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> asyncio.base_events.Server:
-    """Start a TCP server for ``parley://`` and return it (already listening)."""
-    return await asyncio.start_server(lambda r, w: serve_stream(service, r, w), host, port, limit=MAX_FRAME + 2)
+async def serve_tcp(
+    service: Service, host: str = "127.0.0.1", port: int | None = None, *, ssl: ssl_module.SSLContext | None = None
+) -> asyncio.base_events.Server:
+    """Start a ``parley://`` server (or ``parleys://`` when ``ssl`` is given) and return it, listening."""
+    port = (TLS_PORT if ssl else DEFAULT_PORT) if port is None else port
+    return await asyncio.start_server(lambda r, w: serve_stream(service, r, w), host, port, limit=MAX_FRAME + 2, ssl=ssl)
 
 
 async def serve_stdio(service: Service) -> None:

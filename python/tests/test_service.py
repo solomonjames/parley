@@ -3,11 +3,26 @@ import json
 import sys
 import urllib.request
 
+import pytest
 from calendar_example import calendar
 from conftest import ROOT
 
 from parley import (
-    Client, ParleyError, Plan, Service, charge, clarify, connect, consent_grant, est, issue_grant, key_from_seed, local, money, serve_http, serve_tcp,
+    Client,
+    ParleyError,
+    Plan,
+    Service,
+    charge,
+    clarify,
+    connect,
+    consent_grant,
+    est,
+    issue_grant,
+    key_from_seed,
+    local,
+    money,
+    serve_http,
+    serve_tcp,
 )
 
 PRINCIPAL = key_from_seed(bytes([1]) * 32)
@@ -405,5 +420,33 @@ def test_auto_replay_returns_original_reply():
         assert c  # a normal client still works alongside
         assert (await c.intent("shop.order", {"sku": "a", "qty": 1}, auto=True)).kind == "RECEIPT"
         assert svc.orders == [1, 1]
+
+    run(go())
+
+
+def test_tls_flow(tmp_path):
+    import ssl
+    import subprocess
+
+    key, cert = tmp_path / "k.pem", tmp_path / "c.pem"
+    r = subprocess.run(
+        ["openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1", "-nodes", "-days", "1",
+         "-subj", "/CN=localhost", "-addext", "subjectAltName=DNS:localhost", "-keyout", str(key), "-out", str(cert)],
+        capture_output=True,
+    )
+    if r.returncode:
+        pytest.skip("openssl unavailable")
+    server_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    server_ctx.load_cert_chain(cert, key)
+    client_ctx = ssl.create_default_context(cafile=str(cert))
+
+    async def go():
+        srv = await serve_tcp(calendar([PRINCIPAL.public]), "127.0.0.1", 0, ssl=server_ctx)
+        port = srv.sockets[0].getsockname()[1]
+        try:
+            async with await connect(f"parleys://localhost:{port}", ssl_context=client_ctx) as c:
+                assert (await c.hello()).frame["service"]["id"] == "calendar.example"
+        finally:
+            srv.close()
 
     run(go())
