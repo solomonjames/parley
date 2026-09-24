@@ -186,6 +186,9 @@ spec.
   explicit and binds commits to it, but a malicious service can still lie. Signed
   receipts (below) make lies attributable.
 - **No revocation.** Keep grants short-lived with `exp`.
+- **Pair `per` with `spend`.** A per-commit cap alone can be dodged by splitting a
+  purchase. In our [real Claude session](claude-code-session.md) the model pointed
+  this out itself and declined to do it. The cumulative `spend` caveat closes the gap.
 - **`spend` accounting is per service.** A grant used at two services has two
   independent totals. Scope money grants with `svc`.
 - **Lens is English-centric.** Its keywords (`cost`, `undo`, `risk`) are fixed tokens,

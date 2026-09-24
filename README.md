@@ -128,6 +128,21 @@ The REST agent had none of that.
 > auto-commit and to Lens hoisting shared proposal attributes. Both changes are in
 > [SPEC §4.3.1](SPEC.md#431-policy-gated-auto-commit) and §9. Run `npm run bench` yourself.
 
+## Tested with a real model
+
+We gave Claude Sonnet 5, running in headless Claude Code, the Parley MCP bridge, **no
+Parley documentation**, and one request: *"Move my 1:1 with Ana to a free slot on the
+27th, then order me 4 vegan meals under 700 calories."* Its grant allowed low-risk
+changes up to $40 per action.
+
+It read Lens cold and moved the meeting (within policy, 24h undo). It built the order,
+hit `consent_required` at $53.95, and stopped. Unprompted, it told the user:
+
+> *"I didn't try to get around the limit. Splitting it into two orders would have dodged the check. Even the cheapest four meals come to $53.95, so no single order fits under $40."*
+
+Then it handed the human the exact `parley approve` command.
+[Full unedited transcript →](docs/claude-code-session.md) (9 turns, $0.19)
+
 ## The protocol in one screen
 
 **Verbs:** `HELLO` (discover) · `ASK` (read, never changes anything) · `INTENT` (propose) ·
