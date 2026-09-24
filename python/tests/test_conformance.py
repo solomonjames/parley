@@ -1,0 +1,78 @@
+"""Shared conformance vectors (../conformance/*.json), generated from the TS implementation."""
+
+import json
+
+import pytest
+from conftest import CONFORMANCE
+
+from parley import canonical, decode_grant, est, key_from_seed, lens, lean, proposal_hash, sign_proof, verify_grant
+
+
+def vectors(name):
+    path = CONFORMANCE / f"{name}.json"
+    if not path.exists():
+        pytest.skip(f"{path} not present")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def cases(name, key="name"):
+    path = CONFORMANCE / f"{name}.json"
+    if not path.exists():
+        return [pytest.param(None, marks=pytest.mark.skip(reason=f"{path} missing"))]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    items = data["cases"] if isinstance(data, dict) else data
+    return [pytest.param(c, id=str(c.get(key, i))) for i, c in enumerate(items)]
+
+
+@pytest.mark.parametrize("case", cases("canonical"))
+def test_canonical(case):
+    assert canonical(case["input"]) == case["canonical"]
+
+
+@pytest.mark.parametrize("case", cases("estimate", "text"))
+def test_estimate(case):
+    assert est(case["text"]) == case["est"]
+
+
+@pytest.mark.parametrize("case", cases("hash"))
+def test_hash(case):
+    assert proposal_hash(case["proposal"]) == case["hash"]
+
+
+@pytest.mark.parametrize("case", cases("keys", "seed"))
+def test_keys(case):
+    assert key_from_seed(case["seed"]).public == case["public"]
+
+
+@pytest.mark.parametrize("case", cases("proof", "verb"))
+def test_proof(case):
+    k = key_from_seed(case["seed"])
+    if "key" in case:
+        assert k.public == case["key"]
+    assert sign_proof(k, case["aud"], case["verb"], case["target"], case["ts"])["sig"] == case["sig"]
+
+
+@pytest.mark.parametrize("case", cases("grants"))
+def test_grants(case):
+    r = verify_grant(case["token"], case["trusted"], case["proofKey"], case["ctx"])
+    assert r.ok == case["expect"]["ok"], r.message
+    assert r.code == case["expect"].get("code")
+
+
+def test_grants_root_spend_block_id():
+    data = vectors("grants")
+    ids = {bid for c in data["cases"] for bid in _block_ids(c["token"])}
+    assert data["rootSpendBlockId"] in ids
+
+
+def _block_ids(token):
+    try:
+        return decode_grant(token).block_ids
+    except ValueError:
+        return []
+
+
+@pytest.mark.parametrize("case", cases("lens"))
+def test_lens(case):
+    out = lean(case["input"]) if case["type"] == "value" else lens(case["input"])
+    assert out == case["lens"]
