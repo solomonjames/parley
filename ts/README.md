@@ -201,6 +201,10 @@ Read the [full specification](https://github.com/solomonjames/parley/blob/main/S
 
 ## Quickstart
 
+**Try it in 10 seconds** (no clone): `npx parley-protocol demo` runs the narrated session
+above, with two services, a human's policy, consent and undo, over real sockets.
+[Or try it in your browser →](https://solomonjames.github.io/parley/playground)
+
 ```sh
 npm install parley-protocol        # TypeScript/JavaScript: Node ≥ 20, Bun, Deno (web-standard APIs only)
 pip install parley-protocol        # Python ≥ 3.10
@@ -267,7 +271,8 @@ parley grant --svc cal.example.com --svc shop.example \
 parley inspect <token>                                   # read any grant chain
 parley delegate <token> --to <sub-agent key> --verbs ASK,INTENT   # narrower authority for a sub-agent
 parley approve <pc1.code>                               # review and sign a one-time consent for one proposal
-parley do parley://cal.example.com calendar.reschedule event=Ana   # interactive: intent → pick → commit
+parley examples                                          # serve the example calendar + shop locally
+parley do parley://127.0.0.1:7447 calendar.reschedule event=Ana   # interactive: intent → pick → commit
 ```
 
 ## Wrap any REST API in one command
