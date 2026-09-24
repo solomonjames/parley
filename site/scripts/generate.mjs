@@ -41,7 +41,8 @@ const pages = [
 const optional = [
   ["Playground", "/playground", "Try the protocol in the browser"],
   ["Design decisions", "/reference/design", "Why Parley is built this way"],
-  ["Benchmark", "/reference/benchmark", "Token counts versus a REST-style MCP server"],
+  ["Live-agent evaluation", "/benchmark/live", "A real model through REST-MCP vs Parley: cost, success and rule violations, including prompt injection"],
+  ["Payload benchmark", "/reference/benchmark", "Reply sizes versus a REST-style MCP server, measured without a model"],
   ["A real Claude session", "/reference/claude-session", "Unedited transcript through the MCP bridge"],
   ["Python", "/guide/python", "The Python implementation"],
 ];
@@ -69,6 +70,7 @@ out("public/llms-full.txt", [
   `## CLI reference\n\n\`\`\`\n${help}\n\`\`\``,
   ...["intents", "grants", "budgets", "lens", "security"].map((p) => page(`site/guide/${p}.md`).replace(/^# /, "## ")),
   `## Wrap any REST API\n\n${region(readme, "openapi")}`,
+  `## Live-agent evaluation\n\n${read("bench/agent-eval/RESULTS.md").replace(/^# .*\n/, "")}\n\n### Prompt-injection condition\n\n${read("bench/agent-eval/RESULTS-injection.md").replace(/^# .*\n/, "")}`,
   `## Specification\n\n${read("SPEC.md").replace(/^# .*\n/, "")}`,
 ].join("\n\n---\n\n") + "\n");
 console.log("generated cli-help.txt, llms.txt, llms-full.txt");

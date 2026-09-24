@@ -12,9 +12,9 @@ Previews, consent bound to hashes, capability grants, budgets and Lens have to h
 
 No. Lens is designed to be read cold: tables for uniform lists, `~ update` and `$ charge` effect lines, explicit costs and undo windows. In [a real session](/reference/claude-session), Claude read it correctly with no Parley documentation at all.
 
-## How much does it save?
+## Does it cost more to use?
 
-34% of total input tokens across the benchmark against minified JSON, and 44% against pretty-printed JSON. Honestly, much of the reschedule gain comes from exposing an outcome-level capability: against a REST API that offers one too, that row saves only 6%. See the [benchmark](/reference/benchmark) for every number and its caveats.
+About the same. In [live runs](/benchmark/live) with Claude Sonnet 5 in headless Claude Code, Parley cost 3–15% more per task than a REST-style MCP server, with the same success rate. Parley's replies are 30–45% smaller than JSON ([payload benchmark](/reference/benchmark)), but a live session's cost is dominated by the model re-reading its context every turn, so that doesn't lower the bill on its own. What you get for the difference is a policy the service enforces, previews and undo.
 
 ## Why not JWT or OAuth for delegation?
 

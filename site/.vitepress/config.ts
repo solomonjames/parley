@@ -38,6 +38,7 @@ export default defineConfig({
       "/guide/": sidebar(),
       "/reference/": sidebar(),
       "/why": sidebar(),
+      "/benchmark/": sidebar(),
     },
     socialLinks: [{ icon: "github", link: repo }],
     editLink: { pattern: `${repo}/edit/main/site/:path`, text: "Edit this page on GitHub" },
@@ -76,6 +77,9 @@ const PAGES: Record<string, string> = {
   "SPEC.md": "/reference/spec",
   "docs/design.md": "/reference/design",
   "bench/RESULTS.md": "/reference/benchmark",
+  "bench/agent-eval/README.md": "/benchmark/live",
+  "bench/agent-eval/RESULTS.md": "/benchmark/live#results",
+  "bench/agent-eval/RESULTS-injection.md": "/benchmark/live#prompt-injection-condition",
   "docs/claude-code-session.md": "/reference/claude-session",
   "python/README.md": "/guide/python",
   "docs/why.md": "/why",
@@ -90,7 +94,8 @@ function repoLink(href: string): string {
   if (!/\.md$|^(\.\.\/)*(ts|python|examples|bench|conformance|docs|site|deploy)\b|\.(ts|py|json|svg|txt)$/.test(path)) return href;
   // Normalize against the repo root: included files live at the root, in docs/, python/ or bench/.
   const clean = path.replace(/^(\.\.\/)+/, "").replace(/^\.\//, "");
-  const candidates = [clean, `docs/${clean}`, `python/${clean}`, `bench/${clean}`, `deploy/demo/${clean}`];
+  // Bare names like RESULTS.md only appear in bench/agent-eval's own files, so resolve those there first.
+  const candidates = [clean, `bench/agent-eval/${clean}`, `docs/${clean}`, `python/${clean}`, `bench/${clean}`, `deploy/demo/${clean}`];
   const page = candidates.map((c) => PAGES[c]).find(Boolean);
   // VitePress's link renderer adds the base to internal links after this runs.
   if (page) return page + (hash ? `#${hash}` : "");
@@ -142,7 +147,8 @@ function sidebar() {
         { text: "CLI", link: "/reference/cli" },
         { text: "Verified releases", link: "/reference/verified-releases" },
         { text: "Design decisions", link: "/reference/design" },
-        { text: "Benchmark", link: "/reference/benchmark" },
+        { text: "Live-agent evaluation", link: "/benchmark/live" },
+        { text: "Payload benchmark", link: "/reference/benchmark" },
         { text: "A real Claude session", link: "/reference/claude-session" },
         { text: "FAQ", link: "/reference/faq" },
       ],
