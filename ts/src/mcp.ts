@@ -1,0 +1,178 @@
+/**
+ * MCP bridge: expose Parley services as an MCP server over stdio, so any MCP client
+ * (Claude Code, Claude Desktop, Cursor, …) can speak Parley today. Tool results are Lens.
+ * Consent requests are routed to the human via MCP elicitation when the client supports
+ * it; the model itself can never approve.
+ */
+import { consentGrant } from "./grants.js";
+import { loadGrants, principalKey, saveGrant } from "./home.js";
+import { keyPair } from "./crypto.js";
+import type { Client } from "./client.js";
+import type { ErrorReply } from "./types.js";
+
+const VERSION = "0.1.0";
+type Json = Record<string, any>;
+
+const svcProp = { type: "string", description: "service id (from the instructions)" };
+const TOOLS = [
+  { name: "parley_hello", description: "Show a Parley service's capabilities.", inputSchema: { type: "object", properties: { service: svcProp }, required: ["service"] } },
+  {
+    name: "parley_ask",
+    description: "Read-only query. Never changes anything. Safe to retry.",
+    inputSchema: { type: "object", properties: { service: svcProp, capability: { type: "string" }, params: { type: "object" }, budget: { type: "integer", description: "max reply tokens (default 1500)" } }, required: ["service", "capability"] },
+  },
+  {
+    name: "parley_intent",
+    description: "Say what you want done. Returns PROPOSALS (with effects, cost, risk and undo window) or a CLARIFY question. Nothing changes until parley_commit.",
+    inputSchema: { type: "object", properties: { service: svcProp, capability: { type: "string" }, params: { type: "object" }, goal: { type: "string", description: "the user's goal in plain words" }, budget: { type: "integer" } }, required: ["service", "capability"] },
+  },
+  {
+    name: "parley_commit",
+    description: "Execute one proposal exactly as shown. Only commit what the user asked for. If consent is required, the user is asked to approve.",
+    inputSchema: { type: "object", properties: { service: svcProp, proposal: { type: "string", description: "proposal id, e.g. p_KEs5H7dM" } }, required: ["service", "proposal"] },
+  },
+  { name: "parley_undo", description: "Undo a receipt within its undo window.", inputSchema: { type: "object", properties: { service: svcProp, receipt: { type: "string" } }, required: ["service", "receipt"] } },
+  { name: "parley_expand", description: "Fetch more of an elided result by handle.", inputSchema: { type: "object", properties: { service: svcProp, handle: { type: "string" }, budget: { type: "integer" } }, required: ["service", "handle"] } },
+];
+
+export async function runMcpBridge(clients: Client[], io: { input: NodeJS.ReadableStream; output: NodeJS.WritableStream } = { input: process.stdin, output: process.stdout }) {
+  const services = new Map<string, Client>();
+  // The bridge remembers each proposal's hash so the model only handles short ids,
+  // while COMMIT still binds to exactly what was shown.
+  const seen = new Map<string, string>();
+  const briefs: string[] = [];
+  for (const c of clients) {
+    const b = await c.hello(1500);
+    if (b.kind !== "BRIEF") throw new Error(`HELLO failed: ${b.lens}`);
+    services.set(b.service.id, c);
+    briefs.push(b.lens);
+  }
+  const instructions =
+    "These tools speak Parley. Use parley_ask to read. To change anything: parley_intent → read the proposals' effects/cost/risk → parley_commit the one the user wants. " +
+    "Receipts can be undone with parley_undo inside their undo window. Services:\n\n" + briefs.join("\n\n");
+
+  let clientCaps: Json = {};
+  let nextId = 1;
+  const waiting = new Map<number, (r: Json) => void>();
+  const write = (m: Json) => io.output.write(JSON.stringify(m) + "\n");
+  const request = (method: string, params: Json) =>
+    new Promise<Json>((resolve) => {
+      const id = nextId++;
+      waiting.set(id, resolve);
+      write({ jsonrpc: "2.0", id: `parley-${id}`, method, params });
+    });
+
+  async function askHuman(err: ErrorReply, c: Client): Promise<string | null> {
+    const consent = err.consent!;
+    const principal = await principalKey();
+    if (!clientCaps.elicitation || !principal || principal.public !== consent.principal) return null;
+    const res = await request("elicitation/create", {
+      message: `Approve this action?\n\n${consent.summary}\n\n${err.message}\n\nproposal ${consent.proposal} · hash ${consent.hash}`,
+      requestedSchema: { type: "object", properties: { approve: { type: "boolean", title: "Approve", description: "Sign a one-time consent for exactly this proposal" } }, required: ["approve"] },
+    });
+    if (res.result?.action !== "accept" || res.result?.content?.approve !== true) return null;
+    if (!c.key) return null;
+    const token = await consentGrant({ principal, agent: (await keyPair(c.key)).public, hash: consent.hash, expires: consent.expires });
+    saveGrant(token, "consents", consent.hash);
+    return token;
+  }
+
+  async function call(name: string, a: Json): Promise<{ text: string; isError?: boolean }> {
+    const c = services.get(a.service);
+    if (!c) return { text: `✗ unknown service ${JSON.stringify(a.service)}; known: ${[...services.keys()].join(", ")}`, isError: true };
+    const budget = a.budget ?? 1500;
+    switch (name) {
+      case "parley_hello": return { text: (await c.hello(budget)).lens };
+      case "parley_ask": return { text: (await c.ask(a.capability, a.params ?? {}, { budget })).lens };
+      case "parley_intent": {
+        const r = await c.intent(a.capability, a.params ?? {}, { goal: a.goal, budget });
+        if (r.kind === "PROPOSALS") for (const p of r.proposals) seen.set(p.id, p.hash);
+        return { text: r.lens };
+      }
+      case "parley_expand": return { text: (await c.expand(a.handle, { budget })).lens };
+      case "parley_undo": return { text: (await c.undo(a.receipt)).lens };
+      case "parley_commit": {
+        const events: string[] = [];
+        const hash = a.hash ?? seen.get(a.proposal);
+        if (!hash) return { text: `✗ not_found: unknown proposal ${a.proposal}; call parley_intent first`, isError: true };
+        const p = { id: a.proposal, hash };
+        let r = await c.commit(p, { grants: loadGrants("consents"), onEvent: (e) => events.push(e.lens) });
+        if (r.kind === "ERROR" && r.code === "consent_required") {
+          const token = await askHuman(r, c);
+          if (token) r = await c.commit(p, { grants: [token], onEvent: (e) => events.push(e.lens) });
+          else if (r.kind === "ERROR") {
+            return {
+              text: r.lens + `\n  → the user must approve. Ask them to run: parley approve ${r.consent!.hash} --expires ${r.consent!.expires}  — then call parley_commit again.`,
+              isError: true,
+            };
+          }
+        }
+        return { text: [...events, r.lens].join("\n"), isError: r.kind === "ERROR" };
+      }
+    }
+    return { text: `✗ unknown tool ${name}`, isError: true };
+  }
+
+  let buf = "";
+  let inflight = 0;
+  let ended = false;
+  const maybeExit = () => {
+    if (ended && inflight === 0) {
+      for (const c of clients) c.close();
+      done();
+    }
+  };
+  let done!: () => void;
+  const finished = new Promise<void>((r) => (done = r));
+  io.input.on("end", () => {
+    ended = true;
+    maybeExit();
+  });
+  io.input.setEncoding?.("utf8");
+  io.input.on("data", (chunk: string) => {
+    buf += chunk;
+    let nl: number;
+    while ((nl = buf.indexOf("\n")) >= 0) {
+      const line = buf.slice(0, nl).trim();
+      buf = buf.slice(nl + 1);
+      if (!line) continue;
+      let m: Json;
+      try {
+        m = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (typeof m.id === "string" && m.id.startsWith("parley-") && !m.method) {
+        waiting.get(Number(m.id.slice(7)))?.(m);
+        continue;
+      }
+      inflight++;
+      void handle(m).finally(() => {
+        inflight--;
+        maybeExit();
+      });
+    }
+  });
+  await finished;
+
+  async function handle(m: Json) {
+    const reply = (result: Json) => write({ jsonrpc: "2.0", id: m.id, result });
+    switch (m.method) {
+      case "initialize":
+        clientCaps = m.params?.capabilities ?? {};
+        return reply({ protocolVersion: m.params?.protocolVersion ?? "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "parley-bridge", version: VERSION }, instructions });
+      case "ping": return reply({});
+      case "tools/list": return reply({ tools: TOOLS });
+      case "tools/call":
+        try {
+          const r = await call(m.params.name, m.params.arguments ?? {});
+          return reply({ content: [{ type: "text", text: r.text }], ...(r.isError ? { isError: true } : {}) });
+        } catch (e) {
+          return reply({ content: [{ type: "text", text: `✗ transport: ${(e as Error).message}` }], isError: true });
+        }
+      default:
+        if (m.id !== undefined) write({ jsonrpc: "2.0", id: m.id, error: { code: -32601, message: `method not found: ${m.method}` } });
+    }
+  }
+}
+

@@ -39,7 +39,7 @@ export function shop(opts: { trust: string[]; id?: string }) {
           .filter((m) => !params.query || m.name.toLowerCase().includes(String(params.query).toLowerCase()))
           .filter((m) => !params.tag || m.tags.includes(params.tag))
           .filter((m) => !params.max_cal || m.cal <= params.max_cal)
-          .map((m) => ({ sku: m.sku, name: m.name, usd: (m.price / 100).toFixed(2), cal: m.cal, protein: m.protein })),
+          .map((m) => ({ sku: m.sku, name: m.name, usd: m.price / 100, cal: m.cal, protein: m.protein })),
     })
     .intent("shop.order", {
       summary: "Order meals for delivery",
@@ -63,7 +63,7 @@ export function shop(opts: { trust: string[]; id?: string }) {
             cost: money(total),
             risk: total > 15000 ? "high" : total > 8000 ? "medium" : "low",
             undoWindow: 7200,
-            data: { subtotal: (subtotal / 100).toFixed(2), delivery: (fee / 100).toFixed(2), ...(express ? { express: "8.99" } : {}) },
+            data: { subtotal: subtotal / 100, delivery: fee / 100, ...(express ? { express: 8.99 } : {}) },
             apply: (ctx) => {
               ctx.progress("authorizing card", 0.3);
               ctx.progress("order placed with kitchen", 0.9);

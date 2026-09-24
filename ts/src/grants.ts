@@ -7,6 +7,7 @@ import { b64u, fromUtf8, unb64u, utf8 } from "./b64.js";
 import { canonical } from "./canonical.js";
 import { keyPair, sha256, sign, verify, type KeyPair } from "./crypto.js";
 import type { Money, Proof, Risk, Verb } from "./types.js";
+import { fmtMoney } from "./lens.js";
 
 export type Limit = { max: number; currency: string };
 export type Caveat =
@@ -151,12 +152,12 @@ export async function checkGrant(token: string, ctx: CheckContext): Promise<Gran
         case "exp": if (!(t < v)) why = "grant has expired"; break;
         case "nbf": if (!(t >= v)) why = "grant is not valid yet"; break;
         case "per":
-          if (p?.cost && (p.cost.currency !== v.currency || p.cost.amount > v.max)) why = `cost exceeds per-commit limit of ${v.max} ${v.currency}`;
+          if (p?.cost && (p.cost.currency !== v.currency || p.cost.amount > v.max)) why = `cost exceeds the per-commit limit of ${fmtMoney({ amount: v.max, currency: v.currency })}`;
           break;
         case "spend":
           if (p?.cost) {
             const total = (ctx.spent?.(id) ?? 0) + p.cost.amount;
-            if (p.cost.currency !== v.currency || total > v.max) why = `would exceed spend limit of ${v.max} ${v.currency}`;
+            if (p.cost.currency !== v.currency || total > v.max) why = `would exceed the spend limit of ${fmtMoney({ amount: v.max, currency: v.currency })}`;
           }
           if (ctx.verb === "COMMIT") spendBlocks.push(id);
           break;

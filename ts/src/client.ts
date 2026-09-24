@@ -31,6 +31,11 @@ export class Client {
     this.grants = [...(opts.grants ?? [])];
   }
 
+  /** The agent's seed, if any. */
+  get key(): string | undefined {
+    return this.opts.key;
+  }
+
   addGrant(token: string) {
     this.grants.push(token);
   }
