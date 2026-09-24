@@ -5,8 +5,8 @@ vectors in `../conformance` and tested against the TypeScript reference. Python 
 dependency is `cryptography`.
 
 ```sh
-pip install ./python        # from the repo root
-cd python && uv run pytest  # conformance + TS interop (interop needs node ≥ 22.18)
+pip install parley-protocol  # imports as `parley`
+cd python && uv run pytest   # from a checkout: conformance + TS interop (node ≥ 22.18)
 ```
 
 ## Quickstart
