@@ -7,7 +7,7 @@ import { calendar } from "./calendar.ts";
 import { shop } from "./shop.ts";
 
 const c = { dim: "\x1b[2m", b: "\x1b[1m", cyan: "\x1b[36m", mag: "\x1b[35m", yel: "\x1b[33m", grn: "\x1b[32m", red: "\x1b[31m", x: "\x1b[0m" };
-const color = process.stdout.isTTY && !process.env.NO_COLOR;
+const color = (process.stdout.isTTY || !!process.env.FORCE_COLOR) && !process.env.NO_COLOR;
 const k = (s: string, code: string) => (color ? code + s + c.x : s);
 let step = 0;
 const say = (who: string, text: string) => console.log(`\n${k(`${++step}.`, c.dim)} ${k(who, c.b)} ${text}`);

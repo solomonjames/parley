@@ -12,6 +12,8 @@ The human's policy decides what can go ahead without asking. Commits can be undo
 
 ![spec](https://img.shields.io/badge/spec-v1%20draft-6f42c1) ![implementations](https://img.shields.io/badge/implementations-TypeScript%20%C2%B7%20Python-2ea44f) ![deps](https://img.shields.io/badge/runtime%20deps-0-brightgreen) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
 
+<img src="docs/demo.svg" alt="Parley demo: an agent reschedules a meeting, undoes it, browses a menu within a token budget, and places an order that needs the human's consent" width="880">
+
 </div>
 
 ---
