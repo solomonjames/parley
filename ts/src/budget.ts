@@ -28,7 +28,6 @@ export class MemoryHandleStore implements HandleStore {
 
 type Path = (string | number)[];
 const MIN_STRING = 200;
-const PLACEHOLDER = "h_XXXXXXXXXXXX";
 
 function getAt(root: any, path: Path): any {
   return path.reduce((v, k) => (v == null ? undefined : v[k]), root);
@@ -68,15 +67,14 @@ function roots(r: Reply): { deep: Path[]; list: Path[] } {
 export function fit<R extends Reply>(reply: R, budget: number, store: HandleStore): R {
   const original = structuredClone(reply) as any;
   const r = structuredClone(reply) as any;
-  const cut = new Map<string, { path: Path; kept: number }>();
+  const cut = new Map<string, { path: Path; kept: number; handle: string }>();
 
   const moreFor = (handles: boolean): More[] => {
     const out: More[] = [];
-    for (const { path, kept } of cut.values()) {
+    for (const { path, kept, handle } of cut.values()) {
       const full = getAt(original, path);
       if (getAt(r, path) === undefined) continue; // an ancestor was elided; its remainder carries this
       const rest = typeof full === "string" ? full.slice(kept) : full.slice(kept);
-      const handle = handles ? randomId("h") : PLACEHOLDER;
       if (handles) store.put(handle, typeof rest === "string" ? { kind: "text", text: rest } : { kind: "array", items: rest });
       out.push({ handle, path: path.join("."), remaining: rest.length, est: typeof rest === "string" ? est(rest) : est(lean(rest)) });
     }
@@ -109,11 +107,11 @@ export function fit<R extends Reply>(reply: R, budget: number, store: HandleStor
       const body = alreadyCut ? cur.slice(0, -1) : cur; // strip our "…"
       const kept = Math.max(MIN_STRING, Math.floor(body.length / 2));
       if (kept >= body.length) break;
-      cut.set(key, { path: pick.path, kept: alreadyCut ? Math.min(prevKept, kept) : kept });
+      cut.set(key, { path: pick.path, kept: alreadyCut ? Math.min(prevKept, kept) : kept, handle: cut.get(key)?.handle ?? randomId("h") });
       setAt(r, pick.path, body.slice(0, kept) + "…");
     } else {
       const kept = Math.floor(cur.length / 2);
-      cut.set(key, { path: pick.path, kept });
+      cut.set(key, { path: pick.path, kept, handle: cut.get(key)?.handle ?? randomId("h") });
       setAt(r, pick.path, cur.slice(0, kept));
     }
   }

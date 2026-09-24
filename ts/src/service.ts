@@ -220,7 +220,7 @@ export class Service {
     const auth = await this.authorize(req, "INTENT", req.capability, req.auto ? autoTarget : req.capability);
     const principal = auth?.iss ?? null;
     // A replayed auto INTENT (same holder key + request id) gets the original reply, never a second commit.
-    const autoKey = req.auto && req.proof ? `${req.proof.key}:${req.id}` : null;
+    const autoKey = req.auto && req.grants?.length && req.proof ? `${req.proof.key}:${req.id}` : null; // proof verified by authorize()
     if (autoKey) {
       const prior = this.autoSeen.get(autoKey);
       if (prior && prior.exp > this.now()) {

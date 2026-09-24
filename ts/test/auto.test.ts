@@ -73,3 +73,17 @@ describe("budget fitting never alters proposals", () => {
     expect(r.proposals[0].hash).toBe(await P.proposalHash(r.proposals[0]));
   });
 });
+
+describe("budget accounting uses the real handles", () => {
+  it("never overshoots the budget when several paths are elided", async () => {
+    const svc = P.service({ id: "t", name: "T", summary: "t" }).ask("t.two", {
+      summary: "two lists",
+      run: () => ({ a: Array.from({ length: 80 }, (_, i) => `item-${i}-x9`), b: Array.from({ length: 80 }, (_, i) => ({ n: i, v: `v${i * 7}` })) }),
+    });
+    const c = new P.Client(P.local(svc));
+    for (let budget = 70; budget <= 600; budget += 7) {
+      const r = await c.ask("t.two", {}, { budget });
+      expect(P.est(r.lens), `budget ${budget}`).toBeLessThanOrEqual(budget);
+    }
+  });
+});

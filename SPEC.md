@@ -184,7 +184,9 @@ The principal's grant, not the agent, decides what may skip the preview. Low-ris
 reversible actions inside the policy take one round trip. Anything costlier, riskier or
 irreversible still stops for review.
 
-For an auto `INTENT`, the proof target is `auto:{capability}:{frame id}` (§6.5). A service
+For an auto `INTENT`, the proof target is `auto:{capability}:{frame id}` (§6.5), and the
+frame id MUST be unique per agent key for at least 600 seconds, not merely per connection.
+Clients SHOULD use at least 64 random bits. A service
 MUST remember `(proof.key, frame id)` for auto requests for at least 600 seconds and
 answer a repeat with the original reply (`"replay": true` on receipts), never committing twice.
 
