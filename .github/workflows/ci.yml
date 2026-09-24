@@ -1,0 +1,41 @@
+name: ci
+on: [push, pull_request]
+jobs:
+  typescript:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+        env:
+          SKIP_INTEROP: "1"
+      - name: conformance vectors are up to date
+        run: cd ts && node scripts/vectors.mjs && git diff --exit-code ../conformance
+      - name: demo and benchmark run
+        if: matrix.node == 22
+        run: npm run demo && npm run bench
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.10", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci && npm run build   # ts/dist, for the Python↔TS interop tests
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv run --python ${{ matrix.python }} pytest -q
+        working-directory: python
+        env:
+          PARLEY_REQUIRE_INTEROP: "1"   # fail instead of skipping if node/ts/dist is missing

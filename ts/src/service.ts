@@ -54,7 +54,7 @@ export interface Plan<R = unknown> {
   /** Perform the effects. Only ever called on COMMIT, at most once. */
   apply(ctx: CommitCtx): R | Promise<R>;
   /** Reverse the effects. If present, the proposal is undoable for `undoWindow` seconds. */
-  revert?(ctx: CommitCtx & { result: R }): void | Promise<void>;
+  revert?(ctx: CommitCtx & { result: R }): unknown;
   undoWindow?: number;
 }
 

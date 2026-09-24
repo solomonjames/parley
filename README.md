@@ -167,7 +167,7 @@ Read the [full specification](SPEC.md). It's short on purpose.
 ## Quickstart
 
 ```sh
-npm install parley-protocol        # TypeScript/JavaScript: Node ≥ 20, Bun, Deno, Workers, browsers
+npm install parley-protocol        # TypeScript/JavaScript: Node ≥ 20, Bun, Deno (web-standard APIs only)
 pip install parley-protocol        # Python ≥ 3.10
 ```
 
