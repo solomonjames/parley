@@ -19,7 +19,7 @@ commits come with an undo window.
 ![deps](https://img.shields.io/badge/runtime%20deps-0-2BD9A5)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-**[Try it in your browser](https://solomonjames.github.io/parley/playground)** · [Docs](https://solomonjames.github.io/parley/) · [Spec](SPEC.md) · [Quickstart](#quickstart) · [Use from Claude Code](#use-it-from-claude-code-today) · [Benchmark](#numbers) · [Design](docs/design.md)
+**[Try it in your browser](https://solomonjames.github.io/parley/playground)** · [Why Parley](docs/why.md) · [Docs](https://solomonjames.github.io/parley/) · [Spec](SPEC.md) · [Quickstart](#quickstart) · [Use from Claude Code](#use-it-from-claude-code-today) · [Benchmark](#numbers) · [Design](docs/design.md)
 
 <img src="docs/demo.svg" alt="Parley demo: an agent reschedules a meeting, undoes it, browses a menu within a token budget, and places an order that needs the human's consent" width="880">
 
