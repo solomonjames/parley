@@ -9,20 +9,20 @@ Tool definitions in context every turn: **REST MCP 644 tokens** (9 tools) vs **P
 | Task | Calls (REST → Parley) | Result tokens read (REST → Parley) | Total input tokens over the task (REST → Parley) | Saved |
 |---|---|---|---|---|
 | Reschedule a meeting into a free slot | 3 → 1 | 393 → 131 (67% less) | 3494 → 1456 | **58%** |
-| Find vegan meals < 700 kcal and order four | 2 → 2 | 723 → 309 (57% less) | 3285 → 2567 | **22%** |
+| Find vegan meals < 700 kcal and order four | 2 → 2 | 725 → 308 (58% less) | 3289 → 2567 | **22%** |
 | Read the full 60-item menu | 1 → 1 | 3019 → 1095 (64% less) | 4318 → 2401 | **44%** |
-| Skim the menu (800-token budget) | 1 → 1 | 3019 → 556 (82% less) | 4318 → 1862 | **57%** |
-| **All tasks** | | | 15415 → 8286 | **46%** |
+| Skim the menu (800-token budget) | 1 → 1 | 3019 → 558 (82% less) | 4318 → 1864 | **57%** |
+| **All tasks** | | | 15419 → 8288 | **46%** |
 
 ## REST results minified JSON (best case for REST)
 
 | Task | Calls (REST → Parley) | Result tokens read (REST → Parley) | Total input tokens over the task (REST → Parley) | Saved |
 |---|---|---|---|---|
-| Reschedule a meeting into a free slot | 3 → 1 | 316 → 130 (59% less) | 3339 → 1455 | **56%** |
-| Find vegan meals < 700 kcal and order four | 2 → 2 | 462 → 310 (33% less) | 2823 → 2568 | **9%** |
+| Reschedule a meeting into a free slot | 3 → 1 | 316 → 131 (59% less) | 3339 → 1456 | **56%** |
+| Find vegan meals < 700 kcal and order four | 2 → 2 | 464 → 309 (33% less) | 2827 → 2568 | **9%** |
 | Read the full 60-item menu | 1 → 1 | 1919 → 1095 (43% less) | 3218 → 2401 | **25%** |
 | Skim the menu (800-token budget) | 1 → 1 | 1919 → 558 (71% less) | 3218 → 1864 | **42%** |
-| **All tasks** | | | 12598 → 8288 | **34%** |
+| **All tasks** | | | 12602 → 8289 | **34%** |
 
 ## What the model actually reads
 
@@ -75,7 +75,7 @@ Tool definitions in context every turn: **REST MCP 644 tokens** (9 tools) vs **P
 ### Reschedule, Parley (1 call)
 
 ```
-✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_gKZsP90N) · undo until 2026-09-25T02:06:02Z
+✓ Move "1:1 with Ana" to 2026-09-27T09:30:00Z (receipt r_cDvV2ji-) · undo until 2026-09-25T02:06:47Z
   ~ update event/e2.start: 2026-09-25T14:00:00Z → 2026-09-27T09:30:00Z
   > send ana.ruiz@acme.co — updated invite
   result:

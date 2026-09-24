@@ -3,22 +3,25 @@
 // in grants) and human consent for anything over the agent's limits.
 import { ParleyError, charge, create, fix, money, service, type Plan } from "parley-protocol";
 
-const NAMES = [
-  "Miso Glazed Salmon", "Chicken Tikka Masala", "Mushroom Risotto", "Beef Bulgogi Bowl", "Falafel Plate", "Turkey Chili", "Tofu Pad Thai",
-  "Lemon Herb Chicken", "Shrimp Tacos", "Lentil Curry", "Steak Frites", "Veggie Lasagna", "Cod Piccata", "Pork Carnitas", "Chickpea Shawarma",
-  "Teriyaki Chicken", "Eggplant Parm", "Salmon Poke", "Chicken Pho", "Black Bean Burrito",
+const MENU: [string, string[]][] = [
+  ["Miso Glazed Salmon", ["high-protein"]], ["Chicken Tikka Masala", ["high-protein", "spicy"]], ["Mushroom Risotto", ["vegetarian"]],
+  ["Beef Bulgogi Bowl", ["high-protein", "spicy"]], ["Falafel Plate", ["vegan", "vegetarian"]], ["Turkey Chili", ["high-protein", "spicy"]],
+  ["Tofu Pad Thai", ["vegan", "vegetarian"]], ["Lemon Herb Chicken", ["high-protein"]], ["Shrimp Tacos", ["spicy"]],
+  ["Lentil Curry", ["vegan", "vegetarian", "spicy"]], ["Steak Frites", ["high-protein"]], ["Veggie Lasagna", ["vegetarian"]],
+  ["Cod Piccata", ["high-protein"]], ["Pork Carnitas", ["high-protein"]], ["Chickpea Shawarma", ["vegan", "vegetarian"]],
+  ["Teriyaki Chicken", ["high-protein"]], ["Eggplant Parm", ["vegetarian"]], ["Salmon Poke", ["high-protein"]],
+  ["Chicken Pho", ["high-protein"]], ["Black Bean Burrito", ["vegan", "vegetarian"]],
 ];
-const TAGS = [["high-protein"], ["spicy"], ["vegetarian"], ["high-protein", "spicy"], ["vegan"], ["high-protein"], ["vegan"]];
 
 export interface Meal { sku: string; name: string; price: number; cal: number; protein: number; tags: string[] }
 
 export const catalog: Meal[] = Array.from({ length: 60 }, (_, i) => ({
   sku: `m${String(i + 1).padStart(3, "0")}`,
-  name: NAMES[i % NAMES.length] + (i >= NAMES.length ? ` (${["family", "light"][Math.floor(i / NAMES.length) - 1]})` : ""),
+  name: MENU[i % MENU.length][0] + (i >= MENU.length ? ` (${["family", "light"][Math.floor(i / MENU.length) - 1]})` : ""),
   price: 1099 + ((i * 137) % 900),
   cal: 420 + ((i * 53) % 380),
   protein: 18 + ((i * 7) % 30),
-  tags: TAGS[i % TAGS.length],
+  tags: MENU[i % MENU.length][1],
 }));
 
 export function shop(opts: { trust: string[]; id?: string }) {
