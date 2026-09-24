@@ -87,6 +87,18 @@ def ts_eval(fn: str, arg):
     return json.loads(out.stdout)
 
 
+def ts_eval2(fn: str, a, b):
+    script = (
+        "import(process.argv[1]).then(m=>{let s='';process.stdin.on('data',d=>s+=d);"
+        f"process.stdin.on('end',()=>{{const [a,b]=JSON.parse(s);process.stdout.write(JSON.stringify(m.{fn}(a,b)))}})}})"
+    )
+    out = subprocess.run(
+        ["node", "-e", script, (REPO / "ts" / "dist" / "index.js").as_uri()],
+        input=json.dumps([a, b]), capture_output=True, text=True, check=True,
+    )
+    return json.loads(out.stdout)
+
+
 def assert_same_lens(replies):
     frames = [r.frame for r in replies] + [e.frame for r in replies for e in r.events]
     assert [lens(f) for f in frames] == ts_lens(frames)
@@ -144,6 +156,7 @@ def test_shop_consent_flow(ts_servers):
             assert need.consent["principal"] == PRINCIPAL.public
             assert list(need.consent) == ["proposal", "hash", "service", "capability", "principal", "summary", "expires"]
             assert consent_code(need.consent) == ts_eval("consentCode", need.consent)
+            assert consent_code(need.consent, p) == ts_eval2("consentCode", need.consent, p)
             ok = await c.commit(p, grants=[consent_grant(PRINCIPAL, AGENT.public, need.consent)])
             assert ok.kind == "RECEIPT", ok.lens
             assert_same_lens([props, need, ok])

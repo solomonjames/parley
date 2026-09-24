@@ -16,26 +16,27 @@ Path = tuple
 
 
 class HandleStore(Protocol):
-    def put(self, handle: str, value: list | str) -> None: ...
-    def get(self, handle: str) -> list | str | None: ...
+    def put(self, handle: str, value: list | str, owner: str | None = None) -> None: ...
+    def get(self, handle: str) -> tuple[list | str, str | None] | None: ...
 
 
 class MemoryHandleStore:
-    """Parked remainders, kept for ``ttl`` seconds (SPEC §4.6 asks for at least 10 minutes)."""
+    """Parked remainders, kept for ``ttl`` seconds (SPEC §4.6 asks for at least 10 minutes).
+    ``owner`` is the verified holder key of the request that produced the handle, if any."""
 
     def __init__(self, ttl: float = 30 * 60):
         self.ttl = ttl
-        self._m: dict[str, tuple[list | str, float]] = {}
+        self._m: dict[str, tuple[list | str, str | None, float]] = {}
 
-    def put(self, handle: str, value: list | str) -> None:
-        self._m[handle] = (value, time.monotonic() + self.ttl)
+    def put(self, handle: str, value: list | str, owner: str | None = None) -> None:
+        self._m[handle] = (value, owner, time.monotonic() + self.ttl)
         if len(self._m) > 10_000:
             now = time.monotonic()
-            self._m = {k: v for k, v in self._m.items() if v[1] > now}
+            self._m = {k: v for k, v in self._m.items() if v[2] > now}
 
-    def get(self, handle: str) -> list | str | None:
+    def get(self, handle: str) -> tuple[list | str, str | None] | None:
         e = self._m.get(handle)
-        return e[0] if e and e[1] > time.monotonic() else None
+        return (e[0], e[1]) if e and e[2] > time.monotonic() else None
 
 
 def _get(root: Any, path: Path) -> Any:
@@ -80,8 +81,9 @@ def _roots(r: dict) -> tuple[list[Path], list[Path]]:
     return [], []
 
 
-def fit(reply: dict, budget: int, store: HandleStore) -> dict:
-    """Fit ``reply`` within ``budget`` estimated tokens of Lens. Returns a new reply."""
+def fit(reply: dict, budget: int, store: HandleStore, owner: str | None = None) -> dict:
+    """Fit ``reply`` within ``budget`` estimated tokens of Lens. Returns a new reply.
+    Handles it creates are expandable only by ``owner`` when one is given (SPEC §4.6)."""
     if est(lens(reply)) <= budget:
         return reply
     original = copy.deepcopy(reply)
@@ -100,7 +102,7 @@ def fit(reply: dict, budget: int, store: HandleStore) -> dict:
             rest = _get(original, path)[kept:]
             handle = handles.setdefault(path, "h_" + b64url_encode(os.urandom(9)))
             if real:
-                store.put(handle, rest)
+                store.put(handle, rest, owner)
             out.append({
                 "handle": handle, "path": ".".join(map(str, path)), "remaining": len(rest),
                 "est": est(rest) if isinstance(rest, str) else est(lean(rest)),

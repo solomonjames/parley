@@ -8,7 +8,7 @@ from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
-from ._json import CanonicalError, b64url_decode, b64url_encode, canonical_bytes, compact, loads, sha256_b64url
+from ._json import CanonicalError, b64url_decode, b64url_encode, canonical_bytes, compact, loads, proposal_hash, sha256_b64url
 from .keys import KeyPair, parse_public_key, verify
 
 TOKEN_PREFIX = "pg1."
@@ -102,9 +102,28 @@ CONSENT_PREFIX = "pc1."
 _CONSENT_STR_FIELDS = ("proposal", "hash", "service", "capability", "principal", "summary")
 
 
-def consent_code(consent: Mapping[str, Any]) -> str:
-    """Encode a consent request for out-of-band approval: ``pc1.`` + b64url(canonical(c))."""
-    return CONSENT_PREFIX + b64url_encode(canonical_bytes(dict(consent)))
+def consent_code(consent: Mapping[str, Any], detail: Mapping[str, Any] | None = None) -> str:
+    """Encode a consent request for out-of-band approval: ``pc1.`` + b64url(canonical(c)).
+
+    Pass the proposal the agent received as ``detail`` (``data`` is dropped) so the
+    approver can show its real effects and re-check the hash (SPEC §6.6)."""
+    body = dict(consent)
+    if detail is not None:
+        body["detail"] = {k: v for k, v in detail.items() if k != "data"}
+    return CONSENT_PREFIX + b64url_encode(canonical_bytes(body))
+
+
+def check_consent(consent: Mapping[str, Any], proposal: Mapping[str, Any], service: str) -> None:
+    """What an approver's tooling MUST check before showing a consent request (SPEC §6.6):
+    it names the proposal the agent actually received, from that service, and that
+    proposal's content hashes to the approved hash. Raises ValueError on any mismatch."""
+    if consent.get("service") != service:
+        raise ValueError("consent request names a different service")
+    for field_, want in (("proposal", proposal.get("id")), ("hash", proposal.get("hash")), ("capability", proposal.get("capability"))):
+        if consent.get(field_) != want:
+            raise ValueError(f"consent request {field_} does not match the proposal")
+    if proposal_hash(proposal) != consent["hash"]:
+        raise ValueError("the proposal's content does not hash to the approved hash")
 
 
 def decode_consent_code(code: str) -> dict:

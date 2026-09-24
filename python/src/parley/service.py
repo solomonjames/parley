@@ -24,7 +24,7 @@ from .validate import closest, validate_params
 log = logging.getLogger("parley")
 
 DAY = 86400
-AUTO_MEMORY = 600  # seconds a (key, frame id) auto INTENT is remembered (§4.3.1)
+AUTO_MEMORY = 900  # seconds past max(arrival, proof.ts) a (key, frame id) auto INTENT is remembered (§4.3.1)
 VERBS = ("HELLO", "ASK", "INTENT", "COMMIT", "UNDO", "EXPAND")
 Emit = Callable[[dict], None]
 _UNSET: Any = object()
@@ -139,6 +139,14 @@ class _IntentDef:
 
 
 @dataclass
+class _StoredProposal:
+    proposal: dict
+    plan: Plan
+    principal: str | None  # the principal whose grant authorized the INTENT, if any
+    requester: str | None  # the holder key whose verified proof was on the INTENT (§4.4)
+
+
+@dataclass
 class _StoredReceipt:
     receipt: dict
     plan: Plan
@@ -189,7 +197,7 @@ class Service:
         self._now = now or time.time
         self._asks: dict[str, _AskDef] = {}
         self._intents: dict[str, _IntentDef] = {}
-        self._proposals: dict[str, tuple[dict, Plan, str | None]] = {}
+        self._proposals: dict[str, _StoredProposal] = {}
         self._commits: dict[str, asyncio.Task] = {}
         self._receipts: dict[str, _StoredReceipt] = {}
         self._spent: dict[str, int] = {}
@@ -297,9 +305,26 @@ class Service:
             raise ParleyError("invalid_params", "`params` must be an object")
         return params
 
+    @staticmethod
+    def _verified_key(frame: dict) -> str | None:
+        """The proof key of a request whose proof ``_authorize`` verified (it always verifies
+        the proof when grants are present, and rejects the request otherwise)."""
+        return frame["proof"]["key"] if frame.get("grants") else None
+
+    def _consent(self, proposal: dict, principal: str | None) -> dict:
+        return {
+            "proposal": proposal["id"], "hash": proposal["hash"], "service": self.id,
+            "capability": proposal["capability"], "principal": principal,
+            "summary": proposal["summary"], "expires": proposal["expires"],
+        }
+
     async def _authorize(
-        self, frame: dict, verb: str, capability: str, target: str, proposal: dict | None = None
+        self, frame: dict, verb: str, capability: str, target: str, proposal: dict | None = None,
+        *, principal: str | None = None, replay: bool = False,
     ) -> Verification | None:
+        """Verify grants and proof. ``principal``: only grants from this principal count (the
+        one a proposal was made for). ``replay``: money and risk limits were already spent by
+        the original commit, so ``consent_required`` counts as authorized (§4.4)."""
         grants = frame.get("grants") or []
         required = verb in ("COMMIT", "UNDO") or self.require_grants
         if not grants:
@@ -326,8 +351,13 @@ class Service:
         checks = []
         for g in grants:
             c = verify_grant(g, self.trust, frame["proof"]["key"], ctx)
+            if principal and c.principal and c.principal != principal:
+                checks.append(Verification(False, "forbidden", "grant is from a different principal than this proposal's", c.grant))
+                continue
             if c.ok:
                 return c
+            if replay and c.code == "consent_required":
+                return Verification(True, grant=c.grant)
             checks.append(c)
         if not required:
             return None  # a grant that doesn't apply to ASK/INTENT just means "anonymous"
@@ -336,11 +366,7 @@ class Service:
             raise ParleyError(
                 "consent_required",
                 f"{consent.message}; your principal must approve this exact proposal",
-                consent={
-                    "proposal": proposal["id"], "hash": proposal["hash"], "service": self.id,
-                    "capability": proposal["capability"], "principal": consent.principal,
-                    "summary": proposal["summary"], "expires": proposal["expires"],
-                },
+                consent=self._consent(proposal, consent.principal),
             )
         forbidden = next((c for c in checks if c.code == "forbidden"), None)
         if forbidden:
@@ -358,7 +384,7 @@ class Service:
         validate_params(d.params, params)
         auth = await self._authorize(frame, "ASK", name, name)
         data = await _call(d.run, Ctx(params, auth.principal if auth else None, agent=frame.get("agent")))
-        return fit(self._frame(frame["id"], "ANSWER", {"data": data}), budget, self.handles)
+        return fit(self._frame(frame["id"], "ANSWER", {"data": data}), budget, self.handles, self._verified_key(frame))
 
     async def _on_intent(self, frame: dict, budget: int, emit: Emit) -> dict:
         name = frame.get("capability")
@@ -377,9 +403,10 @@ class Service:
             prior = self._auto_seen.get(key)
             if prior and prior[1] > now:
                 r = await asyncio.shield(prior[0])
-                return {**r, "id": random_id("s"), "re": frame["id"], "replay": True} if r["kind"] == "RECEIPT" else r
+                return {**r, "id": random_id("s"), "re": frame["id"], **({"replay": True} if r["kind"] == "RECEIPT" else {})}
             task = asyncio.ensure_future(self._plan_intent(d, name, frame, params, budget, emit, auth, auto))
-            self._auto_seen[key] = (task, now + AUTO_MEMORY)
+            # Outlive every proof that could carry this id: proofs are valid for 300s around ts.
+            self._auto_seen[key] = (task, max(now, frame["proof"]["ts"]) + AUTO_MEMORY)
             if len(self._auto_seen) > 10_000:
                 self._auto_seen = {k: v for k, v in self._auto_seen.items() if v[1] > now}
             return await asyncio.shield(task)
@@ -391,6 +418,7 @@ class Service:
     ) -> dict:
         try:
             principal = auth.principal if auth else None
+            requester = self._verified_key(frame)
             goal = frame.get("goal") if isinstance(frame.get("goal"), str) else None
             out = await _call(d.plan, Ctx(params, principal, goal, frame.get("agent")))
             if isinstance(out, Clarification):
@@ -415,19 +443,20 @@ class Service:
                 if plan.data is not _UNSET:
                     p["data"] = plan.data
                 p["hash"] = proposal_hash(p)
-                self._proposals[p["id"]] = (p, plan, principal)
+                self._proposals[p["id"]] = _StoredProposal(p, plan, principal, requester)
                 proposals.append(p)
             if auto:
-                commit_auth = self._auto_auth(frame, proposals[0])
-                if commit_auth and (principal is None or principal == commit_auth.principal):
+                commit_auth = self._auto_auth(frame, proposals[0], principal)
+                if commit_auth:
                     out = await self._execute(proposals[0]["id"], commit_auth, frame["id"], emit)
-                    return fit({**out, "auto": True}, budget, self.handles) if out["kind"] == "RECEIPT" else out
-            return fit(self._frame(frame["id"], "PROPOSALS", {"proposals": proposals}), budget, self.handles)
+                    return fit({**out, "auto": True}, budget, self.handles, requester) if out["kind"] == "RECEIPT" else out
+            return fit(self._frame(frame["id"], "PROPOSALS", {"proposals": proposals}), budget, self.handles, requester)
         except Exception as e:  # noqa: BLE001 — also reached from a cached auto task
             return self._error_reply(frame["id"], e)
 
-    def _auto_auth(self, frame: dict, proposal: dict) -> Verification | None:
-        """A grant that authorizes COMMIT of ``proposal`` outright, if the proposal is undoable."""
+    def _auto_auth(self, frame: dict, proposal: dict, principal: str | None) -> Verification | None:
+        """A grant (from ``principal``, when set) that authorizes COMMIT of ``proposal``
+        outright, if the proposal is undoable."""
         grants = frame.get("grants")
         if not proposal["undo"] or not grants:
             return None
@@ -436,36 +465,69 @@ class Service:
             return None
         ctx = GrantContext(self.id, "COMMIT", proposal["capability"], now,
                            {"hash": proposal["hash"], "cost": proposal["cost"], "risk": proposal["risk"]}, self._spent)
-        return next((c for g in grants if (c := verify_grant(g, self.trust, frame["proof"]["key"], ctx)).ok), None)
+        for g in grants:
+            c = verify_grant(g, self.trust, frame["proof"]["key"], ctx)
+            if c.ok and (principal is None or c.principal == principal):
+                return c
+        return None
+
+    @staticmethod
+    def _check_requester(stored: _StoredProposal, frame: dict) -> None:
+        """Only the agent that asked for a proposal (with a verified proof) may commit it (§4.4)."""
+        if stored.requester is None:
+            raise ParleyError("forbidden", "this proposal came from an anonymous INTENT and can't be committed",
+                              fix=[fix("send INTENT again with your grant, then commit that proposal")])
+        if stored.requester != frame["proof"]["key"]:
+            raise ParleyError("forbidden", "only the agent that requested this proposal can commit it",
+                              fix=[fix("send INTENT yourself, then commit your own proposal")])
 
     async def _on_commit(self, frame: dict, budget: int, emit: Emit) -> dict:
         pid = frame.get("proposal")
         stored = self._proposals.get(pid) if isinstance(pid, str) else None
         if stored is None:
             raise ParleyError("not_found", f"no proposal {_json_str(pid)}", fix=[fix("send INTENT again to get fresh proposals")])
-        proposal, _plan, made_for = stored
+        proposal = stored.proposal
         if frame.get("hash") != proposal["hash"]:
+            # Never reveal the right hash: the agent must commit what it actually read.
             raise ParleyError(
                 "conflict",
                 "hash does not match the proposal; you would commit something other than what you saw",
-                fix=[fix(f"use hash {proposal['hash']} after re-reading the proposal, or send INTENT again")],
+                fix=[fix("re-read the proposal, or send INTENT again")],
             )
-        auth = await self._authorize(frame, "COMMIT", proposal["capability"], proposal["hash"], proposal)
-        assert auth is not None
         existing = self._commits.get(pid)
         if existing is not None:
+            auth = await self._authorize(frame, "COMMIT", proposal["capability"], proposal["hash"], proposal,
+                                         principal=stored.principal, replay=True)
+            assert auth is not None
+            self._check_requester(stored, frame)
             prior = await asyncio.shield(existing)
+            if prior["kind"] == "RECEIPT" and self._receipts[prior["receipt"]["id"]].principal != auth.principal:
+                raise ParleyError("forbidden", "this proposal was committed by a different principal")
             return {**prior, "id": random_id("s"), "re": frame["id"], **({"replay": True} if prior["kind"] == "RECEIPT" else {})}
+        auth = await self._authorize(frame, "COMMIT", proposal["capability"], proposal["hash"], proposal,
+                                     principal=stored.principal)
+        assert auth is not None
+        self._check_requester(stored, frame)
         if self.now() >= proposal["expires"]:
             raise ParleyError("expired", "this proposal has expired", fix=[fix("send INTENT again to get a fresh proposal")])
-        if made_for and made_for != auth.principal:
-            raise ParleyError("forbidden", "this proposal was made for a different principal")
         out = await self._execute(pid, auth, frame["id"], emit)
-        return fit(out, budget, self.handles) if out["kind"] == "RECEIPT" else out
+        return fit(out, budget, self.handles, frame["proof"]["key"]) if out["kind"] == "RECEIPT" else out
 
     async def _execute(self, pid: str, auth: Verification, re: str, emit: Emit) -> dict:
-        """Run a proposal's ``apply`` at most once; concurrent and later commits share the result."""
-        proposal, plan, _ = self._proposals[pid]
+        """Run a proposal's ``apply`` at most once; concurrent and later commits share the result.
+        Spend is re-checked and reserved before anything can yield, and released on failure."""
+        stored = self._proposals[pid]
+        proposal, plan = stored.proposal, stored.plan
+        cost = proposal["cost"]["amount"] if proposal["cost"] else 0
+        blocks = [bid for bid, _ in auth.spend_blocks()] if cost else []
+        if any(self._spent.get(bid, 0) + cost > cav["max"] for bid, cav in auth.spend_blocks()) and cost:
+            return self._error_reply(re, ParleyError(
+                "consent_required",
+                "would exceed the spend limit (other commits are in flight); your principal must approve this exact proposal",
+                consent=self._consent(proposal, auth.principal),
+            ))
+        for bid in blocks:
+            self._spent[bid] = self._spent.get(bid, 0) + cost
 
         def progress(message: str, pct: float | None, data: Any) -> None:
             body: dict[str, Any] = {"message": message}
@@ -478,9 +540,6 @@ class Service:
         async def run() -> dict:
             try:
                 result = await _call(plan.apply, CommitCtx(auth.principal, progress))
-                if proposal["cost"]:
-                    for bid, _ in auth.spend_blocks():
-                        self._spent[bid] = self._spent.get(bid, 0) + proposal["cost"]["amount"]
                 at = self.now()
                 receipt: dict[str, Any] = {
                     "id": random_id("r"), "proposal": pid, "capability": proposal["capability"], "summary": proposal["summary"],
@@ -492,6 +551,8 @@ class Service:
                 self._receipts[receipt["id"]] = _StoredReceipt(receipt, plan, result, auth.principal)
                 return self._frame(re, "RECEIPT", {"receipt": receipt})
             except Exception as e:  # noqa: BLE001
+                for bid in blocks:  # release the reservation
+                    self._spent[bid] -= cost
                 self._commits.pop(pid, None)  # failed commits may be retried
                 return self._error_reply(re, e)
 
@@ -510,7 +571,8 @@ class Service:
             raise ParleyError("forbidden", "only the principal who committed this can undo it")
         if stored.undone is not None:
             prior = await asyncio.shield(stored.undone)
-            return {**prior, "id": random_id("s"), "re": frame["id"], "replay": True} if prior["kind"] == "RECEIPT" else prior
+            # Every waiter gets its own `re`, whether the shared attempt succeeded or failed.
+            return {**prior, "id": random_id("s"), "re": frame["id"], **({"replay": True} if prior["kind"] == "RECEIPT" else {})}
         receipt, plan = stored.receipt, stored.plan
         if not receipt["undo"] or plan.revert is None:
             raise ParleyError("forbidden", "this action is irreversible")
@@ -536,15 +598,23 @@ class Service:
 
         stored.undone = asyncio.ensure_future(run())
         out = await asyncio.shield(stored.undone)
-        return fit(out, budget, self.handles) if out["kind"] == "RECEIPT" else out
+        return fit(out, budget, self.handles, frame["proof"]["key"]) if out["kind"] == "RECEIPT" else out
 
     def _on_expand(self, frame: dict, budget: int) -> dict:
         h = frame.get("handle")
         parked = self.handles.get(h) if isinstance(h, str) else None
         if parked is None:
             raise ParleyError("expired", f"handle {_json_str(h)} is unknown or expired", fix=[fix("repeat the original request")])
-        data = {"items": parked} if isinstance(parked, list) else {"text": parked}
-        return fit(self._frame(frame["id"], "ANSWER", {"data": data}), budget, self.handles)
+        value, owner = parked
+        if owner:  # handles from authenticated replies expand only for the same holder key (§4.6)
+            proof = frame.get("proof")
+            if verify_proof(proof, self.id, "EXPAND", h, self.now()) or proof["key"] != owner:
+                raise ParleyError("unauthorized", "this handle belongs to another agent",
+                                  fix=[fix("expand it with the same key that made the original request")])
+        elif self.require_grants:
+            raise ParleyError("unauthorized", "EXPAND needs a grant from your principal")
+        data = {"items": value} if isinstance(value, list) else {"text": value}
+        return fit(self._frame(frame["id"], "ANSWER", {"data": data}), budget, self.handles, owner)
 
 
 def _json_str(v: Any) -> str:

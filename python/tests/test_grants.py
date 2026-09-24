@@ -150,3 +150,23 @@ def test_proof():
 
 def test_generate_is_random():
     assert KeyPair.generate().public != KeyPair.generate().public
+
+
+def test_consent_code_detail_and_approver_checks():
+    from parley import check_consent, proposal_hash
+
+    p = {"id": "p1", "capability": "calendar.move", "summary": "s", "effects": [{"op": "charge", "target": "card"}],
+         "cost": {"amount": 500, "currency": "USD"}, "risk": "low", "undo": None, "expires": NOW + 60, "data": {"x": 1.5}}
+    p["hash"] = proposal_hash(p)
+    consent = {**CONSENT, "hash": p["hash"]}
+    decoded = decode_consent_code(consent_code(consent, p))
+    assert "data" not in decoded["detail"] and decoded["detail"]["effects"] == p["effects"]
+    check_consent(decoded, decoded["detail"], "svc")  # what an approver does before showing it
+    for bad_consent, bad_p, svc in [
+        (consent, p, "other"),
+        ({**consent, "proposal": "p2"}, p, "svc"),
+        ({**consent, "capability": "calendar.cancel"}, p, "svc"),
+        (consent, {**p, "effects": []}, "svc"),  # a service that swapped effects under the same hash
+    ]:
+        with pytest.raises(ValueError):
+            check_consent(bad_consent, bad_p, svc)

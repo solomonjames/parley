@@ -1,6 +1,8 @@
 import asyncio
 import json
 import sys
+import time
+import urllib.error
 import urllib.request
 
 import pytest
@@ -23,6 +25,7 @@ from parley import (
     money,
     serve_http,
     serve_tcp,
+    sign_proof,
 )
 
 PRINCIPAL = key_from_seed(bytes([1]) * 32)
@@ -120,14 +123,39 @@ def test_commit_flow_replay_undo_and_events():
 def test_commit_needs_grant_and_matching_hash():
     async def go():
         svc = shop()
-        anon = Client(local(svc))
-        p = (await anon.intent("shop.order", {"sku": "a", "qty": 1})).proposals[0]
-        assert (await anon.commit(p)).code == "unauthorized"
         c = Client(local(svc), key=AGENT, grants=[grant()])
-        assert (await c.commit({**p, "hash": "nope"})).code == "conflict"
+        p = (await c.intent("shop.order", {"sku": "a", "qty": 1})).proposals[0]
+        assert (await Client(local(svc)).commit(p)).code == "unauthorized"
+        bad = await c.commit({**p, "hash": "nope"})
+        assert bad.code == "conflict" and p["hash"] not in json.dumps(bad.frame)  # never reveal the hash
         thief = Client(local(svc), key=OTHER, grants=[grant()])  # someone else's grant, own key
         assert (await thief.commit(p)).code == "unauthorized"
         assert (await c.commit(p)).kind == "RECEIPT"
+
+    run(go())
+
+
+def test_only_the_requester_can_commit():
+    """§4.4: a party can't prepare a proposal for someone else's agent to commit."""
+
+    async def go():
+        svc = shop()
+        other_principal = key_from_seed(bytes([9]) * 32)
+        svc.trust.append(other_principal.public)
+        anon_p = (await Client(local(svc)).intent("shop.order", {"sku": "a", "qty": 1})).proposals[0]
+        agent = Client(local(svc), key=AGENT, grants=[grant()])
+        r = await agent.commit(anon_p)
+        assert r.code == "forbidden" and "anonymous" in r.message
+        # OTHER asks, with its own valid grant; AGENT (also validly granted) can't commit it.
+        other = Client(local(svc), key=OTHER, grants=[grant(sub=OTHER)])
+        other_p = (await other.intent("shop.order", {"sku": "a", "qty": 1})).proposals[0]
+        assert (await agent.commit(other_p)).code == "forbidden"
+        # Same agent key, but a grant from a different principal than the INTENT's: skipped.
+        mine = (await agent.intent("shop.order", {"sku": "a", "qty": 1})).proposals[0]
+        switch = Client(local(svc), key=AGENT, grants=[grant(iss=other_principal)])
+        assert (await switch.commit(mine)).code == "forbidden"
+        assert svc.orders == []
+        assert (await agent.commit(mine)).kind == "RECEIPT" and (await other.commit(other_p)).kind == "RECEIPT"
 
     run(go())
 
@@ -464,6 +492,163 @@ def test_tls_flow(tmp_path):
         try:
             async with await connect(f"parleys://localhost:{port}", ssl_context=client_ctx) as c:
                 assert (await c.hello()).frame["service"]["id"] == "calendar.example"
+        finally:
+            srv.close()
+
+    run(go())
+
+
+# ------------------------------------------------------------ security round (SPEC §2.1, §4.3.1, §4.4, §4.6, §6.3)
+
+
+def test_replay_ignores_spent_limits_but_not_principal():
+    async def go():
+        svc = shop()
+        other_principal = key_from_seed(bytes([9]) * 32)
+        svc.trust.append(other_principal.public)
+        c = Client(local(svc), key=AGENT, grants=[grant({"per": {"max": 5000, "currency": "USD"}})])
+        p = (await c.intent("shop.order", {"sku": "a", "qty": 4})).proposals[0]  # 6000: needs consent
+        need = await c.commit(p)
+        first = await c.commit(p, grants=[consent_grant(PRINCIPAL, AGENT.public, need.consent)])
+        assert first.kind == "RECEIPT"
+        # A retry after a lost response, with only the normal grant: a replay, not a consent prompt.
+        again = await c.commit(p)
+        assert again.replay is True and again.receipt["id"] == first.receipt["id"] and svc.orders == [4]
+        # Another principal's grant can't read the receipt by replaying.
+        assert (await Client(local(svc), key=AGENT, grants=[grant(iss=other_principal)]).commit(p)).code == "forbidden"
+
+    run(go())
+
+
+def test_spend_is_reserved_before_apply_and_released_on_failure():
+    async def go():
+        svc = Service("s", "S", trust=[PRINCIPAL.public])
+        gate = asyncio.Event()
+        fail = {"on": False}
+
+        async def apply(c):
+            await gate.wait()
+            if fail["on"]:
+                raise RuntimeError("card declined")
+            return "ok"
+
+        svc.intent("x.buy", "b")(lambda ctx: Plan("buy", [charge("card")], apply, cost=money(600)))
+        g = grant({"spend": {"max": 1000, "currency": "USD"}})
+        c = Client(local(svc), key=AGENT, grants=[g])
+        p1, p2 = [(await c.intent("x.buy")).proposals[0] for _ in range(2)]
+        # Both pass the check alone (600 <= 1000) but not together; the second must not start.
+        t1 = asyncio.create_task(c.commit(p1))
+        await asyncio.sleep(0)
+        r2 = await c.commit(p2)
+        assert r2.code == "consent_required"  # t1's reservation is already counted
+        gate.set()
+        assert (await t1).kind == "RECEIPT"
+        assert svc._spent[g.block_ids[0]] == 600
+        # A failed apply releases its reservation.
+        fail["on"] = True
+        svc2_bid = g.block_ids[0]
+        p3 = (await c.intent("x.buy")).proposals[0]
+        assert (await c.commit(p3)).code == "consent_required"  # 600 + 600 > 1000, regardless
+        svc._spent[svc2_bid] = 0
+        assert (await c.commit(p3)).code == "internal" and svc._spent[svc2_bid] == 0
+
+    run(go())
+
+
+def test_expand_is_bound_to_the_requesting_key():
+    async def go():
+        svc = shop()
+        mine = Client(local(svc), key=AGENT, grants=[grant()])
+        r = await mine.ask("shop.catalog", budget=300)
+        h = r.more[0]["handle"]
+        assert (await Client(local(svc)).expand(h)).code == "unauthorized"
+        assert (await Client(local(svc), key=OTHER, grants=[grant(sub=OTHER)]).expand(h)).code == "unauthorized"
+        assert (await mine.expand(h)).kind == "ANSWER"
+        anon = await Client(local(svc)).ask("shop.catalog", budget=300)
+        assert (await Client(local(svc)).expand(anon.more[0]["handle"])).kind == "ANSWER"  # anonymous stays open
+
+    run(go())
+
+
+def test_concurrent_failing_undos_each_get_their_own_re():
+    async def go():
+        svc = Service("s", "S", trust=[PRINCIPAL.public])
+        gate = asyncio.Event()
+
+        async def revert(c):
+            await gate.wait()
+            raise RuntimeError("provider down")
+
+        svc.intent("x.do", "d")(lambda ctx: Plan("do", [], lambda c: None, revert=revert))
+        c = Client(local(svc), key=AGENT, grants=[grant()])
+        rc = await c.commit((await c.intent("x.do")).proposals[0])
+        frames = [{"parley": 1, "id": f"u{i}", "verb": "UNDO", "receipt": rc.receipt["id"], "grants": c.grants,
+                   "proof": sign_proof(AGENT, "s", "UNDO", rc.receipt["id"], int(time.time()))} for i in range(3)]
+        tasks = [asyncio.create_task(svc.handle(f)) for f in frames]
+        await asyncio.sleep(0)
+        gate.set()
+        replies = await asyncio.gather(*tasks)
+        assert [r["re"] for r in replies] == ["u0", "u1", "u2"] and all(r["code"] == "internal" for r in replies)
+
+    run(go())
+
+
+def test_auto_dedupe_outlives_the_proof():
+    async def go():
+        clock = [1_790_000_000]
+        svc = Service("s", "S", trust=[PRINCIPAL.public], now=lambda: clock[0])
+        svc.intent("x.do", "d")(lambda ctx: Plan("do", [], lambda c: None, revert=lambda c: None))
+        frame = {"parley": 1, "id": "c_fixed", "verb": "INTENT", "capability": "x.do", "auto": True,
+                 "grants": [str(grant())], "proof": sign_proof(AGENT, "s", "INTENT", "auto:x.do:c_fixed", clock[0] + 300)}
+        first = await svc.handle(frame)
+        assert first["kind"] == "RECEIPT"
+        clock[0] += 599  # proof ts is now+300, still valid; the old 600s memory would have been close
+        assert (await svc.handle(frame))["replay"] is True
+        assert svc._auto_seen["%s:c_fixed" % AGENT.public][1] == 1_790_000_000 + 300 + 900
+
+    run(go())
+
+
+def test_oversized_frames_and_inflight_cap_over_tcp():
+    async def go():
+        svc = Service("s", "S")
+        gate = asyncio.Event()
+
+        async def slow(ctx):
+            await gate.wait()
+            return 1
+
+        svc.ask("x.slow", "s")(slow)
+        srv = await serve_tcp(svc, "127.0.0.1", 0)
+        port = srv.sockets[0].getsockname()[1]
+        try:
+            reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            writer.write(b'{"pad":"' + b"x" * (1 << 20) + b'"}\n')
+            writer.write(b'{"parley":1,"id":"after","verb":"HELLO"}\n')
+            await writer.drain()
+            r1, r2 = [json.loads(await reader.readline()) for _ in range(2)]
+            assert r1["code"] == "bad_frame" and r2["re"] == "after" and r2["kind"] == "BRIEF"  # still usable
+            for i in range(65):
+                writer.write(json.dumps({"parley": 1, "id": f"q{i}", "verb": "ASK", "capability": "x.slow"}).encode() + b"\n")
+            await writer.drain()
+            over = json.loads(await reader.readline())
+            assert over["re"] == "q64" and over["code"] == "limit"
+            gate.set()
+            done = [json.loads(await reader.readline()) for _ in range(64)]
+            assert {d["re"] for d in done} == {f"q{i}" for i in range(64)}
+            writer.close()
+
+            def post_big():
+                req = urllib.request.Request(f"http://127.0.0.1:{hport}/parley", data=b"x" * ((1 << 20) + 1), method="POST")
+                try:
+                    urllib.request.urlopen(req)
+                except urllib.error.HTTPError as e:
+                    return e.code
+
+            http = await serve_http(svc, "127.0.0.1", 0)
+            hport = http.sockets[0].getsockname()[1]
+            assert await asyncio.to_thread(post_big) == 413
+            http.close()
         finally:
             srv.close()
 

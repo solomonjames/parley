@@ -8,6 +8,7 @@ from .grants import (
     Grant,
     GrantContext,
     Verification,
+    check_consent,
     consent_code,
     consent_grant,
     decode_consent_code,
@@ -29,7 +30,7 @@ __version__ = "0.1.0"
 __all__ = [
     "CanonicalError", "Clarification", "Client", "CommitCtx", "Ctx", "Grant", "GrantContext", "HandleStore", "KeyPair",
     "MemoryHandleStore", "ParleyError", "Plan", "Reply", "Service", "Verification", "b64url_decode", "b64url_encode",
-    "canonical", "charge", "clarify", "compact", "connect", "consent_code", "consent_grant", "decode_consent_code", "create", "decode_grant", "delegate_grant",
+    "canonical", "charge", "clarify", "compact", "check_consent", "connect", "consent_code", "consent_grant", "decode_consent_code", "create", "decode_grant", "delegate_grant",
     "effect_line", "est", "fit", "fix", "fmt_duration", "fmt_money", "fmt_time", "generate_key", "issue_grant",
     "key_from_seed", "lean", "lens", "local", "money", "proposal_hash", "remove", "scalar", "send", "serve_http",
     "serve_stdio", "serve_stream", "serve_tcp", "service", "sign_proof", "update", "validate_params", "verify",

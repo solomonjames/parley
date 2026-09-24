@@ -26,6 +26,8 @@ def distance(a: str, b: str) -> int:
 
 
 def closest(word: str, options: list[str]) -> str | None:
+    if len(word) > 64:
+        return None  # suggestions are for typos; don't pay O(n·m) for arbitrary input
     best, best_d = None, None
     for o in options:
         d = distance(word.lower(), o.lower())

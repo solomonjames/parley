@@ -15,6 +15,7 @@ from .service import Service
 log = logging.getLogger("parley")
 
 MAX_FRAME = 1 << 20  # 1 MiB (SPEC §2.1)
+MAX_INFLIGHT = 64  # concurrent requests per stream connection
 DEFAULT_PORT = 7447
 TLS_PORT = 7448
 
@@ -27,9 +28,35 @@ def _parse(line: bytes) -> Any:
         return None
 
 
+def _error(re: str, code: str, message: str) -> dict:
+    return {"parley": 1, "id": "s_" + code, "re": re, "kind": "ERROR", "code": code, "message": message}
+
+
+async def _lines(reader: asyncio.StreamReader):
+    """Yield complete lines, or None for each line over MAX_FRAME. An oversized line is
+    discarded as it streams in (never buffered whole) and the stream stays usable (§2.1)."""
+    buf = bytearray()
+    discarding = False
+    while True:
+        chunk = await reader.read(65536)
+        if not chunk:
+            return
+        while chunk:
+            nl = chunk.find(b"\n")
+            part, chunk = (chunk, b"") if nl < 0 else (chunk[:nl], chunk[nl + 1:])
+            if not discarding:
+                buf += part
+                if len(buf) > MAX_FRAME:
+                    discarding, buf = True, bytearray()
+            if nl >= 0:
+                yield None if discarding else bytes(buf)
+                discarding, buf = False, bytearray()
+
+
 async def serve_stream(service: Service, reader: asyncio.StreamReader, writer: Any) -> None:
-    """Serve one NDJSON connection. Requests are handled concurrently; replies are
-    correlated by ``re``. ``writer`` needs ``write``, ``drain`` and ``close``."""
+    """Serve one NDJSON connection. Requests are handled concurrently (at most MAX_INFLIGHT
+    at once); replies are correlated by ``re``. ``writer`` needs ``write``, ``drain``,
+    ``close`` and ``is_closing``."""
     tasks: set[asyncio.Task] = set()
 
     def send(frame: dict) -> None:
@@ -37,26 +64,28 @@ async def serve_stream(service: Service, reader: asyncio.StreamReader, writer: A
         if not writer.is_closing():
             writer.write((dumps(frame) + "\n").encode("utf-8"))
 
-    async def run(line: bytes) -> None:
-        send(await service.handle(_parse(line), send))
+    async def run(frame: Any) -> None:
+        send(await service.handle(frame, send))
         try:
             await writer.drain()
         except (ConnectionError, RuntimeError):
             pass  # peer went away mid-reply
 
     try:
-        while True:
-            try:
-                line = await reader.readline()
-            except (ValueError, asyncio.LimitOverrunError):
-                send({"parley": 1, "id": "s_overflow", "re": "?", "kind": "ERROR", "code": "bad_frame", "message": "frame exceeds 1 MiB"})
-                break
-            if not line:
-                break
-            if line.strip():
-                t = asyncio.create_task(run(line))
-                tasks.add(t)
-                t.add_done_callback(tasks.discard)
+        async for line in _lines(reader):
+            if line is None:
+                send(_error("?", "bad_frame", "frame exceeds 1 MiB"))
+                continue
+            if not line.strip():
+                continue
+            frame = _parse(line)
+            if len(tasks) >= MAX_INFLIGHT:
+                re = frame["id"] if isinstance(frame, dict) and isinstance(frame.get("id"), str) else "?"
+                send(_error(re, "limit", f"too many requests in flight on this connection (max {MAX_INFLIGHT})"))
+                continue
+            t = asyncio.create_task(run(frame))
+            tasks.add(t)
+            t.add_done_callback(tasks.discard)
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
     except ConnectionError:
@@ -120,6 +149,11 @@ async def _http_conn(service: Service, path: str, reader: asyncio.StreamReader, 
             length = int(headers.get("content-length", "0") or 0)
             if length > MAX_FRAME:
                 await respond(413, "text/plain", b"frames must not exceed 1 MiB\n")
+                # Read and drop (never buffer) what the client is still sending, so it sees the
+                # 413 instead of a reset. Give up past a bound.
+                left = min(length, 8 * MAX_FRAME)
+                while left > 0 and (chunk := await reader.read(min(left, 65536))):
+                    left -= len(chunk)
                 return
             # Chunked so EVENTs reach the client as they happen.
             writer.write(
