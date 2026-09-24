@@ -53,7 +53,7 @@ Irreversible actions never auto-commit. In the scripted payload benchmark this t
 reschedule task from 3 calls to 1, and Parley sends 32% fewer tokens than minified-JSON
 REST (42% against pretty JSON; only ~4% against an equivalent outcome-level REST endpoint).
 In **live** agent runs ([bench/agent-eval](../bench/agent-eval/)), total cost comes out
-about even (+3–12% per task): turns dominate cost there, and models don't always hand
+about even (+3–15% per task): turns dominate cost there, and models don't always hand
 their goal straight to an intent. When they do, it's 1 call instead of 3.
 
 Auto frames are replay-safe: the proof is bound to `auto:{capability}:{frame id}`, and

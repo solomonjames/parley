@@ -77,7 +77,7 @@ benchmark, Parley now sends the model 32% fewer tokens than minified-JSON REST. 
 REST server with an equally outcome-shaped endpoint, the difference is only 4%.
 
 Then we ran real agents, and the numbers got humbler. In headless Claude Code, the same
-tasks cost about the same through Parley as through a REST MCP server: 3–12% more, with
+tasks cost about the same through Parley as through a REST MCP server: 3–15% more, with
 the same success rate. In live use the bill is dominated by model *turns*, each one
 re-reading tens of thousands of tokens of harness context, not by tool payloads. When the
 model handed its goal straight to an intent, a reschedule took one call instead of three.

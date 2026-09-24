@@ -151,7 +151,7 @@ model reads. The human's taps are simulated in code. Excerpt from
 
 ## Numbers
 
-> **In live runs with a real model, Parley costs about the same as a REST-style MCP server (+3–12% per task, same success rate) while adding an enforced policy, previews and undo.** Its replies are 30–45% smaller, and when a model hands its goal straight to an intent, a reschedule takes 1 call instead of 3. We publish where it loses, too.
+> **In live runs with a real model, Parley costs about the same as a REST-style MCP server (+3–15% per task, same success rate) while adding an enforced policy, previews and undo.** Its replies are 30–45% smaller, and when a model hands its goal straight to an intent, a reschedule takes 1 call instead of 3. We publish where it loses, too.
 
 ### Live agents
 

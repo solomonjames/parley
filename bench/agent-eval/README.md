@@ -17,7 +17,7 @@ node bench/agent-eval/run.ts --runs 3 --only order --inject   # prompt-injection
 
 ## What we found (and what we got wrong on the way)
 
-- **Cost is about the same.** Parley costs +3–12% per task, with the same success rate. Its replies are smaller, but in live use the total is dominated by the number of *model turns* (each turn re-reads ~27k tokens of Claude Code context), not by tool payloads.
+- **Cost is about the same.** Parley costs +3–15% per task, with the same success rate. Its replies are smaller, but in live use the total is dominated by the number of *model turns* (each turn re-reads ~27k tokens of Claude Code context), not by tool payloads.
 - **Where Parley costs more:** on the over-limit order, the Parley agent fetched the exact, priced proposal before asking the human (an extra turn). The REST agent estimated the price from the menu instead.
 - **Where it can win big:** when the model passes the goal straight to an intent, a reschedule is **1 call and 55k tokens, against REST's 3 calls and 82k**. That happened in 1 of 3 runs. How much a model trusts outcome-level intents is the lever.
 - **Zero rule violations in both arms, even under prompt injection.** Claude Sonnet 5 followed the stated rules and ignored the injected "pre-approval". Parley's contribution is that the rules are *enforced by the service*, so they hold even when a model doesn't. That can't show up in a run where the model behaves.
