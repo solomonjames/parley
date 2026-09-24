@@ -31,7 +31,10 @@ def _node_ok() -> bool:
     return (major, minor) >= (22, 18)
 
 
-pytestmark = pytest.mark.skipif(not _node_ok(), reason="needs node >= 22.18 and a built ts/dist")
+NODE_OK = _node_ok()
+if not NODE_OK and os.environ.get("PARLEY_REQUIRE_INTEROP"):
+    raise RuntimeError("PARLEY_REQUIRE_INTEROP is set but node >= 22.18 or ts/dist is missing")
+pytestmark = pytest.mark.skipif(not NODE_OK, reason="needs node >= 22.18 and a built ts/dist")
 
 
 def _port_open(port: int) -> bool:
