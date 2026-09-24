@@ -49,11 +49,12 @@ slow.
 **Why.** It puts the review/speed trade-off where it belongs, in the **principal's
 signed policy**. "My agent may move meetings and spend up to $40 on anything it can undo"
 becomes one round trip. Anything outside that falls back to proposals automatically.
-Irreversible actions never auto-commit. Against CRUD-style REST, this took the reschedule
-task from 3 calls to 1. Across the whole benchmark Parley now saves 34% of total input
-tokens against minified JSON (44% against pretty JSON). Against a REST server with an
-equivalent outcome-level endpoint the saving is only 6%, and the benchmark shows that row
-too.
+Irreversible actions never auto-commit. In the scripted payload benchmark this took the
+reschedule task from 3 calls to 1, and Parley sends 32% fewer tokens than minified-JSON
+REST (42% against pretty JSON; only ~4% against an equivalent outcome-level REST endpoint).
+In **live** agent runs ([bench/agent-eval](../bench/agent-eval/)), total cost comes out
+about even (+3–12% per task): turns dominate cost there, and models don't always hand
+their goal straight to an intent. When they do, it's 1 call instead of 3.
 
 Auto frames are replay-safe: the proof is bound to `auto:{capability}:{frame id}`, and
 services dedupe `(key, id)` for 600 s. An independent implementer found that attack

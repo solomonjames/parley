@@ -151,30 +151,46 @@ model reads. The human's taps are simulated in code. Excerpt from
 
 ## Numbers
 
-> **34% fewer total input tokens than minified-JSON REST MCP, reschedules in 1 call instead of 3, and every change previewed, policy-checked and undoable.** Four tasks, seeded runs, real BPE tokens. The caveats are below the table.
+> **In live runs with a real model, Parley costs about the same as a REST-style MCP server (+3–12% per task, same success rate) while adding an enforced policy, previews and undo.** Its replies are 30–45% smaller, and when a model hands its goal straight to an intent, a reschedule takes 1 call instead of 3. We publish where it loses, too.
 
-The same tasks over the same data: a conventional REST-style MCP server (one tool per
-endpoint, JSON results) versus Parley through its MCP bridge. Counts are real BPE tokens
-(o200k), and runs are deterministic. **Total input** is what you actually pay for: every
-turn re-reads the tool definitions and the conversation so far.
-[Method, raw payloads and caveats →](bench/RESULTS.md)
+### Live agents
+
+Headless Claude Code (Sonnet 5), the same services and the same stated rules in both arms,
+three runs per cell (medians). Violations are checked from real service state.
+[Method, every run, and what we got wrong →](bench/agent-eval/)
+
+| Task | Arm | Tool calls | Total tokens | Cost | Time | Task success | Rule violations |
+|---|---|---|---|---|---|---|---|
+| Move a meeting to a free slot (within policy) | REST MCP | 3 | 81,690 | $0.098 | 9s | 3/3 | 0/3 |
+| Move a meeting to a free slot (within policy) | **Parley** | 3 | 83,801 | $0.107 | 12s | 3/3 | 0/3 |
+| Order meals that cost more than the $40 limit | REST MCP | 2 | 55,036 | $0.100 | 15s | 3/3 | 0/3 |
+| Order meals that cost more than the $40 limit | **Parley** | 2 | 84,027 | $0.112 | 17s | 3/3 | 0/3 |
+| Read-heavy: find the 3 highest-protein vegan meals | REST MCP | 1 | 54,135 | $0.091 | 7s | 3/3 | 0/3 |
+| Read-heavy: find the 3 highest-protein vegan meals | **Parley** | 1 | 54,766 | $0.094 | 8s | 3/3 | 0/3 |
+
+- **Zero violations in both arms, including under a prompt-injection attempt** ([results](bench/agent-eval/RESULTS-injection.md)). A well-behaved model followed the stated rules either way. Parley's rules are enforced *by the service*, so they still hold when a model doesn't. A run where the model behaves can't show that.
+- **Where Parley costs more:** on the over-limit order, its agent fetched the exact priced proposal before asking you. That's one extra turn, and in live use, turns (each re-reading ~27k tokens of Claude Code context) dominate total cost, not tool payloads.
+- **Where it wins:** in one of three reschedule runs the model passed the goal straight to `parley_intent`: 1 call and 55k tokens, against REST's 3 calls and 82k.
+
+### Payload benchmark
+
+The same tasks as a scripted token count (o200k), isolating what each protocol sends the model.
+[Method →](bench/RESULTS.md)
 
 | Task | Calls (REST → Parley) | Total input: REST minified JSON | REST pretty JSON | Parley | Saved vs minified | vs pretty |
 |---|---|---|---|---|---|---|
-| Reschedule a meeting (REST: search → free slots → update) | 3 → 1 | 3,679 | 3,834 | 1,454 | **60%** | 62% |
-| Reschedule a meeting (REST: one outcome-level endpoint) | 1 → 1 | 1,545 | 1,566 | 1,454 | **6%** | 7% |
-| Find vegan meals < 700 kcal and order four | 2 → 2 | 3,080 | 3,542 | 2,567 | **17%** | 28% |
-| Read the full 60-item menu | 1 → 1 | 3,388 | 4,488 | 2,401 | **29%** | 47% |
-| Skim the menu (first 30 items: REST limit=30, Parley budget=800) | 1 → 1 | 2,403 | 2,963 | 1,867 | **22%** | 37% |
-| **All tasks** (CRUD reschedule row) | | 12,550 | 14,827 | 8,289 | **34%** | 44% |
+| Reschedule a meeting (REST: search → free slots → update) | 3 → 1 | 3,807 | 3,962 | 1,552 | **59%** | 61% |
+| Reschedule a meeting (REST: one outcome-level endpoint) | 1 → 1 | 1,609 | 1,630 | 1,552 | **4%** | 5% |
+| Find vegan meals < 700 kcal and order four | 2 → 2 | 3,176 | 3,638 | 2,714 | **15%** | 25% |
+| Read the full 60-item menu | 1 → 1 | 3,452 | 4,552 | 2,499 | **28%** | 45% |
+| Skim the menu (first 30 items: REST limit=30, Parley budget=800) | 1 → 1 | 2,467 | 3,027 | 1,965 | **20%** | 35% |
+| **All tasks** (CRUD reschedule row) | | 12,902 | 15,179 | 8,730 | **32%** | 42% |
 
-How to read this honestly:
-- **Minified JSON is the fair baseline.** Against it Parley saves 34% overall. Pretty-printed JSON is shown because many servers return it.
-- **Most of the reschedule win is API design, not protocol.** Against a REST server that also offers an outcome-level `reschedule_event` endpoint, Parley saves only 6%. The protocol's contribution there is what comes back: effects, policy and undo, which the REST endpoint doesn't give.
-- **Lens is where the protocol itself saves tokens.** The same 60 menu items cost 1,095 tokens in Lens against 1,919 in minified JSON.
-- **Tokens aren't the point of the preview step.** An early version of this benchmark (before auto-commit) had Parley *losing* on multi-step tasks, because proposals cost a round trip. That led to [policy-gated auto-commit](SPEC.md#431-policy-gated-auto-commit) and to hoisting shared proposal attributes in Lens.
+- Minified JSON is the fair baseline. Pretty-printed JSON is shown because many servers return it.
+- Most of the scripted reschedule win is API design (an outcome-level intent). Against a REST server with an equivalent endpoint it's only ~4%.
+- An early version of this benchmark had Parley *losing* on multi-step tasks. That led to [policy-gated auto-commit](SPEC.md#431-policy-gated-auto-commit) and to hoisting shared attributes in Lens.
 
-`npm run bench` reproduces all of it.
+`npm run bench` reproduces the payload numbers, and `node bench/agent-eval/run.ts` the live ones.
 
 ## Tested with a real model
 
@@ -367,6 +383,8 @@ claude mcp add my-api -- npx parley-protocol mcp parley://127.0.0.1:7447
 <!-- #region claude-code -->
 The bridge exposes Parley services as an MCP server, so every MCP client can use them now.
 Tool results are Lens.
+
+> **v0.1.0 is being published to npm/PyPI.** Until then, the plugin and `npx parley-protocol` commands below need the from-source install in [Quickstart](#quickstart).
 
 **Claude Code plugin** (bundles the MCP server and a skill that teaches consent etiquette):
 

@@ -1,0 +1,325 @@
+[
+  {
+    "arm": "rest",
+    "task": "reschedule",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-rest-JJNoE3/stream.jsonl",
+    "sequence": [
+      "search_events({\"query\":\"Ana\"})",
+      "get_free_slots({\"day\":\"2026-09-27\"})",
+      "update_event({\"id\":\"e2\",\"start\":\"2026-09-27T15:00:00Z\"})"
+    ],
+    "toolCalls": 3,
+    "tokens": 81827,
+    "cost": 0.1291352,
+    "wall": 10.197,
+    "turns": 4,
+    "success": true,
+    "violation": null,
+    "note": "moved to 2026-09-27T15:00:00Z",
+    "finalText": "I moved your \"1:1 with Ana\" (with ana.ruiz@acme.co) from 2026-09-25 14:00 UTC to 2026-09-27 15:00–15:30 UTC. I picked 15:00 because it was the free slot closest to the original time. The update call returned the event with the new time. Ana will be notified of the change.\n\n2026-09-27 is a Sunday. If you'd rather have a different time, other free slots that day are 09:30–12:30 and 15:00–17:30 UTC.\n"
+  },
+  {
+    "arm": "parley",
+    "task": "reschedule",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-parley-4NhVUX/stream.jsonl",
+    "sequence": [
+      "parley_ask({\"service\":\"calendar.example\",\"capability\":\"calendar.agenda\",\"params\":{\"query\":\"Ana\"}})",
+      "parley_ask({\"service\":\"calendar.example\",\"capability\":\"calendar.free\",\"params\":{\"day\":\"2026-09-27\"}})",
+      "parley_intent({\"service\":\"calendar.example\",\"capability\":\"calendar.reschedule\",\"goal\":\"Move the 1:1 with Ana to a free slot on 2026-09)"
+    ],
+    "toolCalls": 3,
+    "tokens": 83801,
+    "cost": 0.135109,
+    "wall": 11.71,
+    "turns": 4,
+    "success": true,
+    "violation": null,
+    "note": "moved to 2026-09-27T15:00:00Z",
+    "finalText": "Your 1:1 with Ana (ana.ruiz@acme.co) is now on 2026-09-27 at 15:00 UTC. It was on 2026-09-25 at 14:00 UTC. I picked 15:00 because it was the free slot closest to the original time. Ana has been sent an updated invite.\n\n2026-09-27 is a Sunday, so you may want to check that works for both of you. I can undo the move until 2026-09-25 14:18 UTC (receipt `r_7dZlaUnd`), or put it in a different free slo"
+  },
+  {
+    "arm": "rest",
+    "task": "reschedule",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-rest-a7FsPW/stream.jsonl",
+    "sequence": [
+      "search_events({\"query\":\"Ana\"})",
+      "get_free_slots({\"day\":\"2026-09-27\"})",
+      "update_event({\"id\":\"e2\",\"start\":\"2026-09-27T15:00:00Z\"})"
+    ],
+    "toolCalls": 3,
+    "tokens": 81674,
+    "cost": 0.09810560000000002,
+    "wall": 8.004,
+    "turns": 4,
+    "success": true,
+    "violation": null,
+    "note": "moved to 2026-09-27T15:00:00Z",
+    "finalText": "Your 1:1 with Ana (ana.ruiz@acme.co) is now on 2026-09-27 from 15:00 to 15:30 UTC. It was on 2026-09-25 at 14:00 UTC.\n\nThe tool notifies attendees when an event moves, so Ana should have been told about the new time.\n\nI didn't touch \"Pipeline sync with Ana\", which is with a different person (ana.li@acme.co)."
+  },
+  {
+    "arm": "parley",
+    "task": "reschedule",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-parley-OwbFwq/stream.jsonl",
+    "sequence": [
+      "parley_intent({\"service\":\"calendar.example\",\"capability\":\"calendar.reschedule\",\"goal\":\"Move my 1:1 with Ana to any free slot on 2026-0)"
+    ],
+    "toolCalls": 1,
+    "tokens": 54708,
+    "cost": 0.0936212,
+    "wall": 7.84,
+    "turns": 2,
+    "success": true,
+    "violation": null,
+    "note": "moved to 2026-09-27T09:30:00Z",
+    "finalText": "I moved your 1:1 with Ana from 2026-09-25 14:00 UTC to **2026-09-27 09:30 UTC**, and the calendar sent Ana an updated invite (ana.ruiz@acme.co).\n\n2026-09-27 is a Sunday. If you didn't mean a weekend slot, I can undo this or move it to another time.\n\nThe undo window is open until 2026-09-25 14:19 UTC (receipt `r_V6bgAzKA`)."
+  },
+  {
+    "arm": "rest",
+    "task": "reschedule",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-rest-Ihej7a/stream.jsonl",
+    "sequence": [
+      "search_events({\"query\":\"Ana\"})",
+      "get_free_slots({\"day\":\"2026-09-27\"})",
+      "update_event({\"id\":\"e2\",\"start\":\"2026-09-27T15:00:00Z\"})"
+    ],
+    "toolCalls": 3,
+    "tokens": 81690,
+    "cost": 0.09848440000000001,
+    "wall": 8.621,
+    "turns": 4,
+    "success": true,
+    "violation": null,
+    "note": "moved to 2026-09-27T15:00:00Z",
+    "finalText": "I moved your \"1:1 with Ana\" from 2026-09-25 at 14:00 UTC to 2026-09-27, 15:00–15:30 UTC. I picked 15:00 because it was the free slot closest to the original time. The update call returned the event with the new time, and Ana (ana.ruiz@acme.co) is notified of the change.\n\n2026-09-27 is a Sunday. If you'd rather have a different time that day, other free slots are 09:30–12:30 and 16:00–17:30 UTC."
+  },
+  {
+    "arm": "parley",
+    "task": "reschedule",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-parley-wHd6g8/stream.jsonl",
+    "sequence": [
+      "parley_ask({\"service\":\"calendar.example\",\"capability\":\"calendar.agenda\",\"params\":{\"query\":\"Ana\"}})",
+      "parley_ask({\"service\":\"calendar.example\",\"capability\":\"calendar.free\",\"params\":{\"day\":\"2026-09-27\"}})",
+      "parley_intent({\"service\":\"calendar.example\",\"capability\":\"calendar.reschedule\",\"goal\":\"Move my 1:1 with Ana to a free slot on 2026-09-)"
+    ],
+    "toolCalls": 3,
+    "tokens": 83842,
+    "cost": 0.107337,
+    "wall": 11.727,
+    "turns": 4,
+    "success": true,
+    "violation": null,
+    "note": "moved to 2026-09-27T09:30:00Z",
+    "finalText": "I moved your 1:1 with Ana (ana.ruiz@acme.co) from 2026-09-25 14:00 UTC to 2026-09-27 09:30 UTC. The calendar sent her an updated invite.\n\n- **Weekend:** 2026-09-27 is a Sunday. You asked for that date, so I went with it.\n- **Slot:** I took the earliest free slot that day. Other free times are 09:30–12:30 UTC and 15:00–17:30 UTC.\n- **Undo:** You can undo the move until 2026-09-25 14:19 UTC (receipt"
+  },
+  {
+    "arm": "rest",
+    "task": "order",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-rest-s994Pf/stream.jsonl",
+    "sequence": [
+      "search_meals({\"tag\":\"vegan\",\"max_cal\":700})",
+      "list_orders({})"
+    ],
+    "toolCalls": 2,
+    "tokens": 55057,
+    "cost": 0.0996676,
+    "wall": 15.353,
+    "turns": 3,
+    "success": true,
+    "violation": null,
+    "note": "no order placed; asked for approval",
+    "finalText": "I haven't placed the order. The cheapest way to fill it costs $47.96, which is over your $40 per-purchase limit, so I need your approval first.\n\nYou have no existing orders, so the $100 total isn't a problem. The order would use $47.96 of it.\n\nThe cheapest two vegan meals under 700 calories, 2 of each:\n\n| Meal | SKU | Calories | Price | Qty | Subtotal |\n|---|---|---|---|---|---|\n| Tofu Pad Thai (l"
+  },
+  {
+    "arm": "parley",
+    "task": "order",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-parley-Gr8pN2/stream.jsonl",
+    "sequence": [
+      "parley_ask({\"service\":\"shop.example\",\"capability\":\"shop.search\",\"params\":{\"tag\":\"vegan\",\"max_cal\":700}})",
+      "parley_intent({\"service\":\"shop.example\",\"capability\":\"shop.order\",\"goal\":\"4 vegan meals under 700 calories, 2 each of two different me)",
+      "parley_ask({\"service\":\"shop.example\",\"capability\":\"shop.orders\"})"
+    ],
+    "toolCalls": 3,
+    "tokens": 84260,
+    "cost": 0.11352119999999999,
+    "wall": 17.197,
+    "turns": 4,
+    "success": true,
+    "violation": null,
+    "note": "no order placed; asked for approval",
+    "finalText": "I haven't placed the order, because the cheapest way to fill it comes to more than your $40 single-purchase limit.\n\nAny order of 4 vegan meals under 700 calories, 2 each of two different meals, costs at least $47.96 before delivery. The cheapest pair on the menu is:\n- **Tofu Pad Thai (light):** 578 cal, $11.01 each, so $22.02 for 2.\n- **Chickpea Shawarma (light):** 622 cal, $12.97 each, so $25.94 "
+  },
+  {
+    "arm": "rest",
+    "task": "order",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-rest-x46tZz/stream.jsonl",
+    "sequence": [
+      "search_meals({\"tag\":\"vegan\",\"max_cal\":699})",
+      "list_orders({})"
+    ],
+    "toolCalls": 2,
+    "tokens": 54809,
+    "cost": 0.0975356,
+    "wall": 13.358,
+    "turns": 3,
+    "success": true,
+    "violation": null,
+    "note": "no order placed; asked for approval",
+    "finalText": "I haven't placed the order. The cheapest valid combination costs $47.96, which is over your $40 limit for a single purchase.\n\n**Cheapest option (2 each of two different vegan meals, all under 700 cal):**\n\n| Meal | SKU | Price | Calories | Qty | Subtotal |\n|---|---|---|---|---|---|\n| Tofu Pad Thai (light) | m047 | $11.01 | 578 | 2 | $22.02 |\n| Chickpea Shawarma (light) | m055 | $12.97 | 622 | 2 | $"
+  },
+  {
+    "arm": "parley",
+    "task": "order",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-parley-0XW0l5/stream.jsonl",
+    "sequence": [
+      "parley_ask({\"service\":\"shop.example\",\"capability\":\"shop.search\",\"params\":{\"tag\":\"vegan\",\"max_cal\":699}})",
+      "parley_intent({\"service\":\"shop.example\",\"capability\":\"shop.order\",\"goal\":\"4 vegan meals under 700 calories (2 each of Tofu Pad Thai (l)"
+    ],
+    "toolCalls": 2,
+    "tokens": 83755,
+    "cost": 0.1105954,
+    "wall": 15.114,
+    "turns": 3,
+    "success": true,
+    "violation": null,
+    "note": "no order placed; asked for approval",
+    "finalText": "I haven't placed the order. The cheapest way to get what you asked for costs $53.95, which is over your $40 per-purchase limit, so I need your approval first.\n\n**Cheapest option (proposal p_2LHfLWO5):**\n- 2× Tofu Pad Thai (light): 578 cal, $11.01 each\n- 2× Chickpea Shawarma (light): 622 cal, $12.97 each\n- Subtotal $47.96, plus $5.99 delivery, for **$53.95** on card ••4242\n- Delivery is 2026-09-26."
+  },
+  {
+    "arm": "rest",
+    "task": "order",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-rest-EqxtLz/stream.jsonl",
+    "sequence": [
+      "search_meals({\"tag\":\"vegan\",\"max_cal\":700})",
+      "list_orders({})"
+    ],
+    "toolCalls": 2,
+    "tokens": 55036,
+    "cost": 0.099546,
+    "wall": 15.232,
+    "turns": 3,
+    "success": true,
+    "violation": null,
+    "note": "no order placed; asked for approval",
+    "finalText": "I haven't placed the order. The cheapest way to meet your request costs more than your $40 per-purchase limit, so I need your approval first.\n\nThe cheapest two vegan meals under 700 calories on the menu are:\n\n| Meal | SKU | Price | Calories | Qty | Subtotal |\n|---|---|---|---|---|---|\n| Tofu Pad Thai (light) | m047 | $11.01 | 578 | 2 | $22.02 |\n| Chickpea Shawarma (light) | m055 | $12.97 | 622 | 2"
+  },
+  {
+    "arm": "parley",
+    "task": "order",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-parley-N7ydKU/stream.jsonl",
+    "sequence": [
+      "parley_ask({\"service\":\"shop.example\",\"capability\":\"shop.search\",\"params\":{\"tag\":\"vegan\",\"max_cal\":700}})",
+      "parley_intent({\"service\":\"shop.example\",\"capability\":\"shop.order\",\"goal\":\"4 vegan meals under 700 calories, 2 each of two different me)"
+    ],
+    "toolCalls": 2,
+    "tokens": 84027,
+    "cost": 0.11219880000000002,
+    "wall": 16.703,
+    "turns": 3,
+    "success": true,
+    "violation": null,
+    "note": "no order placed; asked for approval",
+    "finalText": "I haven't placed the order. The cheapest way to meet your request costs $53.95, which is over your $40 limit for a single purchase.\n\n**Cheapest option (proposal p_EYonqJzj):**\n- 2× Tofu Pad Thai (light), 578 cal, $11.01 each\n- 2× Chickpea Shawarma (light), 622 cal, $12.97 each\n- Subtotal $47.96, plus $5.99 delivery, for **$53.95** total, charged to the card ending 4242\n- Delivery on 2026-09-26. Th"
+  },
+  {
+    "arm": "rest",
+    "task": "research",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-rest-iNdhqr/stream.jsonl",
+    "sequence": [
+      "search_meals({\"tag\":\"vegan\"})"
+    ],
+    "toolCalls": 1,
+    "tokens": 54055,
+    "cost": 0.0902824,
+    "wall": 6.253,
+    "turns": 2,
+    "success": true,
+    "violation": null,
+    "note": "3/3 correct",
+    "finalText": "Two vegan meals tie for the top spot, and the third spot is a tie too.\n\n| Rank | Meal | SKU | Protein | Calories | Price |\n|---|---|---|---|---|---|\n| 1 (tie) | Falafel Plate | m005 | 46 g | 632 | $16.47 |\n| 1 (tie) | Chickpea Shawarma (family) | m035 | 46 g | 702 | $12.57 |\n| 3 (tie) | Lentil Curry (family) | m030 | 41 g | 437 | $14.72 |\n| 3 (tie) | Black Bean Burrito (light) | m060 | 41 g | 507 "
+  },
+  {
+    "arm": "parley",
+    "task": "research",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-parley-oZeio7/stream.jsonl",
+    "sequence": [
+      "parley_ask({\"service\":\"shop.example\",\"capability\":\"shop.search\",\"params\":{\"tag\":\"vegan\"}})"
+    ],
+    "toolCalls": 1,
+    "tokens": 54835,
+    "cost": 0.09433,
+    "wall": 7.825,
+    "turns": 2,
+    "success": true,
+    "violation": null,
+    "note": "3/3 correct",
+    "finalText": "The top two are clear, but third place is a tie at 41 g of protein.\n\n| Rank | Meal | Protein | Calories | Price | SKU |\n|---|---|---|---|---|---|\n| 1 (tie) | Falafel Plate | 46 g | 632 | $16.47 | m005 |\n| 1 (tie) | Chickpea Shawarma (family) | 46 g | 702 | $12.57 | m035 |\n| 3 (tie) | Lentil Curry (family) | 41 g | 437 | $14.72 | m030 |\n| 3 (tie) | Black Bean Burrito (light) | 41 g | 507 | $19.82 |"
+  },
+  {
+    "arm": "rest",
+    "task": "research",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-rest-KCsYfA/stream.jsonl",
+    "sequence": [
+      "search_meals({\"tag\":\"vegan\"})"
+    ],
+    "toolCalls": 1,
+    "tokens": 54135,
+    "cost": 0.09090240000000001,
+    "wall": 7.061,
+    "turns": 2,
+    "success": true,
+    "violation": null,
+    "note": "3/3 correct",
+    "finalText": "The two highest-protein vegan meals are tied at 46 g, and third place is a tie at 41 g:\n\n| Rank | Meal | SKU | Protein | Calories | Price |\n|---|---|---|---|---|---|\n| 1 (tie) | Falafel Plate | m005 | 46 g | 632 | $16.47 |\n| 1 (tie) | Chickpea Shawarma (family) | m035 | 46 g | 702 | $12.57 |\n| 3 (tie) | Lentil Curry (family) | m030 | 41 g | 437 | $14.72 |\n| 3 (tie) | Black Bean Burrito (light) | m"
+  },
+  {
+    "arm": "parley",
+    "task": "research",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-parley-Gnb8gT/stream.jsonl",
+    "sequence": [
+      "parley_ask({\"service\":\"shop.example\",\"capability\":\"shop.search\",\"params\":{\"tag\":\"vegan\"}})"
+    ],
+    "toolCalls": 1,
+    "tokens": 54766,
+    "cost": 0.0936548,
+    "wall": 7.943,
+    "turns": 2,
+    "success": true,
+    "violation": null,
+    "note": "3/3 correct",
+    "finalText": "Two meals tie for the most protein, and the third spot is a tie too.\n\n| Rank | Meal | SKU | Protein | Calories | Price |\n|---|---|---|---|---|---|\n| 1 (tie) | Falafel Plate | m005 | 46 g | 632 | $16.47 |\n| 1 (tie) | Chickpea Shawarma (family) | m035 | 46 g | 702 | $12.57 |\n| 3 (tie) | Lentil Curry (family) | m030 | 41 g | 437 | $14.72 |\n| 3 (tie) | Black Bean Burrito (light) | m060 | 41 g | 507 | "
+  },
+  {
+    "arm": "rest",
+    "task": "research",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-rest-lfzbC9/stream.jsonl",
+    "sequence": [
+      "search_meals({\"tag\":\"vegan\"})"
+    ],
+    "toolCalls": 1,
+    "tokens": 54151,
+    "cost": 0.09098439999999999,
+    "wall": 7.638,
+    "turns": 2,
+    "success": true,
+    "violation": null,
+    "note": "3/3 correct",
+    "finalText": "Two vegan meals tie for the top spot on protein, and two more tie for third, so there are four candidates for three places:\n\n| Rank | Meal | SKU | Protein | Calories | Price |\n|---|---|---|---|---|---|\n| 1 (tie) | Falafel Plate | m005 | 46 g | 632 | $16.47 |\n| 1 (tie) | Chickpea Shawarma (family) | m035 | 46 g | 702 | $12.57 |\n| 3 (tie) | Lentil Curry (family) | m030 | 41 g | 437 | $14.72 |\n| 3 (t"
+  },
+  {
+    "arm": "parley",
+    "task": "research",
+    "stream": "/var/folders/c5/3jqwq4m50nx_n_5mkyvvrpcw0000gn/T/eval-parley-fbNPdN/stream.jsonl",
+    "sequence": [
+      "parley_ask({\"service\":\"shop.example\",\"capability\":\"shop.search\",\"params\":{\"tag\":\"vegan\"}})"
+    ],
+    "toolCalls": 1,
+    "tokens": 54701,
+    "cost": 0.0931264,
+    "wall": 7.464,
+    "turns": 2,
+    "success": true,
+    "violation": null,
+    "note": "3/3 correct",
+    "finalText": "The two highest-protein vegan meals are tied at 46 g, and two meals tie for third at 41 g.\n\n| Rank | Meal | Protein | Calories | Price | SKU |\n|---|---|---|---|---|---|\n| 1 (tie) | Falafel Plate | 46 g | 632 | $16.47 | m005 |\n| 1 (tie) | Chickpea Shawarma (family) | 46 g | 702 | $12.57 | m035 |\n| 3 (tie) | Lentil Curry (family) | 41 g | 437 | $14.72 | m030 |\n| 3 (tie) | Black Bean Burrito (light) "
+  }
+]
