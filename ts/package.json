@@ -68,9 +68,9 @@
   },
   "devDependencies": {
     "@anthropic-ai/sdk": "^0.128.0",
-    "@types/node": "^22",
-    "typescript": "^5.9",
-    "vitest": "^3"
+    "@types/node": "^26",
+    "typescript": "^7.0",
+    "vitest": "^5"
   },
   "author": "James Solomon",
   "homepage": "https://solomonjames.github.io/parley/",
