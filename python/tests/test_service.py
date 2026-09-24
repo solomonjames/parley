@@ -169,6 +169,24 @@ def test_consent_flow_and_spend_accounting():
     run(go())
 
 
+def test_consent_grant_cannot_undo_or_reach_other_proposals():
+    """Regression: a consent grant used to authorize any UNDO/ASK/INTENT until it expired."""
+
+    async def go():
+        svc = shop()
+        normal = Client(local(svc), key=AGENT, grants=[grant({"per": {"max": 5000, "currency": "USD"}})])
+        a = await normal.commit((await normal.intent("shop.order", {"sku": "a", "qty": 1})).proposals[0])
+        b = (await normal.intent("shop.order", {"sku": "b", "qty": 4})).proposals[0]
+        need = await normal.commit(b)
+        assert need.consent["service"] == "shop.example" and need.consent["capability"] == "shop.order"
+        only_consent = Client(local(svc), key=AGENT, grants=[consent_grant(PRINCIPAL, AGENT.public, need.consent)])
+        assert (await only_consent.undo(a.receipt["id"])).code == "forbidden"
+        assert svc.orders == [1]
+        assert (await only_consent.commit(b)).kind == "RECEIPT"
+
+    run(go())
+
+
 def test_undo_requires_same_principal():
     async def go():
         svc = shop()

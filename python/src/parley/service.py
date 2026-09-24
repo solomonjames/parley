@@ -337,7 +337,8 @@ class Service:
                 "consent_required",
                 f"{consent.message}; your principal must approve this exact proposal",
                 consent={
-                    "proposal": proposal["id"], "hash": proposal["hash"], "principal": consent.principal,
+                    "proposal": proposal["id"], "hash": proposal["hash"], "service": self.id,
+                    "capability": proposal["capability"], "principal": consent.principal,
                     "summary": proposal["summary"], "expires": proposal["expires"],
                 },
             )

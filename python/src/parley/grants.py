@@ -84,8 +84,45 @@ def delegate_grant(grant: Grant | str, holder: KeyPair, sub: str, caveats: list[
 
 
 def consent_grant(principal: KeyPair, agent_key: str, consent: Mapping[str, Any]) -> Grant:
-    """The one-shot grant a principal signs to approve a ``consent_required`` proposal (§6.6)."""
-    return issue_grant(principal, agent_key, [{"only": consent["hash"]}, {"exp": consent["expires"]}])
+    """The grant a principal signs to approve one ``consent_required`` proposal (§6.6).
+
+    It authorizes exactly one thing: COMMIT of that proposal hash, for that capability, at
+    that service, until the proposal expires. Run this in the principal's own tool; an agent
+    must never be able to trigger signing with the principal key."""
+    return issue_grant(principal, agent_key, [
+        {"svc": [consent["service"]]},
+        {"verbs": ["COMMIT"]},
+        {"can": [consent["capability"]]},
+        {"only": consent["hash"]},
+        {"exp": consent["expires"]},
+    ])
+
+
+CONSENT_PREFIX = "pc1."
+_CONSENT_STR_FIELDS = ("proposal", "hash", "service", "capability", "principal", "summary")
+
+
+def consent_code(consent: Mapping[str, Any]) -> str:
+    """Encode a consent request for out-of-band approval: ``pc1.`` + b64url(canonical(c))."""
+    return CONSENT_PREFIX + b64url_encode(canonical_bytes(dict(consent)))
+
+
+def decode_consent_code(code: str) -> dict:
+    """Decode and validate a ``pc1.`` consent code. Raises ValueError."""
+    if not isinstance(code, str) or not code.startswith(CONSENT_PREFIX):
+        raise ValueError("not a consent code (expected pc1.…)")
+    try:
+        c = loads(b64url_decode(code[len(CONSENT_PREFIX):]).decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as e:
+        raise ValueError(f"consent code is not valid b64url JSON: {e}") from None
+    if not isinstance(c, dict):
+        raise ValueError("a consent code encodes an object")
+    for k in _CONSENT_STR_FIELDS:
+        if not isinstance(c.get(k), str):
+            raise ValueError(f"consent code missing {k}")
+    if not _safe_int(c.get("expires")):
+        raise ValueError("consent code missing expires")
+    return c
 
 
 def _is_int(v: Any) -> bool:

@@ -14,7 +14,7 @@ from datetime import date, timedelta
 import pytest
 from conftest import ROOT
 
-from parley import connect, consent_grant, issue_grant, key_from_seed, lens
+from parley import connect, consent_code, consent_grant, issue_grant, key_from_seed, lens
 
 REPO = ROOT.parent
 SEEDS = json.loads((REPO / "conformance" / "grants.json").read_text())["seeds"]
@@ -74,6 +74,19 @@ def ts_lens(frames: list[dict]) -> list[str]:
     return json.loads(out.stdout)
 
 
+def ts_eval(fn: str, arg):
+    """Call an exported TS function on one JSON argument."""
+    script = (
+        "import(process.argv[1]).then(m=>{let s='';process.stdin.on('data',d=>s+=d);"
+        f"process.stdin.on('end',()=>process.stdout.write(JSON.stringify(m.{fn}(JSON.parse(s)))))}})"
+    )
+    out = subprocess.run(
+        ["node", "-e", script, (REPO / "ts" / "dist" / "index.js").as_uri()],
+        input=json.dumps(arg), capture_output=True, text=True, check=True,
+    )
+    return json.loads(out.stdout)
+
+
 def assert_same_lens(replies):
     frames = [r.frame for r in replies] + [e.frame for r in replies for e in r.events]
     assert [lens(f) for f in frames] == ts_lens(frames)
@@ -129,6 +142,8 @@ def test_shop_consent_flow(ts_servers):
             need = await c.commit(p)
             assert need.code == "consent_required" and need.consent["hash"] == p["hash"]
             assert need.consent["principal"] == PRINCIPAL.public
+            assert list(need.consent) == ["proposal", "hash", "service", "capability", "principal", "summary", "expires"]
+            assert consent_code(need.consent) == ts_eval("consentCode", need.consent)
             ok = await c.commit(p, grants=[consent_grant(PRINCIPAL, AGENT.public, need.consent)])
             assert ok.kind == "RECEIPT", ok.lens
             assert_same_lens([props, need, ok])

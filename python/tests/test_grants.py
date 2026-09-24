@@ -1,7 +1,7 @@
 import pytest
 
 from parley import (
-    GrantContext, consent_grant, decode_grant, issue_grant, key_from_seed, sign_proof, verify_grant, verify_proof,
+    GrantContext, consent_code, consent_grant, decode_consent_code, decode_grant, issue_grant, key_from_seed, sign_proof, verify_grant, verify_proof,
 )
 from parley.keys import KeyPair
 
@@ -108,10 +108,33 @@ def test_mixed_consent_and_forbidden_is_forbidden():
     assert r.code == "forbidden"
 
 
-def test_consent_grant():
-    g = consent_grant(ALICE, AGENT.public, {"hash": "H", "expires": NOW + 60})
+CONSENT = {"proposal": "p1", "hash": "H", "service": "svc", "capability": "calendar.move",
+           "principal": ALICE.public, "summary": "s", "expires": NOW + 60}
+
+
+def test_consent_grant_is_scoped_to_one_commit():
+    g = consent_grant(ALICE, AGENT.public, CONSENT)
+    assert g.blocks[0]["p"]["caveats"] == [
+        {"svc": ["svc"]}, {"verbs": ["COMMIT"]}, {"can": ["calendar.move"]}, {"only": "H"}, {"exp": NOW + 60},
+    ]
     assert verify_grant(g, [ALICE.public], AGENT.public, ctx()).ok
-    assert verify_grant(g, [ALICE.public], AGENT.public, ctx(proposal={"hash": "Z", "cost": None, "risk": "low"})).code == "forbidden"
+    for bad in [
+        ctx(proposal={"hash": "Z", "cost": None, "risk": "low"}),  # another proposal
+        ctx(verb="UNDO", proposal=None),
+        ctx(verb="ASK", proposal=None),
+        ctx(service="other"),
+        ctx(capability="calendar.cancel"),
+        ctx(now=NOW + 60),
+    ]:
+        assert verify_grant(g, [ALICE.public], AGENT.public, bad).code == "forbidden"
+
+
+def test_consent_code_roundtrip():
+    code = consent_code(CONSENT)
+    assert code.startswith("pc1.") and decode_consent_code(code) == CONSENT
+    for bad in ["pc2.x", "pc1.!!", consent_code({**CONSENT, "expires": "soon"}), consent_code({k: v for k, v in CONSENT.items() if k != "service"})]:
+        with pytest.raises(ValueError):
+            decode_consent_code(bad)
 
 
 def test_proof():
