@@ -260,13 +260,7 @@ async function customerOverview(stripe: Stripe, who: string) {
     name: c.name,
     email: c.email,
     plan: price ? (price.nickname ?? price.id) : 'none',
-    ...(sub
-      ? {
-          [sub.cancel_at_period_end ? 'cancels' : 'renews']: day(
-            period(sub).end,
-          ),
-        }
-      : {}),
+    ...renewal(sub),
     // Flat rows with only what an agent needs, so Lens renders a table.
     payments: chs.map((ch) => ({
       id: ch.id,
@@ -278,6 +272,17 @@ async function customerOverview(stripe: Stripe, who: string) {
   };
 }
 // #endregion ask
+
+/** When the current period ends: "renews" on that date, or "cancels". */
+function renewal(sub: Subscription | null) {
+  if (!sub) {
+    return {};
+  }
+
+  const key = sub.cancel_at_period_end ? 'cancels' : 'renews';
+
+  return { [key]: day(period(sub).end) };
+}
 
 async function refundPlans(
   stripe: Stripe,
