@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import * as P from '../src/index.js';
 import { calendar } from '../../examples/calendar.ts';
 import { shop } from '../../examples/shop.ts';
+import * as P from '../src/index.js';
 
 let principal: P.KeyPair, agent: P.KeyPair;
 
@@ -36,7 +36,9 @@ describe('calendar service', () => {
 
     expect(c.kind).toBe('CLARIFY');
 
-    if (c.kind !== 'CLARIFY') return;
+    if (c.kind !== 'CLARIFY') {
+      return;
+    }
 
     const p = await client.intent('calendar.reschedule', {
       event: 'Ana',
@@ -45,7 +47,9 @@ describe('calendar service', () => {
 
     expect(p.kind).toBe('PROPOSALS');
 
-    if (p.kind !== 'PROPOSALS') return;
+    if (p.kind !== 'PROPOSALS') {
+      return;
+    }
 
     expect(p.proposals.length).toBeGreaterThan(0);
 
@@ -54,7 +58,9 @@ describe('calendar service', () => {
 
     expect(r.kind).toBe('RECEIPT');
 
-    if (r.kind !== 'RECEIPT') return;
+    if (r.kind !== 'RECEIPT') {
+      return;
+    }
 
     expect(r.lens).toMatch(/^✓ Move/);
 
@@ -92,7 +98,7 @@ describe('calendar service', () => {
   it('conflicts come with free-slot fixes', async () => {
     const { client } = await setup();
     const ag = await client.ask('calendar.agenda', { query: 'Design review' });
-    const start = (ag as any).data[0].start;
+    const start = ((ag as P.Answer).data as { start: string }[])[0].start;
     const e = await client.intent('calendar.reschedule', {
       event: 'e2',
       to: start,
@@ -109,7 +115,9 @@ describe('calendar service', () => {
 
     expect(p.kind).toBe('PROPOSALS');
 
-    if (p.kind !== 'PROPOSALS') return;
+    if (p.kind !== 'PROPOSALS') {
+      return;
+    }
 
     const r = await anon.commit(p.proposals[0]);
 
@@ -130,7 +138,9 @@ describe('calendar service', () => {
     const { client } = await setup();
     const p = await client.intent('calendar.cancel', { event: 'e1' });
 
-    if (p.kind !== 'PROPOSALS') throw new Error();
+    if (p.kind !== 'PROPOSALS') {
+      throw new Error();
+    }
 
     const r = await client.commit({ id: p.proposals[0].id, hash: 'tampered' });
 
@@ -157,7 +167,7 @@ describe('shop: budgets, money, consent', () => {
     const client = new P.Client(P.local(svc));
     const full = await client.ask('shop.search', {}, { budget: 100000 });
 
-    expect(full.kind === 'ANSWER' && (full.data as any[]).length).toBe(60);
+    expect(full.kind === 'ANSWER' && (full.data as unknown[]).length).toBe(60);
 
     const small = await client.ask('shop.search', {}, { budget: 300 });
 
@@ -172,7 +182,7 @@ describe('shop: budgets, money, consent', () => {
       const x = (await client.expand(more.handle, { budget: 300 })) as P.Answer;
 
       expect(P.est(x.lens)).toBeLessThanOrEqual(300);
-      got.push(...(x.data as any).items);
+      got.push(...(x.data as { items: unknown[] }).items);
       more = x.more?.[0];
     }
 
@@ -203,7 +213,9 @@ describe('shop: budgets, money, consent', () => {
       deliver,
     });
 
-    if (small.kind !== 'PROPOSALS') throw new Error(small.lens);
+    if (small.kind !== 'PROPOSALS') {
+      throw new Error(small.lens);
+    }
 
     const events: string[] = [];
     const ok = await client.commit(small.proposals[0], {
@@ -218,13 +230,17 @@ describe('shop: budgets, money, consent', () => {
       deliver,
     });
 
-    if (big.kind !== 'PROPOSALS') throw new Error();
+    if (big.kind !== 'PROPOSALS') {
+      throw new Error();
+    }
 
     const denied = await client.commit(big.proposals[0]);
 
     expect(denied.kind === 'ERROR' && denied.code).toBe('consent_required');
 
-    if (denied.kind !== 'ERROR') return;
+    if (denied.kind !== 'ERROR') {
+      return;
+    }
 
     const consent = await P.consentGrant({
       principal,
@@ -252,13 +268,17 @@ describe('shop: budgets, money, consent', () => {
     });
     const p = await client.intent('shop.tip', { order: 'o1', usd: 3 });
 
-    if (p.kind !== 'PROPOSALS') throw new Error(p.lens);
+    if (p.kind !== 'PROPOSALS') {
+      throw new Error(p.lens);
+    }
 
     expect(p.lens).toContain('undo: never');
 
     const r = await client.commit(p.proposals[0]);
 
-    if (r.kind !== 'RECEIPT') throw new Error(r.lens);
+    if (r.kind !== 'RECEIPT') {
+      throw new Error(r.lens);
+    }
 
     const u = await client.undo(r.receipt.id);
 
@@ -296,7 +316,9 @@ describe('delegation to sub-agents', () => {
     });
     const p = await client.intent('calendar.cancel', { event: 'e1' });
 
-    if (p.kind !== 'PROPOSALS') throw new Error();
+    if (p.kind !== 'PROPOSALS') {
+      throw new Error();
+    }
 
     const r = await client.commit(p.proposals[0]);
 
@@ -318,23 +340,30 @@ describe('consent grants authorize exactly one commit', () => {
       deliver: '2030-01-01',
     });
 
-    if (a.kind !== 'PROPOSALS') throw new Error();
+    if (a.kind !== 'PROPOSALS') {
+      throw new Error();
+    }
 
     const ra = await c.commit(a.proposals[0]);
 
-    if (ra.kind !== 'RECEIPT') throw new Error(ra.lens);
+    if (ra.kind !== 'RECEIPT') {
+      throw new Error(ra.lens);
+    }
 
     const b = await c.intent('shop.order', {
       items: [{ sku: 'm002', qty: 4 }],
       deliver: '2030-01-01',
     });
 
-    if (b.kind !== 'PROPOSALS') throw new Error();
+    if (b.kind !== 'PROPOSALS') {
+      throw new Error();
+    }
 
     const denied = await c.commit(b.proposals[0]);
 
-    if (denied.kind !== 'ERROR' || !denied.consent)
+    if (denied.kind !== 'ERROR' || !denied.consent) {
       throw new Error(denied.lens);
+    }
 
     expect(denied.consent.service).toBe('shop.example');
 

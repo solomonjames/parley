@@ -4,7 +4,9 @@ import { cpSync, existsSync, mkdirSync } from 'node:fs';
 const src = new URL('../../docs/brand/', import.meta.url),
   dst = new URL('../public/brand/', import.meta.url);
 
-if (!existsSync(src)) process.exit(0);
+if (!existsSync(src)) {
+  process.exit(0);
+}
 
 mkdirSync(dst, { recursive: true });
 cpSync(src, dst, { recursive: true });

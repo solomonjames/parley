@@ -1,11 +1,16 @@
+import type { AddressInfo } from 'node:net';
 import { afterAll, describe, expect, it } from 'vitest';
+import { calendar } from '../../examples/calendar.ts';
 import * as P from '../src/index.js';
 import { connect, listen, serveHttp } from '../src/node.js';
-import { calendar } from '../../examples/calendar.ts';
 
 const closers: (() => void)[] = [];
 
-afterAll(() => closers.forEach((c) => c()));
+afterAll(() => {
+  for (const close of closers) {
+    close();
+  }
+});
 
 describe('transports', async () => {
   const principal = await P.keyPair();
@@ -19,7 +24,7 @@ describe('transports', async () => {
 
     closers.push(() => server.close());
 
-    const port = (server.address() as any).port;
+    const port = (server.address() as AddressInfo).port;
     const c = await connect(`parley://127.0.0.1:${port}`, {
       key: agent.seed,
       grants: [grant],
@@ -37,7 +42,9 @@ describe('transports', async () => {
 
     const p = await c.intent('calendar.cancel', { event: 'e1' });
 
-    if (p.kind !== 'PROPOSALS') throw new Error(p.lens);
+    if (p.kind !== 'PROPOSALS') {
+      throw new Error(p.lens);
+    }
 
     expect((await c.commit(p.proposals[0])).kind).toBe('RECEIPT');
   });
@@ -49,7 +56,7 @@ describe('transports', async () => {
 
     closers.push(() => server.close());
 
-    const port = (server.address() as any).port;
+    const port = (server.address() as AddressInfo).port;
     const disc = await (
       await fetch(`http://127.0.0.1:${port}/.well-known/parley`)
     ).json();
@@ -63,7 +70,9 @@ describe('transports', async () => {
     });
     const p = await c.intent('calendar.cancel', { event: 'e1' });
 
-    if (p.kind !== 'PROPOSALS') throw new Error(p.lens);
+    if (p.kind !== 'PROPOSALS') {
+      throw new Error(p.lens);
+    }
 
     expect((await c.commit(p.proposals[0])).kind).toBe('RECEIPT');
   });

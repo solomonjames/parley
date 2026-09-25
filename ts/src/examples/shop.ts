@@ -2,13 +2,13 @@
 // agent's token budget with EXPAND handles), money (cost on every proposal, spend caps
 // in grants) and human consent for anything over the agent's limits.
 import {
-  ParleyError,
   charge,
   create,
   fix,
   money,
-  service,
+  ParleyError,
   type Plan,
+  service,
 } from '../index.js';
 
 const MENU: [string, string[]][] = [
@@ -56,14 +56,26 @@ export const catalog: Meal[] = Array.from({ length: 60 }, (_, i) => ({
   tags: MENU[i % MENU.length][1],
 }));
 
+interface Order {
+  id: string;
+  total: number;
+  status: string;
+}
+interface Line extends Meal {
+  qty: number;
+}
+interface Cart {
+  lines: Line[];
+  subtotal: number;
+  fee: number;
+  deliver: string;
+}
+
 export function shop(opts: {
   trust: string[] | ((principal: string) => boolean);
   id?: string;
 }) {
-  const orders = new Map<
-    string,
-    { id: string; total: number; status: string }
-  >();
+  const orders = new Map<string, Order>();
   let seq = 1000;
 
   return service({
@@ -80,22 +92,7 @@ export function shop(opts: {
         'tag?': 'high-protein|spicy|vegetarian|vegan',
         'max_cal?': 'int',
       },
-      run: ({ params }) =>
-        catalog
-          .filter(
-            (m) =>
-              !params.query ||
-              m.name.toLowerCase().includes(String(params.query).toLowerCase()),
-          )
-          .filter((m) => !params.tag || m.tags.includes(params.tag))
-          .filter((m) => !params.max_cal || m.cal <= params.max_cal)
-          .map((m) => ({
-            sku: m.sku,
-            name: m.name,
-            usd: m.price / 100,
-            cal: m.cal,
-            protein: m.protein,
-          })),
+      run: ({ params }) => search(params),
     })
     .ask('shop.orders', {
       summary: 'Your orders',
@@ -111,56 +108,11 @@ export function shop(opts: {
       params: { items: [{ sku: 'string', qty: 'int' }], deliver: 'date' },
       risk: 'low',
       plan: ({ params }) => {
-        const items: { sku: string; qty: number }[] = params.items;
-        const lines = items.map((it) => {
-          const m = catalog.find((c) => c.sku === it.sku);
+        const cart = checkout(params.items, params.deliver);
 
-          if (!m)
-            throw new ParleyError(
-              'invalid_params',
-              `unknown sku ${JSON.stringify(it.sku)}`,
-              { fix: [fix('ASK shop.search to find skus')] },
-            );
-
-          return { ...m, qty: it.qty };
-        });
-        const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
-        const fee = subtotal >= 5000 ? 0 : 599;
-        const order = (express: boolean): Plan => {
-          const total = subtotal + fee + (express ? 899 : 0);
-          const id = `o${++seq}`;
-
-          return {
-            summary: `${lines.reduce((n, l) => n + l.qty, 0)} meals for ${params.deliver}${express ? ' (express, by noon)' : ''} — ${(total / 100).toFixed(2)} USD`,
-            effects: [
-              create(
-                `order/${id}`,
-                lines.map((l) => `${l.qty}× ${l.name}`).join(', '),
-              ),
-              charge('card ••4242', `${(total / 100).toFixed(2)} USD`),
-            ],
-            cost: money(total),
-            risk: total > 15000 ? 'high' : total > 8000 ? 'medium' : 'low',
-            undoWindow: 7200,
-            data: {
-              subtotal: subtotal / 100,
-              delivery: fee / 100,
-              ...(express ? { express: 8.99 } : {}),
-            },
-            apply: (ctx) => {
-              ctx.progress('authorizing card', 0.3);
-              ctx.progress('order placed with kitchen', 0.9);
-              orders.set(id, { id, total, status: 'placed' });
-
-              return { order: id, status: 'placed' };
-            },
-            revert: () => {
-              orders.get(id)!.status = 'cancelled';
-            },
-          };
-        };
-
-        return [order(false), order(true)];
+        return [false, true].map((express) =>
+          orderPlan(orders, cart, express, `o${++seq}`),
+        );
       },
     })
     .intent('shop.tip', {
@@ -174,4 +126,89 @@ export function shop(opts: {
         apply: () => ({ tipped: params.usd }),
       }),
     });
+}
+
+function search(params: { query?: unknown; tag?: string; max_cal?: number }) {
+  return catalog
+    .filter(
+      (m) =>
+        !params.query ||
+        m.name.toLowerCase().includes(String(params.query).toLowerCase()),
+    )
+    .filter((m) => !params.tag || m.tags.includes(params.tag))
+    .filter((m) => !params.max_cal || m.cal <= params.max_cal)
+    .map((m) => ({
+      sku: m.sku,
+      name: m.name,
+      usd: m.price / 100,
+      cal: m.cal,
+      protein: m.protein,
+    }));
+}
+
+function checkout(
+  items: { sku: string; qty: number }[],
+  deliver: string,
+): Cart {
+  const lines = items.map((it) => {
+    const m = catalog.find((c) => c.sku === it.sku);
+
+    if (!m) {
+      throw new ParleyError(
+        'invalid_params',
+        `unknown sku ${JSON.stringify(it.sku)}`,
+        { fix: [fix('ASK shop.search to find skus')] },
+      );
+    }
+
+    return { ...m, qty: it.qty };
+  });
+  const subtotal = lines.reduce((s, l) => s + l.price * l.qty, 0);
+
+  return { lines, subtotal, fee: subtotal >= 5000 ? 0 : 599, deliver };
+}
+
+const riskFor = (total: number) => {
+  if (total > 15000) {
+    return 'high';
+  }
+
+  return total > 8000 ? 'medium' : 'low';
+};
+
+function orderPlan(
+  orders: Map<string, Order>,
+  { lines, subtotal, fee, deliver }: Cart,
+  express: boolean,
+  id: string,
+): Plan {
+  const total = subtotal + fee + (express ? 899 : 0);
+  const meals = lines.reduce((n, l) => n + l.qty, 0);
+  const placed: Order = { id, total, status: 'placed' };
+
+  return {
+    summary: `${meals} meals for ${deliver}${express ? ' (express, by noon)' : ''} — ${(total / 100).toFixed(2)} USD`,
+    effects: [
+      create(`order/${id}`, lines.map((l) => `${l.qty}× ${l.name}`).join(', ')),
+      charge('card ••4242', `${(total / 100).toFixed(2)} USD`),
+    ],
+    cost: money(total),
+    risk: riskFor(total),
+    undoWindow: 7200,
+    data: {
+      subtotal: subtotal / 100,
+      delivery: fee / 100,
+      ...(express ? { express: 8.99 } : {}),
+    },
+    apply: (ctx) => {
+      ctx.progress('authorizing card', 0.3);
+      ctx.progress('order placed with kitchen', 0.9);
+      orders.set(id, placed);
+
+      return { order: id, status: 'placed' };
+    },
+    revert: () => {
+      placed.status = 'cancelled';
+    },
+  };
 }

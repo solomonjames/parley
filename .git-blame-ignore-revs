@@ -1,0 +1,5 @@
+# Commits to skip when running git blame. GitHub honors this file automatically;
+# locally, opt in with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# Biome formatting and blank-line padding applied across the TypeScript tree
+89e5532240b3f19c6bb12afcc6757f05dc3bd15c

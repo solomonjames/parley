@@ -6,7 +6,10 @@
 import { fetchHandler } from 'parley-protocol';
 import { calendar } from './calendar.ts';
 
-const env = (globalThis as any).process?.env ?? {};
+const runtime = globalThis as {
+  process?: { env: Record<string, string | undefined> };
+};
+const env = runtime.process?.env ?? {};
 const svc = calendar({ trust: env.PARLEY_TRUST?.split(',') ?? [] });
 
 export default { port: Number(env.PORT ?? 8787), fetch: fetchHandler(svc) };

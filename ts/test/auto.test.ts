@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import * as P from '../src/index.js';
 import { calendar } from '../../examples/calendar.ts';
 import { shop } from '../../examples/shop.ts';
+import * as P from '../src/index.js';
 
 describe('policy-gated auto-commit', async () => {
   const principal = await P.keyPair(),
@@ -77,7 +77,11 @@ describe('policy-gated auto-commit', async () => {
     const frames: P.Request[] = [];
     const t = P.local(svc);
     const spy: P.Transport = {
-      request: (f, e) => (frames.push(f), t.request(f, e)),
+      request: (f, e) => {
+        frames.push(f);
+
+        return t.request(f, e);
+      },
       close() {},
     };
     const c = new P.Client(spy, { key: agent.seed, grants: [grant] });
@@ -87,7 +91,9 @@ describe('policy-gated auto-commit', async () => {
       { auto: true },
     );
 
-    if (first.kind !== 'RECEIPT') throw new Error(first.lens);
+    if (first.kind !== 'RECEIPT') {
+      throw new Error(first.lens);
+    }
 
     const captured = frames.find((f) => f.verb === 'INTENT')!;
     const again = await svc.handle(structuredClone(captured));
@@ -125,11 +131,15 @@ describe('budget fitting never alters proposals', () => {
     const c = new P.Client(P.local(svc));
     const r = await c.intent('t.x', {}, { budget: 400 });
 
-    if (r.kind !== 'PROPOSALS') throw new Error();
+    if (r.kind !== 'PROPOSALS') {
+      throw new Error();
+    }
 
     expect(r.proposals.length).toBeGreaterThan(0);
 
-    for (const p of r.proposals) expect(p.effects.length).toBe(5);
+    for (const p of r.proposals) {
+      expect(p.effects.length).toBe(5);
+    }
 
     expect(r.proposals[0].hash).toBe(await P.proposalHash(r.proposals[0]));
   });

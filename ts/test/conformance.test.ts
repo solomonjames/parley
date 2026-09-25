@@ -12,19 +12,22 @@ const load = (n: string) =>
 
 describe('conformance vectors', () => {
   it('canonical', () => {
-    for (const c of load('canonical'))
+    for (const c of load('canonical')) {
       expect(P.canonical(c.input), c.name).toBe(c.canonical);
+    }
   });
   it('canonical rejects floats', () => {
     expect(() => P.canonical({ x: 1.5 })).toThrow();
   });
   it('keys', async () => {
-    for (const k of load('keys'))
+    for (const k of load('keys')) {
       expect((await P.keyPair(k.seed)).public).toBe(k.public);
+    }
   });
   it('hash', async () => {
-    for (const h of load('hash'))
+    for (const h of load('hash')) {
       expect(await P.proposalHash(h.proposal), h.name).toBe(h.hash);
+    }
   });
   it('proof', async () => {
     for (const p of load('proof')) {
@@ -62,13 +65,16 @@ describe('conformance vectors', () => {
     }
   });
   it('lens', () => {
-    for (const c of load('lens'))
+    for (const c of load('lens')) {
       expect(
         c.type === 'value' ? P.lean(c.input) : P.lens(c.input),
         c.name,
       ).toBe(c.lens);
+    }
   });
   it('estimate', () => {
-    for (const c of load('estimate')) expect(P.est(c.text)).toBe(c.est);
+    for (const c of load('estimate')) {
+      expect(P.est(c.text)).toBe(c.est);
+    }
   });
 });

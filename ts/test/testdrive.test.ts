@@ -1,6 +1,7 @@
 // Drives `parley test-drive` against a mock Messages API: the loop, tool routing, auto-commit
 // and the consent path (no TTY → not approved) all run for real; only the model is scripted.
-import { createServer } from 'node:http';
+import { createServer, type IncomingHttpHeaders } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { afterAll, describe, expect, it } from 'vitest';
 import { testDrive } from '../src/testdrive.js';
 
@@ -42,33 +43,45 @@ const script = [
   },
   { type: 'text', text: 'Moved your 1:1. The order needs your approval.' },
 ];
-const requests: any[] = [];
+
+// The parts of a Messages API request this mock reads.
+interface MessagesRequest {
+  model: string;
+  fallbacks?: string;
+  tools: { name: string }[];
+  messages: { content: string | { content: string }[] }[];
+}
+
+const requests: { headers: IncomingHttpHeaders; body: MessagesRequest }[] = [];
 let lastToolText = '';
 const server = createServer(async (req, res) => {
   let body = '';
 
-  for await (const c of req) body += c;
+  for await (const c of req) {
+    body += c;
+  }
 
-  const r = JSON.parse(body);
+  const r: MessagesRequest = JSON.parse(body);
 
   requests.push({ headers: req.headers, body: r });
 
-  const last = r.messages.at(-1);
+  const last = r.messages.at(-1)?.content;
 
-  if (Array.isArray(last.content))
-    lastToolText = last.content.map((b: any) => b.content).join('\n');
+  if (Array.isArray(last)) {
+    lastToolText = last.map((b) => b.content).join('\n');
+  }
 
   const step = script[requests.length - 1];
-  let block: any = step;
-
-  if (step.type === 'tool_use' && step.input.proposal === '__FIRST_PROPOSAL__')
-    block = {
-      ...step,
-      input: {
-        ...step.input,
-        proposal: /\[(p_[^\]]+)\]/.exec(lastToolText)![1],
-      },
-    };
+  const block =
+    step.type === 'tool_use' && step.input?.proposal === '__FIRST_PROPOSAL__'
+      ? {
+          ...step,
+          input: {
+            ...step.input,
+            proposal: /\[(p_[^\]]+)\]/.exec(lastToolText)![1],
+          },
+        }
+      : step;
 
   res.setHeader('content-type', 'application/json');
   res.end(
@@ -91,7 +104,7 @@ afterAll(() => server.close());
 describe('parley test-drive', () => {
   it('runs a full tool loop against the Messages API with fallbacks on', async () => {
     process.env.ANTHROPIC_API_KEY = 'test';
-    process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${(server.address() as any).port}`;
+    process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
     const logs: string[] = [];
     const orig = console.log;
@@ -112,7 +125,7 @@ describe('parley test-drive', () => {
     expect(String(requests[0].headers['anthropic-beta'])).toContain(
       'server-side-fallback-2026-07-01',
     );
-    expect(requests[0].body.tools.map((t: any) => t.name)).toEqual([
+    expect(requests[0].body.tools.map((t) => t.name)).toEqual([
       'parley_ask',
       'parley_intent',
       'parley_commit',

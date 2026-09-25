@@ -29,8 +29,9 @@ out('canonical', canon);
 // keys
 const keys = [];
 
-for (const n of [0, 1, 7, 42, 255])
+for (const n of [0, 1, 7, 42, 255]) {
   keys.push({ seed: seed(n), public: (await P.keyPair(seed(n))).public });
+}
 
 out('keys', keys);
 
@@ -70,7 +71,9 @@ const hash = [
   { name: 'hash field ignored', proposal: { ...baseP, hash: 'whatever' } },
 ];
 
-for (const h of hash) h.hash = await P.proposalHash(h.proposal);
+for (const h of hash) {
+  h.hash = await P.proposalHash(h.proposal);
+}
 
 out('hash', hash);
 
@@ -479,10 +482,11 @@ for (const [name, token, proofKey, c, expect] of cases) {
   });
   const actual = got.ok ? { ok: true } : { ok: false, code: got.code };
 
-  if (JSON.stringify(actual) !== JSON.stringify(expect))
+  if (JSON.stringify(actual) !== JSON.stringify(expect)) {
     throw new Error(
       `grant case ${name}: expected ${JSON.stringify(expect)} got ${JSON.stringify(got)}`,
     );
+  }
 
   gcases.push({
     name,
@@ -840,8 +844,9 @@ const replies = [
   ['event plain', r({ kind: 'EVENT', message: 'started' })],
 ];
 
-for (const [name, input] of replies)
+for (const [name, input] of replies) {
   lensCases.push({ name, type: 'reply', input, lens: P.lens(input) });
+}
 
 out('lens', lensCases);
 

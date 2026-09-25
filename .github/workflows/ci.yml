@@ -12,6 +12,9 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm ci
+      - name: lint (Biome) and style (oxlint)
+        if: matrix.node == 22
+        run: npm run lint && npm run lint:style
       - run: npm run build
       - run: npm test
         env:

@@ -3,17 +3,19 @@ import { spawn } from 'node:child_process';
 import {
   createServer as createHttpServer,
   type Server as HttpServer,
+  type IncomingMessage,
+  type ServerResponse,
 } from 'node:http';
 import net from 'node:net';
 import tls from 'node:tls';
 import {
   Client,
+  type ClientOptions,
   http,
   lines,
-  type ClientOptions,
   type Transport,
 } from './client.js';
-import { fetchHandler } from './http.js';
+import { fetchHandler, frameId } from './http.js';
 import type { Service } from './service.js';
 
 export const DEFAULT_PORT = 7447;
@@ -22,15 +24,118 @@ export const DEFAULT_TLS_PORT = 7448;
 const MAX_FRAME = 1 << 20;
 
 const MAX_INFLIGHT = 64;
+
+interface ErrorFields {
+  id: string;
+  re: string;
+  code: string;
+  message: string;
+  retry?: number;
+}
+
+/** One NDJSON ERROR reply line. */
+const errorLine = ({ id, re, code, message, retry }: ErrorFields) =>
+  `${JSON.stringify({ parley: 1, id, re, kind: 'ERROR', code, message, retry })}\n`;
+
 const errFrame = (message: string, code = 'bad_frame') =>
-  `${JSON.stringify({
-    parley: 1,
-    id: 's_err',
-    re: '?',
-    kind: 'ERROR',
-    code,
-    message,
-  })}\n`;
+  errorLine({ id: 's_err', re: '?', code, message });
+
+/** Parse one NDJSON line; null if it isn't JSON (the service answers that with an ERROR). */
+function parseFrame(line: string): unknown {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * A `data` handler that splits NDJSON input into trimmed, non-empty lines. A frame over
+ * MAX_FRAME is reported once via `onOversize` and skipped up to its terminating newline.
+ */
+function lineSplitter(
+  onLine: (line: string) => void,
+  onOversize: () => void,
+): (chunk: string) => void {
+  let buf = '';
+  let discarding = false; // after an oversized frame, drop input until the next newline
+  const take = (line: string) => {
+    if (Buffer.byteLength(line) > MAX_FRAME) {
+      onOversize();
+    } else if (line) {
+      onLine(line);
+    }
+  };
+  const dropOverflow = () => {
+    if (Buffer.byteLength(buf) <= MAX_FRAME) {
+      return;
+    }
+
+    if (!discarding) {
+      onOversize();
+    }
+
+    discarding = true;
+    buf = '';
+  };
+
+  return (chunk) => {
+    buf += chunk;
+
+    for (let nl = buf.indexOf('\n'); nl >= 0; nl = buf.indexOf('\n')) {
+      const line = buf.slice(0, nl).trim();
+
+      buf = buf.slice(nl + 1);
+
+      if (discarding) {
+        discarding = false;
+      } else {
+        take(line);
+      }
+    }
+
+    dropOverflow();
+  };
+}
+
+/** Handle each line as a request frame, concurrently but at most MAX_INFLIGHT at a time. */
+function frameHandler(svc: Service, send: (s: string) => void) {
+  let inflight = 0;
+
+  return (line: string) => {
+    const frame = parseFrame(line);
+
+    if (inflight >= MAX_INFLIGHT) {
+      send(
+        errorLine({
+          id: 's_busy',
+          re: frameId(frame),
+          code: 'limit',
+          message: `more than ${MAX_INFLIGHT} requests in flight on this connection`,
+          retry: 1,
+        }),
+      );
+
+      return;
+    }
+
+    inflight++;
+    svc
+      .handle(frame, (e) => send(`${JSON.stringify(e)}\n`))
+      .then((r) => send(`${JSON.stringify(r)}\n`))
+      .catch(() =>
+        send(
+          errorLine({
+            id: 's_err',
+            re: frameId(frame),
+            code: 'internal',
+            message: 'reply could not be serialized',
+          }),
+        ),
+      )
+      .finally(() => inflight--);
+  };
+}
 
 /** Serve NDJSON frames on a duplex stream. Requests are handled concurrently, up to MAX_INFLIGHT. */
 export function serveStream(
@@ -38,93 +143,24 @@ export function serveStream(
   input: NodeJS.ReadableStream,
   write: (s: string) => void,
 ) {
-  let buf = '';
-  let discarding = false; // after an oversized frame, drop input until the next newline
-  let inflight = 0;
   const send = (s: string) => {
     try {
       write(s);
-    } catch {}
+    } catch {
+      // the peer is gone; there is no one left to tell
+    }
   };
 
   input.setEncoding?.('utf8');
-  input.on('error', () => {});
-  input.on('data', (chunk: string) => {
-    buf += chunk;
-
-    for (;;) {
-      const nl = buf.indexOf('\n');
-
-      if (nl < 0) {
-        if (Buffer.byteLength(buf) > MAX_FRAME) {
-          if (!discarding) send(errFrame('frame exceeds 1 MiB'));
-
-          discarding = true;
-          buf = '';
-        }
-
-        return;
-      }
-
-      const line = buf.slice(0, nl).trim();
-
-      buf = buf.slice(nl + 1);
-
-      if (discarding) {
-        discarding = false;
-
-        continue;
-      }
-
-      if (!line) continue;
-
-      if (Buffer.byteLength(line) > MAX_FRAME) {
-        send(errFrame('frame exceeds 1 MiB'));
-
-        continue;
-      }
-
-      let frame: any = null;
-
-      try {
-        frame = JSON.parse(line);
-      } catch {}
-
-      if (inflight >= MAX_INFLIGHT) {
-        send(
-          `${JSON.stringify({
-            parley: 1,
-            id: 's_busy',
-            re: typeof frame?.id === 'string' ? frame.id : '?',
-            kind: 'ERROR',
-            code: 'limit',
-            message: `more than ${MAX_INFLIGHT} requests in flight on this connection`,
-            retry: 1,
-          })}\n`,
-        );
-
-        continue;
-      }
-
-      inflight++;
-      svc
-        .handle(frame, (e) => send(`${JSON.stringify(e)}\n`))
-        .then((r) => send(`${JSON.stringify(r)}\n`))
-        .catch(() =>
-          send(
-            `${JSON.stringify({
-              parley: 1,
-              id: 's_err',
-              re: typeof frame?.id === 'string' ? frame.id : '?',
-              kind: 'ERROR',
-              code: 'internal',
-              message: 'reply could not be serialized',
-            })}\n`,
-          ),
-        )
-        .finally(() => inflight--);
-    }
+  input.on('error', () => {
+    // a broken input just stops producing data; keep the process alive
   });
+  input.on(
+    'data',
+    lineSplitter(frameHandler(svc, send), () =>
+      send(errFrame('frame exceeds 1 MiB')),
+    ),
+  );
 }
 
 /** Listen for parley:// (TCP) or, with `tls` options, parleys:// connections. */
@@ -133,7 +169,9 @@ export function listen(
   o: { port?: number; host?: string; tls?: tls.TlsOptions } = {},
 ): Promise<net.Server> {
   const onConn = (sock: net.Socket) => {
-    sock.on('error', () => {});
+    sock.on('error', () => {
+      // without a listener a client's socket error would crash the server; 'close' follows
+    });
     serveStream(svc, sock, (s) => sock.writable && sock.write(s));
   };
   const server = o.tls
@@ -154,6 +192,44 @@ export function serveStdio(svc: Service) {
   serveStream(svc, process.stdin, (s) => process.stdout.write(s));
 }
 
+/** Collect a request body; null (after answering 413) once it exceeds MAX_FRAME. */
+async function readCapped(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<Buffer[] | null> {
+  const chunks: Buffer[] = [];
+  let size = 0;
+
+  for await (const c of req) {
+    size += (c as Buffer).length;
+
+    if (size > MAX_FRAME) {
+      res.writeHead(413).end('frame exceeds 1 MiB');
+      req.destroy();
+
+      return null;
+    }
+
+    chunks.push(c as Buffer);
+  }
+
+  return chunks;
+}
+
+/** Copy a fetch Response onto a Node response, streaming the body. */
+async function relay(r: Response, res: ServerResponse) {
+  res.writeHead(r.status, Object.fromEntries(r.headers));
+
+  // Node's web streams are async-iterable; the DOM lib typings just don't say so.
+  if (r.body) {
+    for await (const c of r.body as unknown as AsyncIterable<Uint8Array>) {
+      res.write(c);
+    }
+  }
+
+  res.end();
+}
+
 /** Serve the HTTP bridge on Node's http module. */
 export function serveHttp(
   svc: Service,
@@ -161,36 +237,28 @@ export function serveHttp(
 ): Promise<HttpServer> {
   const handler = fetchHandler(svc, { path: o.path });
   const server = createHttpServer(async (req, res) => {
-    req.on('error', () => {});
+    req.on('error', () => {
+      // an aborted upload surfaces through the body read below
+    });
 
     try {
-      const chunks: Buffer[] = [];
-      let size = 0;
+      const chunks = await readCapped(req, res);
 
-      for await (const c of req) {
-        size += (c as Buffer).length;
-
-        if (size > MAX_FRAME) {
-          res.writeHead(413).end('frame exceeds 1 MiB');
-          req.destroy();
-
-          return;
-        }
-
-        chunks.push(c as Buffer);
+      if (!chunks) {
+        return;
       }
 
       const url = new URL(req.url ?? '/', 'http://localhost'); // never trust the Host header for parsing
       const body = req.method === 'POST' ? Buffer.concat(chunks) : undefined;
-      const r = await handler(new Request(url, { method: req.method, body }));
 
-      res.writeHead(r.status, Object.fromEntries(r.headers));
-
-      if (r.body) for await (const c of r.body as any) res.write(c);
-
-      res.end();
+      await relay(
+        await handler(new Request(url, { method: req.method, body })),
+        res,
+      );
     } catch {
-      if (!res.headersSent) res.writeHead(400);
+      if (!res.headersSent) {
+        res.writeHead(400);
+      }
 
       res.end();
     }
@@ -220,7 +288,9 @@ export async function transport(
   url: string,
   o: { tls?: tls.ConnectionOptions } = {},
 ): Promise<Transport> {
-  if (url.startsWith('http://') || url.startsWith('https://')) return http(url);
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return http(url);
+  }
 
   if (url.startsWith('stdio:')) {
     const [cmd, ...args] = url.slice(6).trim().split(/\s+/);
@@ -231,7 +301,9 @@ export async function transport(
     );
 
     child.on('error', (e) => t.fail(e));
-    child.stdin.on('error', () => {});
+    child.stdin.on('error', () => {
+      // EPIPE after the child exits; the 'exit' handler already failed the transport
+    });
     child.stdout.setEncoding('utf8');
     child.stdout.on('data', (c: string) => t.feed(c));
     child.on('exit', () => t.fail(new Error('service process exited')));
@@ -242,8 +314,9 @@ export async function transport(
   const u = new URL(url);
   const secure = u.protocol === 'parleys:';
 
-  if (!secure && u.protocol !== 'parley:')
+  if (!secure && u.protocol !== 'parley:') {
     throw new Error(`unsupported URL ${url}`);
+  }
 
   const port = Number(u.port) || (secure ? DEFAULT_TLS_PORT : DEFAULT_PORT);
   const sock: net.Socket = await new Promise((resolve, reject) => {

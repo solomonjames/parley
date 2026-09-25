@@ -2,19 +2,27 @@
  * Build a Parley service. Transport-independent: `handle(frame)` turns a request frame
  * into its final reply (emitting EVENTs along the way). Transports live in node.ts / http.ts.
  */
-import { MemoryHandleStore, fit, type HandleStore } from './budget.js';
+import { fit, type HandleStore, MemoryHandleStore } from './budget.js';
 import { proposalHash, randomId } from './crypto.js';
-import { ParleyError, fix } from './errors.js';
-import { checkGrant, checkProof, type GrantCheck } from './grants.js';
+import { fix, ParleyError } from './errors.js';
+import {
+  type CheckContext,
+  checkGrant,
+  checkProof,
+  type GrantCheck,
+} from './grants.js';
 import type {
   Brief,
   CapabilityInfo,
+  ConsentRequest,
   Effect,
   ErrorReply,
   Event,
   FinalReply,
+  Intent,
   Money,
   ParamSchema,
+  Proof,
   Proposal,
   Receipt,
   ReceiptReply,
@@ -42,6 +50,8 @@ export interface ServiceOptions {
 }
 
 export interface Ctx {
+  /** Already checked against the capability's `params` schema, so handlers may read fields directly. */
+  // biome-ignore lint/suspicious/noExplicitAny: public handler API; `unknown` would force casts in every existing handler
   params: Record<string, any>;
   goal?: string;
   /** The principal (public key) on whose behalf the agent acts, if it presented a valid grant. */
@@ -115,6 +125,30 @@ interface StoredReceipt {
 
 const DAY = 86400;
 
+type Authorized = GrantCheck & { ok: true };
+type Failed = GrantCheck & { ok: false };
+
+/** What a request is being authorized for. */
+interface AuthScope {
+  verb: Verb;
+  capability: string;
+  /** What the request proof must be signed over. */
+  target: string;
+  proposal?: Proposal;
+  /** Only grants from this principal (the one the proposal was made for) may act. */
+  principal?: string | null;
+  /** An idempotent COMMIT replay: limits the original commit used up don't block it. */
+  replay?: boolean;
+}
+
+interface IntentRun {
+  def: IntentDef;
+  req: Intent;
+  budget: number;
+  emit: (e: Event) => void;
+  principal: string | null;
+}
+
 export class Service {
   readonly id: string;
   private asks = new Map<string, AskDef>();
@@ -154,15 +188,16 @@ export class Service {
   get capabilities(): CapabilityInfo[] {
     const out: CapabilityInfo[] = [];
 
-    for (const [name, d] of this.asks)
+    for (const [name, d] of this.asks) {
       out.push({
         name,
         kind: 'ask',
         summary: d.summary,
         ...(d.params ? { params: d.params } : {}),
       });
+    }
 
-    for (const [name, d] of this.intents)
+    for (const [name, d] of this.intents) {
       out.push({
         name,
         kind: 'intent',
@@ -170,6 +205,7 @@ export class Service {
         ...(d.params ? { params: d.params } : {}),
         ...(d.risk ? { risk: d.risk } : {}),
       });
+    }
 
     return out;
   }
@@ -194,28 +230,22 @@ export class Service {
   /** Handle one request frame. EVENTs go to `emit`; the final reply is returned. */
   async handle(
     frame: unknown,
-    emit: (e: Event) => void = () => {},
+    emit: (e: Event) => void = () => {
+      // no listener: EVENTs are dropped
+    },
   ): Promise<FinalReply> {
-    const req = frame as Request;
-    const re = typeof (req as any)?.id === 'string' ? req.id : '?';
+    const re = frameId(frame);
 
     try {
-      if (
-        !req ||
-        typeof req !== 'object' ||
-        (req as any).parley !== 1 ||
-        typeof req.id !== 'string'
-      ) {
+      if (!isRequestFrame(frame)) {
         throw new ParleyError(
           'bad_frame',
           'frames need "parley": 1 and a string "id"',
         );
       }
 
-      const budget =
-        Number.isInteger(req.budget) && req.budget! > 0
-          ? req.budget!
-          : (this.opts.defaultBudget ?? 2000);
+      const req = frame;
+      const budget = positiveInt(req.budget) ?? this.opts.defaultBudget ?? 2000;
 
       switch (req.verb) {
         case 'HELLO':
@@ -231,13 +261,7 @@ export class Service {
         case 'EXPAND':
           return await this.onExpand(req, budget);
         default:
-          throw new ParleyError(
-            'bad_frame',
-            `unknown verb ${JSON.stringify((req as any).verb)}`,
-            {
-              fix: [fix('use one of HELLO, ASK, INTENT, COMMIT, UNDO, EXPAND')],
-            },
-          );
+          throw unknownVerb(req);
       }
     } catch (e) {
       return this.errorReply(re, e);
@@ -245,7 +269,7 @@ export class Service {
   }
 
   private errorReply(re: string, e: unknown): ErrorReply {
-    if (e instanceof ParleyError)
+    if (e instanceof ParleyError) {
       return {
         parley: 1,
         id: randomId('s', 6),
@@ -255,6 +279,7 @@ export class Service {
         message: e.message,
         ...e.extra,
       };
+    }
 
     this.opts.onError?.(e);
 
@@ -299,72 +324,81 @@ export class Service {
     );
   }
 
-  /** Verify grants on a request; returns the authorizing check, or throws the right error. */
+  /**
+   * Verify grants on a request; returns the authorizing check, or throws the right error.
+   * Null means anonymous, which only verbs that don't require a grant allow.
+   */
   private async authorize(
     req: Request,
-    verb: Verb,
-    capability: string,
-    target: string,
-    proposal?: Proposal,
-    o: { principal?: string | null; replay?: boolean } = {},
-  ): Promise<(GrantCheck & { ok: true }) | null> {
-    const grants = req.grants ?? [];
+    scope: AuthScope,
+  ): Promise<Authorized | null> {
     const required =
-      verb === 'COMMIT' || verb === 'UNDO' || this.opts.requireGrants;
+      scope.verb === 'COMMIT' ||
+      scope.verb === 'UNDO' ||
+      this.opts.requireGrants;
 
-    if (!grants.length) {
-      if (required)
-        throw new ParleyError(
-          'unauthorized',
-          `${verb} needs a grant from your principal`,
-          {
-            fix: [
-              fix(
-                'ask your principal to issue a grant (parley grant) and send it in `grants` with a `proof`',
-              ),
-            ],
-          },
-        );
+    if (required) {
+      return this.authorizeRequired(req, scope);
+    }
 
+    if (!req.grants?.length) {
       return null;
     }
 
-    const proofErr = await checkProof(
-      req.proof,
-      { aud: this.id, verb, target },
-      this.now(),
-    );
+    // ASK/INTENT don't need a grant here, so a grant that doesn't apply just means "anonymous".
+    return (await this.checkGrants(req, scope)).granted ?? null;
+  }
 
-    if (proofErr)
-      throw new ParleyError('unauthorized', proofErr, {
-        fix: [
-          fix(
-            `sign {aud:"${this.id}",verb:"${verb}",target,ts} with the grant holder key`,
-          ),
-        ],
-      });
-
-    const checks: GrantCheck[] = [];
-
-    for (const g of grants) {
-      const c = await checkGrant(g, {
-        service: this.id,
-        verb,
-        capability,
-        now: this.now(),
-        trusted: this.opts.trust ?? [],
-        proofKey: req.proof!.key,
-        proposal: proposal && {
-          hash: proposal.hash,
-          cost: proposal.cost,
-          risk: proposal.risk,
+  /** Like authorize(), for a request that must carry a grant: never anonymous. */
+  private async authorizeRequired(
+    req: Request,
+    scope: AuthScope,
+  ): Promise<Authorized> {
+    if (!req.grants?.length) {
+      throw new ParleyError(
+        'unauthorized',
+        `${scope.verb} needs a grant from your principal`,
+        {
+          fix: [
+            fix(
+              'ask your principal to issue a grant (parley grant) and send it in `grants` with a `proof`',
+            ),
+          ],
         },
-        spent: (id) => this.spent.get(id) ?? 0,
-      });
+      );
+    }
+
+    const { granted, failed } = await this.checkGrants(req, scope);
+
+    if (granted) {
+      return granted;
+    }
+
+    throw grantFailure(failed, scope.proposal, this.id);
+  }
+
+  /** Verify the proof, then try each grant: the first that authorizes wins; the rest say why not. */
+  private async checkGrants(
+    req: Request,
+    scope: AuthScope,
+  ): Promise<{ granted?: Authorized; failed: Failed[] }> {
+    const proof = await this.verifyProof(req.proof, scope.verb, scope.target);
+    const failed: Failed[] = [];
+
+    for (const g of req.grants ?? []) {
+      const c = await checkGrant(
+        g,
+        this.grantContext(
+          scope.verb,
+          scope.capability,
+          proof.key,
+          scope.proposal,
+        ),
+      );
 
       // Only grants from the principal the proposal was made for can act on it.
-      if (o.principal && c.iss && c.iss !== o.principal) {
-        checks.push({
+      if (scope.principal && c.iss && c.iss !== scope.principal) {
+        failed.push({
           ok: false,
           code: 'forbidden',
           reason: "grant is from a different principal than this proposal's",
@@ -374,54 +408,75 @@ export class Service {
         continue;
       }
 
-      if (c.ok) return c;
+      if (c.ok) {
+        return { granted: c, failed };
+      }
 
       // Replaying an already-executed commit must not be blocked by money/risk limits it already used up.
-      if (o.replay && c.code === 'consent_required')
+      if (scope.replay && c.code === 'consent_required' && c.iss) {
         return {
-          ok: true,
-          id: '',
-          iss: c.iss!,
-          holder: req.proof!.key,
-          spendBlocks: [],
-        };
-
-      checks.push(c);
-    }
-
-    // ASK/INTENT don't need a grant here, so a grant that doesn't apply just means "anonymous".
-    if (!required) return null;
-
-    const consent = checks.find((c) => !c.ok && c.code === 'consent_required');
-
-    if (consent && !consent.ok && proposal) {
-      throw new ParleyError(
-        'consent_required',
-        `${consent.reason}; your principal must approve this exact proposal`,
-        {
-          consent: {
-            proposal: proposal.id,
-            hash: proposal.hash,
-            service: this.id,
-            capability: proposal.capability,
-            principal: consent.iss!,
-            summary: proposal.summary,
-            expires: proposal.expires,
+          granted: {
+            ok: true,
+            id: '',
+            iss: c.iss,
+            holder: proof.key,
+            spendBlocks: [],
           },
-        },
-      );
+          failed,
+        };
+      }
+
+      failed.push(c);
     }
 
-    const forbidden = checks.find((c) => !c.ok && c.code === 'forbidden');
+    return { failed };
+  }
 
-    if (forbidden && !forbidden.ok)
-      throw new ParleyError('forbidden', forbidden.reason, {
-        need: forbidden.need,
-      });
+  /** Returns the request proof if it is validly signed over this verb and target; throws otherwise. */
+  private async verifyProof(
+    proof: Proof | undefined,
+    verb: Verb,
+    target: string,
+  ): Promise<Proof> {
+    const err = await checkProof(
+      proof,
+      { aud: this.id, verb, target },
+      this.now(),
+    );
 
-    const first = checks[0] as GrantCheck & { ok: false };
+    if (proof && !err) {
+      return proof;
+    }
 
-    throw new ParleyError('unauthorized', first.reason);
+    throw new ParleyError('unauthorized', err ?? 'missing proof', {
+      fix: [
+        fix(
+          `sign {aud:"${this.id}",verb:"${verb}",target,ts} with the grant holder key`,
+        ),
+      ],
+    });
+  }
+
+  private grantContext(
+    verb: Verb,
+    capability: string,
+    proofKey: string,
+    proposal?: Proposal,
+  ): CheckContext {
+    return {
+      service: this.id,
+      verb,
+      capability,
+      now: this.now(),
+      trusted: this.opts.trust ?? [],
+      proofKey,
+      proposal: proposal && {
+        hash: proposal.hash,
+        cost: proposal.cost,
+        risk: proposal.risk,
+      },
+      spent: (id) => this.spent.get(id) ?? 0,
+    };
   }
 
   private async onAsk(
@@ -435,12 +490,11 @@ export class Service {
 
     validateParams(def.params, params);
 
-    const auth = await this.authorize(
-      req,
-      'ASK',
-      req.capability,
-      req.capability,
-    );
+    const auth = await this.authorize(req, {
+      verb: 'ASK',
+      capability: req.capability,
+      target: req.capability,
+    });
     const data = await def.run({ params, principal: auth?.iss ?? null });
 
     return fit(
@@ -459,74 +513,64 @@ export class Service {
 
   /** Policy-gated auto-commit (SPEC §4.3.1): only if a grant authorizes it outright and it is undoable. */
   private async autoAuth(
-    req: Request & { verb: 'INTENT' },
+    req: Intent,
     proposal: Proposal,
-  ): Promise<(GrantCheck & { ok: true }) | null> {
-    if (!proposal.undo || !req.grants?.length) return null;
+  ): Promise<Authorized | null> {
+    const { proof } = req;
+
+    if (!proposal.undo || !req.grants?.length || !proof) {
+      return null;
+    }
+
+    const target = `auto:${req.capability}:${req.id}`;
 
     if (
       await checkProof(
-        req.proof,
-        {
-          aud: this.id,
-          verb: 'INTENT',
-          target: `auto:${req.capability}:${req.id}`,
-        },
+        proof,
+        { aud: this.id, verb: 'INTENT', target },
         this.now(),
       )
-    )
+    ) {
       return null;
+    }
 
     for (const g of req.grants) {
-      const c = await checkGrant(g, {
-        service: this.id,
-        verb: 'COMMIT',
-        capability: proposal.capability,
-        now: this.now(),
-        trusted: this.opts.trust ?? [],
-        proofKey: req.proof!.key,
-        proposal: {
-          hash: proposal.hash,
-          cost: proposal.cost,
-          risk: proposal.risk,
-        },
-        spent: (id) => this.spent.get(id) ?? 0,
-      });
+      const c = await checkGrant(
+        g,
+        this.grantContext('COMMIT', proposal.capability, proof.key, proposal),
+      );
 
-      if (c.ok) return c;
+      if (c.ok) {
+        return c;
+      }
     }
 
     return null;
   }
 
   private async onIntent(
-    req: Request & { verb: 'INTENT' },
+    req: Intent,
     budget: number,
     emit: (e: Event) => void,
   ): Promise<FinalReply> {
     const def =
       this.intents.get(req.capability) ??
       this.unknownCapability(req.capability, 'intent');
-    const params = req.params ?? {};
 
-    validateParams(def.params, params);
+    validateParams(def.params, req.params ?? {});
 
     const autoTarget = `auto:${req.capability}:${req.id}`;
-    const auth = await this.authorize(
-      req,
-      'INTENT',
-      req.capability,
-      req.auto ? autoTarget : req.capability,
-    );
+    const auth = await this.authorize(req, {
+      verb: 'INTENT',
+      capability: req.capability,
+      target: req.auto ? autoTarget : req.capability,
+    });
     const principal = auth?.iss ?? null;
     // A replayed auto INTENT (same holder key + request id) gets the original reply, never a second commit.
-    const autoKey =
-      req.auto && req.grants?.length && req.proof
-        ? `${req.proof.key}:${req.id}`
-        : null; // proof verified by authorize()
+    const auto = autoReplayKey(req);
 
-    if (autoKey) {
-      const prior = this.autoSeen.get(autoKey);
+    if (auto) {
+      const prior = this.autoSeen.get(auto.key);
 
       if (prior && prior.exp > this.now()) {
         const r = await prior.reply;
@@ -537,34 +581,41 @@ export class Service {
       }
     }
 
-    const reply = this.planIntent(def, req, budget, emit, principal);
+    const reply = this.planIntent({ def, req, budget, emit, principal });
 
-    if (autoKey) {
-      // outlive every proof that could carry this frame id: proofs are valid for ±300s around ts
-      this.autoSeen.set(autoKey, {
-        reply,
-        exp: Math.max(this.now(), req.proof!.ts) + 900,
-      });
-
-      if (this.autoSeen.size > 10_000)
-        for (const [k, v] of this.autoSeen)
-          if (v.exp <= this.now()) this.autoSeen.delete(k);
+    if (auto) {
+      this.rememberAuto(auto.key, reply, auto.proofTs);
     }
 
     return reply;
   }
 
-  private async planIntent(
-    def: IntentDef,
-    req: Request & { verb: 'INTENT' },
-    budget: number,
-    emit: (e: Event) => void,
-    principal: string | null,
-  ): Promise<FinalReply> {
-    const params = req.params ?? {};
-    const out = await def.plan({ params, goal: req.goal, principal });
+  private rememberAuto(
+    key: string,
+    reply: Promise<FinalReply>,
+    proofTs: number,
+  ) {
+    // outlive every proof that could carry this frame id: proofs are valid for ±300s around ts
+    this.autoSeen.set(key, { reply, exp: Math.max(this.now(), proofTs) + 900 });
 
-    if (out && 'clarify' in out)
+    if (this.autoSeen.size > 10_000) {
+      for (const [k, v] of this.autoSeen) {
+        if (v.exp <= this.now()) {
+          this.autoSeen.delete(k);
+        }
+      }
+    }
+  }
+
+  private async planIntent(run: IntentRun): Promise<FinalReply> {
+    const { def, req, budget, principal } = run;
+    const out = await def.plan({
+      params: req.params ?? {},
+      goal: req.goal,
+      principal,
+    });
+
+    if (out && 'clarify' in out) {
       return {
         parley: 1,
         id: randomId('s', 6),
@@ -572,58 +623,39 @@ export class Service {
         kind: 'CLARIFY',
         ...out.clarify,
       };
+    }
 
     const plans = Array.isArray(out) ? out : [out];
 
-    if (!plans.length)
+    if (!plans.length) {
       throw new ParleyError('not_found', 'no way to satisfy this intent', {
         fix: [fix('relax the constraints and try again')],
       });
+    }
 
     const now = this.now();
-    const proposals: Proposal[] = [];
+    const stored: StoredProposal[] = [];
 
     for (const plan of plans) {
-      const window = plan.revert ? (plan.undoWindow ?? DAY) : null;
-      const p: Omit<Proposal, 'hash'> = {
-        id: randomId('p', 6),
-        capability: req.capability,
-        summary: plan.summary,
-        effects: plan.effects,
-        cost: plan.cost ?? null,
-        risk: plan.risk ?? def.risk ?? 'low',
-        undo: window === null ? null : { window },
-        expires:
-          Math.ceil(
-            (now + (plan.expiresIn ?? this.opts.proposalTtl ?? 600)) / 60,
-          ) * 60,
-        ...(plan.data !== undefined ? { data: plan.data } : {}),
-      };
-      const proposal = { ...p, hash: await proposalHash(p) } as Proposal;
-
-      this.proposals.set(proposal.id, {
+      const proposal = await this.propose(plan, def, req.capability, now);
+      const s: StoredProposal = {
         proposal,
         plan,
         principal,
         requester: verifiedKey(req),
         created: now,
-      });
-      proposals.push(proposal);
+      };
+
+      this.proposals.set(proposal.id, s);
+      stored.push(s);
     }
 
     this.sweep(now);
 
-    if (req.auto) {
-      const stored = this.proposals.get(proposals[0].id)!;
-      const ok = await this.autoAuth(req, proposals[0]);
+    const committed = req.auto ? await this.autoCommit(stored[0], run) : null;
 
-      if (ok && (!stored.principal || stored.principal === ok.iss)) {
-        const out = await this.execute(stored, ok, req.id, emit);
-
-        return out.kind === 'RECEIPT'
-          ? fit({ ...out, auto: true }, budget, this.handles, verifiedKey(req))
-          : out;
-      }
+    if (committed) {
+      return committed;
     }
 
     return fit(
@@ -632,7 +664,7 @@ export class Service {
         id: randomId('s', 6),
         re: req.id,
         kind: 'PROPOSALS',
-        proposals,
+        proposals: stored.map((s) => s.proposal),
       },
       budget,
       this.handles,
@@ -640,14 +672,67 @@ export class Service {
     );
   }
 
+  /** Turn a plan into a hashed proposal, filling defaults and rounding expiry up to the minute. */
+  private async propose(
+    plan: Plan,
+    def: IntentDef,
+    capability: string,
+    now: number,
+  ): Promise<Proposal> {
+    const window = plan.revert ? (plan.undoWindow ?? DAY) : null;
+    const p: Omit<Proposal, 'hash'> = {
+      id: randomId('p', 6),
+      capability,
+      summary: plan.summary,
+      effects: plan.effects,
+      cost: plan.cost ?? null,
+      risk: plan.risk ?? def.risk ?? 'low',
+      undo: window === null ? null : { window },
+      expires:
+        Math.ceil(
+          (now + (plan.expiresIn ?? this.opts.proposalTtl ?? 600)) / 60,
+        ) * 60,
+      ...(plan.data !== undefined ? { data: plan.data } : {}),
+    };
+
+    return { ...p, hash: await proposalHash(p) } as Proposal;
+  }
+
+  /** Commit an auto INTENT's proposal now if a grant allows it outright; null leaves it a proposal. */
+  private async autoCommit(
+    stored: StoredProposal,
+    run: IntentRun,
+  ): Promise<FinalReply | null> {
+    const ok = await this.autoAuth(run.req, stored.proposal);
+
+    if (!ok || (stored.principal && stored.principal !== ok.iss)) {
+      return null;
+    }
+
+    const out = await this.execute(stored, ok, run.req.id, run.emit);
+
+    return out.kind === 'RECEIPT'
+      ? fit(
+          { ...out, auto: true },
+          run.budget,
+          this.handles,
+          verifiedKey(run.req),
+        )
+      : out;
+  }
+
   private sweeps = 0;
   /** Bound memory: forget expired uncommitted proposals, and receipts a day after their undo window. */
   private sweep(now: number) {
-    if (++this.sweeps % 100 !== 0 && this.proposals.size < 5000) return;
+    if (++this.sweeps % 100 !== 0 && this.proposals.size < 5000) {
+      return;
+    }
 
-    for (const [id, s] of this.proposals)
-      if (s.proposal.expires < now - 3600 && !this.commits.has(id))
+    for (const [id, s] of this.proposals) {
+      if (s.proposal.expires < now - 3600 && !this.commits.has(id)) {
         this.proposals.delete(id);
+      }
+    }
 
     for (const [id, r] of this.receipts) {
       if ((r.receipt.undo?.until ?? r.receipt.at) + DAY < now) {
@@ -657,8 +742,11 @@ export class Service {
       }
     }
 
-    for (const [k, v] of this.autoSeen)
-      if (v.exp <= now) this.autoSeen.delete(k);
+    for (const [k, v] of this.autoSeen) {
+      if (v.exp <= now) {
+        this.autoSeen.delete(k);
+      }
+    }
   }
 
   private async onCommit(
@@ -668,34 +756,39 @@ export class Service {
   ): Promise<FinalReply> {
     const stored = this.proposals.get(req.proposal);
 
-    if (!stored)
+    if (!stored) {
       throw new ParleyError(
         'not_found',
         `no proposal ${JSON.stringify(req.proposal)}`,
         { fix: [fix('send INTENT again to get fresh proposals')] },
       );
+    }
 
     const { proposal } = stored;
 
-    if (req.hash !== proposal.hash)
+    if (req.hash !== proposal.hash) {
       throw new ParleyError(
         'conflict',
         'hash does not match the proposal; you would commit something other than what you saw',
         { fix: [fix('re-read the proposal, or send INTENT again')] },
       );
+    }
 
+    const scope: AuthScope = {
+      verb: 'COMMIT',
+      capability: proposal.capability,
+      target: proposal.hash,
+      proposal,
+      principal: stored.principal,
+    };
     const existing = this.commits.get(proposal.id);
 
     if (existing) {
       // Idempotent replay (SPEC §4.4): same principal and requester only; limits already spent don't block it.
-      const auth = (await this.authorize(
-        req,
-        'COMMIT',
-        proposal.capability,
-        proposal.hash,
-        proposal,
-        { principal: stored.principal, replay: true },
-      ))!;
+      const auth = await this.authorizeRequired(req, {
+        ...scope,
+        replay: true,
+      });
 
       this.checkRequester(stored, auth);
 
@@ -704,32 +797,25 @@ export class Service {
       if (
         prior.kind === 'RECEIPT' &&
         this.receipts.get(prior.receipt.id)?.principal !== auth.iss
-      )
+      ) {
         throw new ParleyError(
           'forbidden',
           'this proposal was committed by a different principal',
         );
+      }
 
-      return prior.kind === 'RECEIPT'
-        ? { ...prior, id: randomId('s', 6), re: req.id, replay: true }
-        : { ...prior, id: randomId('s', 6), re: req.id };
+      return replayOf(prior, req.id);
     }
 
-    const auth = (await this.authorize(
-      req,
-      'COMMIT',
-      proposal.capability,
-      proposal.hash,
-      proposal,
-      { principal: stored.principal },
-    ))!;
+    const auth = await this.authorizeRequired(req, scope);
 
     this.checkRequester(stored, auth);
 
-    if (this.now() >= proposal.expires)
+    if (this.now() >= proposal.expires) {
       throw new ParleyError('expired', 'this proposal has expired', {
         fix: [fix('send INTENT again to get a fresh proposal')],
       });
+    }
 
     const out = await this.execute(stored, auth, req.id, emit);
 
@@ -739,11 +825,8 @@ export class Service {
   }
 
   /** Only the agent that asked for a proposal (with a verified proof) may commit it. */
-  private checkRequester(
-    stored: StoredProposal,
-    auth: GrantCheck & { ok: true },
-  ) {
-    if (!stored.requester)
+  private checkRequester(stored: StoredProposal, auth: Authorized) {
+    if (!stored.requester) {
       throw new ParleyError(
         'forbidden',
         "this proposal came from an anonymous INTENT and can't be committed",
@@ -753,23 +836,24 @@ export class Service {
           ],
         },
       );
+    }
 
-    if (stored.requester !== auth.holder)
+    if (stored.requester !== auth.holder) {
       throw new ParleyError(
         'forbidden',
         'only the agent that requested this proposal can commit it',
         { fix: [fix('send INTENT yourself, then commit your own proposal')] },
       );
+    }
   }
 
   private execute(
     stored: StoredProposal,
-    auth: GrantCheck & { ok: true },
+    auth: Authorized,
     reqId: string,
     emit: (e: Event) => void,
   ): Promise<ReceiptReply | ErrorReply> {
-    const { proposal, plan } = stored;
-    const req = { id: reqId };
+    const { proposal } = stored;
     // Reserve spend synchronously, before any await, so concurrent commits can't overshoot a cap.
     const cost = proposal.cost?.amount ?? 0;
     const over = auth.spendBlocks.find(
@@ -783,84 +867,68 @@ export class Service {
           new ParleyError(
             'consent_required',
             'would exceed the spend limit (other commits are in flight); your principal must approve this exact proposal',
-            {
-              consent: {
-                proposal: proposal.id,
-                hash: proposal.hash,
-                service: this.id,
-                capability: proposal.capability,
-                principal: auth.iss,
-                summary: proposal.summary,
-                expires: proposal.expires,
-              },
-            },
+            { consent: consentRequest(proposal, this.id, auth.iss) },
           ),
         ),
       );
     }
 
-    if (cost)
-      for (const b of auth.spendBlocks)
-        this.spent.set(b.id, (this.spent.get(b.id) ?? 0) + cost);
+    this.addSpend(auth, cost);
 
-    const run = (async (): Promise<ReceiptReply | ErrorReply> => {
-      const ctx: CommitCtx = {
-        principal: auth.iss,
-        progress: (message, progress, data) =>
-          emit({
-            parley: 1,
-            id: randomId('s', 6),
-            re: req.id,
-            kind: 'EVENT',
-            message,
-            ...(progress !== undefined ? { progress } : {}),
-            ...(data !== undefined ? { data } : {}),
-          }),
-      };
-
-      try {
-        const result = await plan.apply(ctx);
-        const at = this.now();
-        const receipt: Receipt = {
-          id: randomId('r', 6),
-          proposal: proposal.id,
-          capability: proposal.capability,
-          summary: proposal.summary,
-          at,
-          effects: proposal.effects,
-          cost: proposal.cost,
-          undo: proposal.undo ? { until: at + proposal.undo.window } : null,
-          ...(result !== undefined ? { result } : {}),
-        };
-
-        this.receipts.set(receipt.id, {
-          receipt,
-          plan,
-          result,
-          principal: auth.iss,
-        });
-
-        return {
-          parley: 1,
-          id: randomId('s', 6),
-          re: req.id,
-          kind: 'RECEIPT',
-          receipt,
-        };
-      } catch (e) {
-        this.commits.delete(proposal.id); // failed commits may be retried
-
-        if (cost)
-          for (const b of auth.spendBlocks)
-            this.spent.set(b.id, (this.spent.get(b.id) ?? 0) - cost);
-
-        return this.errorReply(req.id, e);
-      }
-    })();
+    const run = this.apply(stored, auth, reqId, emit);
 
     this.commits.set(proposal.id, run);
 
     return run;
+  }
+
+  /** Count `amount` (negative to release it) against every spend block the grant draws on. */
+  private addSpend(auth: Authorized, amount: number) {
+    if (amount) {
+      for (const b of auth.spendBlocks) {
+        this.spent.set(b.id, (this.spent.get(b.id) ?? 0) + amount);
+      }
+    }
+  }
+
+  /** Perform the plan's effects and record the receipt; a failure frees the proposal and its spend. */
+  private async apply(
+    stored: StoredProposal,
+    auth: Authorized,
+    reqId: string,
+    emit: (e: Event) => void,
+  ): Promise<ReceiptReply | ErrorReply> {
+    const { proposal, plan } = stored;
+    const ctx: CommitCtx = {
+      principal: auth.iss,
+      progress: (message, progress, data) =>
+        emit(eventFrame(reqId, message, progress, data)),
+    };
+
+    try {
+      const result = await plan.apply(ctx);
+      const receipt = receiptFor(proposal, result, this.now());
+
+      this.receipts.set(receipt.id, {
+        receipt,
+        plan,
+        result,
+        principal: auth.iss,
+      });
+
+      return {
+        parley: 1,
+        id: randomId('s', 6),
+        re: reqId,
+        kind: 'RECEIPT',
+        receipt,
+      };
+    } catch (e) {
+      this.commits.delete(proposal.id); // failed commits may be retried
+      this.addSpend(auth, -(proposal.cost?.amount ?? 0));
+
+      return this.errorReply(reqId, e);
+    }
   }
 
   private async onUndo(
@@ -870,106 +938,44 @@ export class Service {
   ): Promise<FinalReply> {
     const stored = this.receipts.get(req.receipt);
 
-    if (!stored || stored.receipt.undoes)
+    if (!stored || stored.receipt.undoes) {
       throw new ParleyError(
         'not_found',
         `no undoable receipt ${JSON.stringify(req.receipt)}`,
       );
+    }
 
-    const auth = (await this.authorize(
-      req,
-      'UNDO',
-      stored.receipt.capability,
-      req.receipt,
-    ))!;
+    const auth = await this.authorizeRequired(req, {
+      verb: 'UNDO',
+      capability: stored.receipt.capability,
+      target: req.receipt,
+    });
 
-    if (auth.iss !== stored.principal)
+    if (auth.iss !== stored.principal) {
       throw new ParleyError(
         'forbidden',
         'only the principal who committed this can undo it',
       );
+    }
 
     if (stored.undone) {
-      const prior = await stored.undone;
-
-      return prior.kind === 'RECEIPT'
-        ? { ...prior, id: randomId('s', 6), re: req.id, replay: true }
-        : { ...prior, id: randomId('s', 6), re: req.id };
+      return replayOf(await stored.undone, req.id);
     }
 
     const { receipt, plan } = stored;
 
-    if (!receipt.undo || !plan.revert)
+    if (!receipt.undo || !plan.revert) {
       throw new ParleyError('forbidden', 'this action is irreversible');
+    }
 
-    if (this.now() > receipt.undo.until)
+    if (this.now() > receipt.undo.until) {
       throw new ParleyError(
         'expired',
         `the undo window closed at ${new Date(receipt.undo.until * 1000).toISOString()}`,
       );
+    }
 
-    stored.undone = (async (): Promise<ReceiptReply | ErrorReply> => {
-      try {
-        await plan.revert!({
-          principal: auth.iss,
-          result: stored.result,
-          progress: (message, progress) =>
-            emit({
-              parley: 1,
-              id: randomId('s', 6),
-              re: req.id,
-              kind: 'EVENT',
-              message,
-              ...(progress !== undefined ? { progress } : {}),
-            }),
-        });
-
-        const inverse: Record<string, Effect['op']> = {
-          create: 'delete',
-          delete: 'create',
-          update: 'update',
-          send: 'other',
-          charge: 'other',
-          other: 'other',
-        };
-        const effects: Effect[] = receipt.effects.map((e) =>
-          e.op === 'update'
-            ? { ...e, from: e.to, to: e.from }
-            : e.op === 'charge'
-              ? { op: 'other', target: e.target, detail: 'refund' }
-              : e.op === 'send'
-                ? {
-                    op: 'other',
-                    target: e.target,
-                    detail: 'cannot unsend; follow-up sent if supported',
-                  }
-                : { ...e, op: inverse[e.op] },
-        );
-        const undo: Receipt = {
-          id: randomId('r', 6),
-          proposal: receipt.proposal,
-          capability: receipt.capability,
-          summary: receipt.summary,
-          at: this.now(),
-          effects,
-          cost: null,
-          undo: null,
-          undoes: receipt.id,
-        };
-
-        return {
-          parley: 1,
-          id: randomId('s', 6),
-          re: req.id,
-          kind: 'RECEIPT',
-          receipt: undo,
-        };
-      } catch (e) {
-        stored.undone = undefined;
-
-        return this.errorReply(req.id, e);
-      }
-    })();
+    stored.undone = this.revert(stored, auth, req.id, emit);
 
     const out = await stored.undone;
 
@@ -978,18 +984,63 @@ export class Service {
       : out;
   }
 
+  /** Reverse a receipt's effects and issue the undo receipt; a failure allows another attempt. */
+  private async revert(
+    stored: StoredReceipt,
+    auth: Authorized,
+    reqId: string,
+    emit: (e: Event) => void,
+  ): Promise<ReceiptReply | ErrorReply> {
+    const { receipt, plan } = stored;
+
+    try {
+      // onUndo only gets here for plans that have `revert`.
+      await plan.revert?.({
+        principal: auth.iss,
+        result: stored.result,
+        progress: (message, progress) =>
+          emit(eventFrame(reqId, message, progress)),
+      });
+
+      const undo: Receipt = {
+        id: randomId('r', 6),
+        proposal: receipt.proposal,
+        capability: receipt.capability,
+        summary: receipt.summary,
+        at: this.now(),
+        effects: receipt.effects.map(invertEffect),
+        cost: null,
+        undo: null,
+        undoes: receipt.id,
+      };
+
+      return {
+        parley: 1,
+        id: randomId('s', 6),
+        re: reqId,
+        kind: 'RECEIPT',
+        receipt: undo,
+      };
+    } catch (e) {
+      stored.undone = undefined;
+
+      return this.errorReply(reqId, e);
+    }
+  }
+
   private async onExpand(
     req: Request & { verb: 'EXPAND' },
     budget: number,
   ): Promise<FinalReply> {
     const parked = this.handles.get(req.handle);
 
-    if (!parked)
+    if (!parked) {
       throw new ParleyError(
         'expired',
         `handle ${JSON.stringify(req.handle)} is unknown or expired`,
         { fix: [fix('repeat the original request')] },
       );
+    }
 
     // Handles from authenticated replies expand only for the same holder key (SPEC §4.6).
     if (parked.owner) {
@@ -999,7 +1050,7 @@ export class Service {
         this.now(),
       );
 
-      if (err || req.proof!.key !== parked.owner)
+      if (err || req.proof?.key !== parked.owner) {
         throw new ParleyError(
           'unauthorized',
           'this handle belongs to another agent',
@@ -1009,6 +1060,7 @@ export class Service {
             ],
           },
         );
+      }
     } else if (this.opts.requireGrants) {
       throw new ParleyError(
         'unauthorized',
@@ -1034,6 +1086,151 @@ export const service = (opts: ServiceOptions) => new Service(opts);
 const verifiedKey = (req: Request): string | null =>
   req.grants?.length && req.proof ? req.proof.key : null;
 
+/** The frame's `id` if it has a string one, so even a malformed frame's error can be correlated. */
+function frameId(frame: unknown): string {
+  return typeof frame === 'object' &&
+    frame !== null &&
+    'id' in frame &&
+    typeof frame.id === 'string'
+    ? frame.id
+    : '?';
+}
+
+/** The envelope every request needs; verb-specific fields are checked where they are used. */
+function isRequestFrame(frame: unknown): frame is Request {
+  return (
+    typeof frame === 'object' &&
+    frame !== null &&
+    'parley' in frame &&
+    frame.parley === 1 &&
+    'id' in frame &&
+    typeof frame.id === 'string'
+  );
+}
+
+const positiveInt = (v: unknown): number | undefined =>
+  typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : undefined;
+
+const unknownVerb = (req: { verb?: unknown }) =>
+  new ParleyError('bad_frame', `unknown verb ${JSON.stringify(req.verb)}`, {
+    fix: [fix('use one of HELLO, ASK, INTENT, COMMIT, UNDO, EXPAND')],
+  });
+
+/** Replay key for an auto INTENT: the holder key (proof verified by authorize()) plus the request id. */
+function autoReplayKey(req: Intent): { key: string; proofTs: number } | null {
+  if (!req.auto || !req.grants?.length || !req.proof) {
+    return null;
+  }
+
+  return { key: `${req.proof.key}:${req.id}`, proofTs: req.proof.ts };
+}
+
+/** The most useful error when no grant authorized: consent, then forbidden, then the first failure. */
+function grantFailure(
+  failed: Failed[],
+  proposal: Proposal | undefined,
+  service: string,
+): ParleyError {
+  const consent = failed.find((c) => c.code === 'consent_required');
+
+  if (consent?.iss && proposal) {
+    return new ParleyError(
+      'consent_required',
+      `${consent.reason}; your principal must approve this exact proposal`,
+      { consent: consentRequest(proposal, service, consent.iss) },
+    );
+  }
+
+  const forbidden = failed.find((c) => c.code === 'forbidden');
+
+  if (forbidden) {
+    return new ParleyError('forbidden', forbidden.reason, {
+      need: forbidden.need,
+    });
+  }
+
+  return new ParleyError('unauthorized', failed[0].reason);
+}
+
+const consentRequest = (
+  proposal: Proposal,
+  service: string,
+  principal: string,
+): ConsentRequest => ({
+  proposal: proposal.id,
+  hash: proposal.hash,
+  service,
+  capability: proposal.capability,
+  principal,
+  summary: proposal.summary,
+  expires: proposal.expires,
+});
+
+/** A prior commit/undo outcome re-issued for a repeated request. */
+const replayOf = (
+  prior: ReceiptReply | ErrorReply,
+  re: string,
+): ReceiptReply | ErrorReply =>
+  prior.kind === 'RECEIPT'
+    ? { ...prior, id: randomId('s', 6), re, replay: true }
+    : { ...prior, id: randomId('s', 6), re };
+
+const eventFrame = (
+  re: string,
+  message: string,
+  progress?: number,
+  data?: unknown,
+): Event => ({
+  parley: 1,
+  id: randomId('s', 6),
+  re,
+  kind: 'EVENT',
+  message,
+  ...(progress !== undefined ? { progress } : {}),
+  ...(data !== undefined ? { data } : {}),
+});
+
+function receiptFor(proposal: Proposal, result: unknown, at: number): Receipt {
+  return {
+    id: randomId('r', 6),
+    proposal: proposal.id,
+    capability: proposal.capability,
+    summary: proposal.summary,
+    at,
+    effects: proposal.effects,
+    cost: proposal.cost,
+    undo: proposal.undo ? { until: at + proposal.undo.window } : null,
+    ...(result !== undefined ? { result } : {}),
+  };
+}
+
+const INVERSE_OP: Record<Effect['op'], Effect['op']> = {
+  create: 'delete',
+  delete: 'create',
+  update: 'update',
+  send: 'other',
+  charge: 'other',
+  other: 'other',
+};
+
+/** The effect an undo receipt reports for reversing `e`. */
+function invertEffect(e: Effect): Effect {
+  switch (e.op) {
+    case 'update':
+      return { ...e, from: e.to, to: e.from };
+    case 'charge':
+      return { op: 'other', target: e.target, detail: 'refund' };
+    case 'send':
+      return {
+        op: 'other',
+        target: e.target,
+        detail: 'cannot unsend; follow-up sent if supported',
+      };
+    default:
+      return { ...e, op: INVERSE_OP[e.op] };
+  }
+}
+
 // ---- effect helpers ----
 export const create = (target: string, detail?: string): Effect => ({
   op: 'create',
@@ -1041,6 +1238,7 @@ export const create = (target: string, detail?: string): Effect => ({
   ...(detail ? { detail } : {}),
 });
 
+// biome-ignore lint/complexity/useMaxParams: public effect helper; its positional signature is published API
 export const update = (
   target: string,
   field: string,

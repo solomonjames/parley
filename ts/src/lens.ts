@@ -4,11 +4,16 @@
  */
 import { quote } from './canonical.js';
 import type {
+  Brief,
+  Clarify,
   Effect,
+  ErrorReply,
+  Event,
   Money,
   More,
   ParamSchema,
   Proposal,
+  ReceiptReply,
   Reply,
 } from './types.js';
 
@@ -26,11 +31,17 @@ const isObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 
 export function scalar(v: unknown): string {
-  if (v === null || v === undefined) return '-';
+  if (v === null || v === undefined) {
+    return '-';
+  }
 
-  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  if (typeof v === 'boolean') {
+    return v ? 'true' : 'false';
+  }
 
-  if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '-';
+  if (typeof v === 'number') {
+    return Number.isFinite(v) ? String(v) : '-';
+  }
 
   const s = String(v);
 
@@ -40,18 +51,23 @@ export function scalar(v: unknown): string {
     s[s.length - 1] !== ' ' &&
     !RESERVED.has(s) &&
     !NUMERIC.test(s)
-  )
+  ) {
     return s;
+  }
 
   return quote(s);
 }
 
 function isTable(arr: unknown[]): arr is Record<string, unknown>[] {
-  if (!arr.every(isObject)) return false;
+  if (!arr.every(isObject)) {
+    return false;
+  }
 
   const first = Object.keys(arr[0]);
 
-  if (first.length === 0) return false;
+  if (first.length === 0) {
+    return false;
+  }
 
   return arr.every((o) => {
     const ks = Object.keys(o);
@@ -67,8 +83,11 @@ function isTable(arr: unknown[]): arr is Record<string, unknown>[] {
 function entries(obj: Record<string, unknown>, n: number): string[] {
   const out: string[] = [];
 
-  for (const [k, v] of Object.entries(obj))
-    if (v !== undefined) out.push(...entry(k, v, n));
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined) {
+      out.push(...entry(k, v, n));
+    }
+  }
 
   return out;
 }
@@ -76,12 +95,18 @@ function entries(obj: Record<string, unknown>, n: number): string[] {
 function entry(key: string, v: unknown, n: number): string[] {
   const k = pad(n) + scalar(key);
 
-  if (isScalar(v)) return [`${k}: ${scalar(v)}`];
+  if (isScalar(v)) {
+    return [`${k}: ${scalar(v)}`];
+  }
 
   if (Array.isArray(v)) {
-    if (v.length === 0) return [`${k}: []`];
+    if (v.length === 0) {
+      return [`${k}: []`];
+    }
 
-    if (v.every(isScalar)) return [`${k}: [${v.map(scalar).join(', ')}]`];
+    if (v.every(isScalar)) {
+      return [`${k}: [${v.map(scalar).join(', ')}]`];
+    }
 
     if (isTable(v)) {
       const cols = Object.keys(v[0]);
@@ -112,20 +137,25 @@ function entry(key: string, v: unknown, n: number): string[] {
 function listItem(item: unknown, n: number): string[] {
   const dash = `${pad(n)}- `;
 
-  if (isScalar(item)) return [dash + scalar(item)];
+  if (isScalar(item)) {
+    return [dash + scalar(item)];
+  }
 
-  if (Array.isArray(item))
+  if (Array.isArray(item)) {
     return [
       dash +
         (item.every(isScalar)
           ? `[${item.map(scalar).join(', ')}]`
           : JSON.stringify(item)),
     ];
+  }
 
   if (isObject(item)) {
     const body = entries(item, n + 1);
 
-    if (!body.length) return [`${dash}{}`];
+    if (!body.length) {
+      return [`${dash}{}`];
+    }
 
     return [dash + body[0].slice(pad(n + 1).length), ...body.slice(1)];
   }
@@ -135,9 +165,13 @@ function listItem(item: unknown, n: number): string[] {
 
 /** Render any JSON value in lean notation (SPEC §9.1). */
 export function lean(v: unknown): string {
-  if (isScalar(v)) return scalar(v);
+  if (isScalar(v)) {
+    return scalar(v);
+  }
 
-  if (Array.isArray(v)) return entry('items', v, 0).join('\n');
+  if (Array.isArray(v)) {
+    return entry('items', v, 0).join('\n');
+  }
 
   if (isObject(v)) {
     const lines = entries(v, 0);
@@ -158,11 +192,17 @@ export function fmtTime(unix: number): string {
 }
 
 export function fmtDuration(s: number): string {
-  if (s !== 0 && s % 86400 === 0) return `${s / 86400}d`;
+  if (s !== 0 && s % 86400 === 0) {
+    return `${s / 86400}d`;
+  }
 
-  if (s !== 0 && s % 3600 === 0) return `${s / 3600}h`;
+  if (s !== 0 && s % 3600 === 0) {
+    return `${s / 3600}h`;
+  }
 
-  if (s !== 0 && s % 60 === 0) return `${s / 60}m`;
+  if (s !== 0 && s % 60 === 0) {
+    return `${s / 60}m`;
+  }
 
   return `${s}s`;
 }
@@ -179,9 +219,13 @@ const ZERO_DECIMAL = new Set([
 ]);
 
 export function fmtMoney(m: Money | null | undefined): string {
-  if (!m) return 'free';
+  if (!m) {
+    return 'free';
+  }
 
-  if (ZERO_DECIMAL.has(m.currency)) return `${m.amount} ${m.currency}`;
+  if (ZERO_DECIMAL.has(m.currency)) {
+    return `${m.amount} ${m.currency}`;
+  }
 
   const neg = m.amount < 0 ? '-' : '';
   const a = Math.abs(m.amount);
@@ -201,16 +245,21 @@ const SYM: Record<string, string> = {
 export function effectLine(e: Effect): string {
   let s = `${SYM[e.op] ?? '*'} ${e.op} ${e.target}${e.field ? `.${e.field}` : ''}`;
 
-  if (e.from !== undefined || e.to !== undefined)
+  if (e.from !== undefined || e.to !== undefined) {
     s += `: ${scalar(e.from ?? null)} → ${scalar(e.to ?? null)}`;
+  }
 
-  if (e.detail) s += ` — ${e.detail}`;
+  if (e.detail) {
+    s += ` — ${e.detail}`;
+  }
 
   return s;
 }
 
 export function paramList(params: ParamSchema | undefined): string {
-  if (!params) return '()';
+  if (!params) {
+    return '()';
+  }
 
   const ty = (t: ParamSchema[string]): string =>
     typeof t === 'string'
@@ -259,91 +308,123 @@ function proposalsLines(ps: Proposal[]): string[] {
       ...p.effects.map((e) => `  ${effectLine(e)}`),
     );
 
-    if (own.length)
+    if (own.length) {
       out.push(`  ${own.map(([k, f]) => `${k}: ${f(p)}`).join(' · ')}`);
+    }
 
-    if (p.data !== undefined) out.push(...entry('data', p.data, 1));
+    if (p.data !== undefined) {
+      out.push(...entry('data', p.data, 1));
+    }
   }
 
   return out;
 }
 
-/** Render a reply frame as Lens (SPEC §9.2). */
-export function lens(r: Reply): string {
-  const out: string[] = [];
+function briefLines(r: Brief): string[] {
+  const out = [`# ${r.service.name} (${r.service.id})`];
 
-  switch (r.kind) {
-    case 'BRIEF':
-      out.push(`# ${r.service.name} (${r.service.id})`);
-
-      if (r.service.summary) out.push(r.service.summary);
-
-      for (const c of r.capabilities)
-        out.push(
-          `${c.kind} ${c.name}${paramList(c.params)}${c.summary ? ` — ${c.summary}` : ''}${c.risk ? ` [risk:${c.risk}]` : ''}`,
-        );
-
-      break;
-    case 'ANSWER':
-      out.push(lean(r.data));
-
-      break;
-    case 'PROPOSALS':
-      out.push(...proposalsLines(r.proposals));
-
-      break;
-    case 'CLARIFY':
-      out.push(
-        `? ${r.question}`,
-        ...r.options.map((o, i) => `  ${i + 1}. ${o.label}`),
-      );
-
-      break;
-    case 'RECEIPT': {
-      const rc = r.receipt;
-      const tag = `(receipt ${rc.id})${r.replay ? ' (replay)' : ''}`;
-
-      if (rc.undoes) out.push(`↶ undid ${rc.undoes}: ${rc.summary} ${tag}`);
-      else
-        out.push(
-          `✓ ${rc.summary} ${tag} · ${rc.undo ? `undo until ${fmtTime(rc.undo.until)}` : 'irreversible'}`,
-        );
-
-      // The model already saw the effects in the proposal, unless the service auto-committed.
-      if (r.auto) out.push(...rc.effects.map((e) => `  ${effectLine(e)}`));
-
-      if (rc.result !== undefined) out.push(...entry('result', rc.result, 1));
-
-      break;
-    }
-    case 'ERROR':
-      out.push(`✗ ${r.code}: ${r.message}`);
-
-      for (const f of r.fix ?? [])
-        out.push(
-          `  fix: ${f.say}${f.params ? ` → params ${JSON.stringify(f.params)}` : ''}`,
-        );
-
-      if (r.need?.length) out.push(`  need: ${JSON.stringify(r.need)}`);
-
-      if (r.consent)
-        out.push(
-          `  consent: principal must approve ${r.consent.hash} (${r.consent.summary})`,
-        );
-
-      if (typeof r.retry === 'number')
-        out.push(`  retry in: ${fmtDuration(r.retry)}`);
-
-      break;
-    case 'EVENT':
-      out.push(
-        `… ${r.message}${typeof r.progress === 'number' ? ` (${Math.round(r.progress * 100)}%)` : ''}`,
-      );
-
-      break;
+  if (r.service.summary) {
+    out.push(r.service.summary);
   }
 
-  if ('more' in r) out.push(...moreLines(r.more));
+  for (const c of r.capabilities) {
+    out.push(
+      `${c.kind} ${c.name}${paramList(c.params)}${c.summary ? ` — ${c.summary}` : ''}${c.risk ? ` [risk:${c.risk}]` : ''}`,
+    );
+  }
+
+  return out;
+}
+
+function clarifyLines(r: Clarify): string[] {
+  return [
+    `? ${r.question}`,
+    ...r.options.map((o, i) => `  ${i + 1}. ${o.label}`),
+  ];
+}
+
+function receiptLines(r: ReceiptReply): string[] {
+  const rc = r.receipt;
+  const tag = `(receipt ${rc.id})${r.replay ? ' (replay)' : ''}`;
+  const out = rc.undoes
+    ? [`↶ undid ${rc.undoes}: ${rc.summary} ${tag}`]
+    : [
+        `✓ ${rc.summary} ${tag} · ${rc.undo ? `undo until ${fmtTime(rc.undo.until)}` : 'irreversible'}`,
+      ];
+
+  // The model already saw the effects in the proposal, unless the service auto-committed.
+  if (r.auto) {
+    out.push(...rc.effects.map((e) => `  ${effectLine(e)}`));
+  }
+
+  if (rc.result !== undefined) {
+    out.push(...entry('result', rc.result, 1));
+  }
+
+  return out;
+}
+
+function errorLines(r: ErrorReply): string[] {
+  const out = [`✗ ${r.code}: ${r.message}`];
+
+  for (const f of r.fix ?? []) {
+    out.push(
+      `  fix: ${f.say}${f.params ? ` → params ${JSON.stringify(f.params)}` : ''}`,
+    );
+  }
+
+  if (r.need?.length) {
+    out.push(`  need: ${JSON.stringify(r.need)}`);
+  }
+
+  if (r.consent) {
+    out.push(
+      `  consent: principal must approve ${r.consent.hash} (${r.consent.summary})`,
+    );
+  }
+
+  if (typeof r.retry === 'number') {
+    out.push(`  retry in: ${fmtDuration(r.retry)}`);
+  }
+
+  return out;
+}
+
+function eventLine(r: Event): string {
+  const progress =
+    typeof r.progress === 'number' ? ` (${Math.round(r.progress * 100)}%)` : '';
+
+  return `… ${r.message}${progress}`;
+}
+
+function bodyLines(r: Reply): string[] {
+  switch (r.kind) {
+    case 'BRIEF':
+      return briefLines(r);
+    case 'ANSWER':
+      return [lean(r.data)];
+    case 'PROPOSALS':
+      return proposalsLines(r.proposals);
+    case 'CLARIFY':
+      return clarifyLines(r);
+    case 'RECEIPT':
+      return receiptLines(r);
+    case 'ERROR':
+      return errorLines(r);
+    case 'EVENT':
+      return [eventLine(r)];
+    default:
+      return []; // a frame of unknown kind (untyped caller) renders only its `more` lines
+  }
+}
+
+/** Render a reply frame as Lens (SPEC §9.2). */
+export function lens(r: Reply): string {
+  const out = bodyLines(r);
+
+  if ('more' in r) {
+    out.push(...moreLines(r.more));
+  }
 
   return out.join('\n');
 }

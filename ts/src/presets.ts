@@ -173,10 +173,11 @@ export function presetOptions(
     headers: p.headers(env),
     include: (_m, _path, op) =>
       typeof op.operationId === 'string' && op.operationId in p.ops,
-    risk: (_m, _path, op) =>
-      p.ops[op.operationId] === 'read'
-        ? 'low'
-        : (p.ops[op.operationId] as Risk),
+    risk: (_m, _path, op) => {
+      const access = p.ops[String(op.operationId)];
+
+      return access === 'read' ? 'low' : access;
+    },
     project: p.project,
   };
 }

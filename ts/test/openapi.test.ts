@@ -1,4 +1,5 @@
 import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
 import { afterAll, describe, expect, it } from 'vitest';
 import * as P from '../src/index.js';
 import { fromOpenAPI } from '../src/openapi.js';
@@ -60,7 +61,9 @@ let todos = Array.from({ length: 300 }, (_, i) => ({
 const server = createServer(async (req, res) => {
   let body = '';
 
-  for await (const c of req) body += c;
+  for await (const c of req) {
+    body += c;
+  }
 
   calls.push(
     `${req.method} ${req.url} ${body} ${req.headers.authorization ?? ''}`,
@@ -70,7 +73,7 @@ const server = createServer(async (req, res) => {
 
   res.setHeader('content-type', 'application/json');
 
-  if (req.method === 'GET')
+  if (req.method === 'GET') {
     return res.end(
       JSON.stringify(
         todos.filter(
@@ -80,6 +83,7 @@ const server = createServer(async (req, res) => {
         ),
       ),
     );
+  }
 
   if (req.method === 'POST') {
     const t = { id: todos.length + 1, done: false, ...JSON.parse(body) };
@@ -92,8 +96,11 @@ const server = createServer(async (req, res) => {
   if (req.method === 'DELETE') {
     const id = Number(url.pathname.split('/').pop());
 
-    if (!todos.some((t) => t.id === id))
-      return (res.statusCode = 404), res.end('{"error":"no such todo"}');
+    if (!todos.some((t) => t.id === id)) {
+      res.statusCode = 404;
+
+      return res.end('{"error":"no such todo"}');
+    }
 
     todos = todos.filter((t) => t.id !== id);
 
@@ -104,7 +111,7 @@ const server = createServer(async (req, res) => {
 await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
 afterAll(() => server.close());
 
-const base = `http://127.0.0.1:${(server.address() as any).port}`;
+const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
 
 describe('OpenAPI adapter', async () => {
   const principal = await P.keyPair(),
@@ -148,7 +155,9 @@ describe('OpenAPI adapter', async () => {
       due: '2030-01-01',
     });
 
-    if (p.kind !== 'PROPOSALS') throw new Error(p.lens);
+    if (p.kind !== 'PROPOSALS') {
+      throw new Error(p.lens);
+    }
 
     expect(calls.length).toBe(before); // INTENT made no upstream call
     expect(p.lens).toContain('+ create');
@@ -167,7 +176,9 @@ describe('OpenAPI adapter', async () => {
   it('maps upstream errors to Parley errors', async () => {
     const p = await c.intent('todo_api.deleteTodo', { id: 99999 });
 
-    if (p.kind !== 'PROPOSALS') throw new Error(p.lens);
+    if (p.kind !== 'PROPOSALS') {
+      throw new Error(p.lens);
+    }
 
     const r = await c.commit(p.proposals[0]);
 
@@ -221,7 +232,7 @@ describe('OpenAPI presets and projections', async () => {
     expect(o.risk!('put', '/x', { operationId: 'pulls/merge' })).toBe('high');
     expect(o.headers!.authorization).toBeUndefined();
     expect(
-      presetOptions(PRESETS.github, { GITHUB_TOKEN: 't' } as any).headers!
+      presetOptions(PRESETS.github, { GITHUB_TOKEN: 't' }).headers!
         .authorization,
     ).toBe('Bearer t');
   });

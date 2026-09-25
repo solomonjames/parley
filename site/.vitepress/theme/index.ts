@@ -1,5 +1,5 @@
-import DefaultTheme from 'vitepress/theme';
 import type { Theme } from 'vitepress';
+import DefaultTheme from 'vitepress/theme';
 import '@fontsource-variable/space-grotesk';
 import '@fontsource-variable/inter';
 import '@fontsource-variable/jetbrains-mono';

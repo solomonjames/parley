@@ -1,7 +1,7 @@
 // The guide's full example against a fake of the Stripe endpoints it calls.
 import { beforeAll, describe, expect, it } from 'vitest';
-import * as P from '../src/index.js';
 import { stripeBilling } from '../../examples/stripe-billing.ts';
+import * as P from '../src/index.js';
 
 const now = Math.floor(Date.now() / 1000),
   D = 86400;
@@ -105,14 +105,15 @@ function fakeStripe() {
           );
     }
 
-    if (p === '/charges')
+    if (p === '/charges') {
       return ok({
         data: charges.filter(
           (c) => c.customer === u.searchParams.get('customer'),
         ),
       });
+    }
 
-    if (p === '/subscriptions')
+    if (p === '/subscriptions') {
       return ok({
         data: subs.filter(
           (s) =>
@@ -120,6 +121,7 @@ function fakeStripe() {
             s.status === 'active',
         ),
       });
+    }
 
     if (p === '/refunds') {
       const ch = charges.find((c) => c.id === form.get('charge'))!;
@@ -132,8 +134,11 @@ function fakeStripe() {
     if (p.startsWith('/subscriptions/')) {
       const s = subs.find((x) => x.id === p.split('/')[2])!;
 
-      if (method === 'DELETE') s.status = 'canceled';
-      else s.cancel_at_period_end = form.get('cancel_at_period_end') === 'true';
+      if (method === 'DELETE') {
+        s.status = 'canceled';
+      } else {
+        s.cancel_at_period_end = form.get('cancel_at_period_end') === 'true';
+      }
 
       return ok(s);
     }
@@ -191,7 +196,9 @@ describe("Stripe-backed billing (the guide's full example)", () => {
       { auto: true },
     );
 
-    if (r.kind !== 'PROPOSALS') throw new Error(r.kind);
+    if (r.kind !== 'PROPOSALS') {
+      throw new Error(r.kind);
+    }
 
     expect(r.proposals).toHaveLength(2);
     expect(r.proposals.every((p) => p.undo === null)).toBe(true);
@@ -218,7 +225,9 @@ describe("Stripe-backed billing (the guide's full example)", () => {
       { auto: true },
     );
 
-    if (r.kind !== 'RECEIPT') throw new Error(r.kind);
+    if (r.kind !== 'RECEIPT') {
+      throw new Error(r.kind);
+    }
 
     expect(stripe.subs[0].cancel_at_period_end).toBe(true);
     await client.undo(r.receipt.id);

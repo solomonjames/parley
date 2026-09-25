@@ -2,7 +2,7 @@
 // over the SAME example services the Parley arm uses. It holds an unrestricted grant, like an
 // API key: writes happen immediately, with no preview, policy check or undo.
 //   node rest-mcp.ts <calendar url> <shop url>     (reads PARLEY_HOME for the agent key + grant)
-import { readFileSync, readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { connect } from 'parley-protocol/node';
 
@@ -87,7 +87,9 @@ const data = async (
 ) => {
   const r = await c.ask(cap, params, { budget: 1e6 });
 
-  if (r.kind !== 'ANSWER') throw new Error(r.lens);
+  if (r.kind !== 'ANSWER') {
+    throw new Error(r.lens);
+  }
 
   return r.data;
 };
@@ -99,17 +101,32 @@ async function write(
 ) {
   const p = await c.intent(cap, params);
 
-  if (p.kind !== 'PROPOSALS')
+  if (p.kind !== 'PROPOSALS') {
     throw new Error(p.kind === 'CLARIFY' ? p.question : p.lens);
+  }
 
   const r = await c.commit(p.proposals[0]);
 
-  if (r.kind !== 'RECEIPT') throw new Error(r.lens);
+  if (r.kind !== 'RECEIPT') {
+    throw new Error(r.lens);
+  }
 
   return { proposal: p.proposals[0], result: r.receipt.result };
 }
 
-async function call(name: string, a: any): Promise<unknown> {
+// Tool arguments as the model sent them, per the TOOLS schemas above.
+interface Args {
+  query?: string;
+  day?: string;
+  id?: string;
+  start?: string;
+  tag?: string;
+  max_cal?: number;
+  items?: { sku: string; qty: number }[];
+  deliver?: string;
+}
+
+async function call(name: string, a: Args): Promise<unknown> {
   switch (name) {
     case 'search_events':
       return data(cal, 'calendar.agenda', { query: a.query });
@@ -156,9 +173,7 @@ process.stdin.setEncoding('utf8');
 process.stdin.on('data', async (chunk: string) => {
   buf += chunk;
 
-  let nl;
-
-  while ((nl = buf.indexOf('\n')) >= 0) {
+  for (let nl = buf.indexOf('\n'); nl >= 0; nl = buf.indexOf('\n')) {
     const m = JSON.parse(buf.slice(0, nl));
 
     buf = buf.slice(nl + 1);
@@ -168,14 +183,15 @@ process.stdin.on('data', async (chunk: string) => {
         `${JSON.stringify({ jsonrpc: '2.0', id: m.id, result })}\n`,
       );
 
-    if (m.method === 'initialize')
+    if (m.method === 'initialize') {
       reply({
         protocolVersion: m.params?.protocolVersion ?? '2025-06-18',
         capabilities: { tools: {} },
         serverInfo: { name: 'rest-api', version: '1' },
       });
-    else if (m.method === 'tools/list') reply({ tools: TOOLS });
-    else if (m.method === 'tools/call') {
+    } else if (m.method === 'tools/list') {
+      reply({ tools: TOOLS });
+    } else if (m.method === 'tools/call') {
       try {
         reply({
           content: [
@@ -193,7 +209,9 @@ process.stdin.on('data', async (chunk: string) => {
           isError: true,
         });
       }
-    } else if (m.id !== undefined) reply({});
+    } else if (m.id !== undefined) {
+      reply({});
+    }
   }
 });
 process.stdin.on('end', () => process.exit(0));

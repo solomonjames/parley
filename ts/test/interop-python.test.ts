@@ -1,5 +1,5 @@
 // TS client ↔ Python service (python/examples/serve.py). Skipped when uv or python/ is absent.
-import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
+import { type ChildProcess, spawn, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -66,7 +66,9 @@ describe.skipIf(!ready)('interop: TS client → Python service', async () => {
 
       const q = await c.intent('calendar.reschedule', { event: 'Ana' });
 
-      if (q.kind !== 'CLARIFY') throw new Error(q.lens);
+      if (q.kind !== 'CLARIFY') {
+        throw new Error(q.lens);
+      }
 
       const p = await c.intent('calendar.reschedule', {
         event: 'Ana',
@@ -74,13 +76,17 @@ describe.skipIf(!ready)('interop: TS client → Python service', async () => {
         day: '2031-03-04',
       });
 
-      if (p.kind !== 'PROPOSALS') throw new Error(p.lens);
+      if (p.kind !== 'PROPOSALS') {
+        throw new Error(p.lens);
+      }
 
       expect(p.proposals[0].hash).toBe(await P.proposalHash(p.proposals[0]));
 
       const r = await c.commit(p.proposals[0]);
 
-      if (r.kind !== 'RECEIPT') throw new Error(r.lens);
+      if (r.kind !== 'RECEIPT') {
+        throw new Error(r.lens);
+      }
 
       const again = await c.commit(p.proposals[0]);
 

@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import * as P from '../src/index.js';
 import { billing } from '../../examples/billing.ts';
+import * as P from '../src/index.js';
 
 let principal: P.KeyPair, agent: P.KeyPair;
 
@@ -47,7 +47,9 @@ describe('billing example (service design guide)', () => {
 
     expect(r.kind).toBe('PROPOSALS');
 
-    if (r.kind !== 'PROPOSALS') return;
+    if (r.kind !== 'PROPOSALS') {
+      return;
+    }
 
     expect(r.proposals.map((p) => p.undo)).toEqual([null, null]);
     expect(r.proposals[0].cost).toEqual({ amount: 4900, currency: 'USD' });
@@ -60,7 +62,9 @@ describe('billing example (service design guide)', () => {
     ]);
     const r = await client.intent('billing.refund', { who: 'Chen' });
 
-    if (r.kind !== 'PROPOSALS') throw new Error(r.kind);
+    if (r.kind !== 'PROPOSALS') {
+      throw new Error(r.kind);
+    }
 
     const c = await client.commit(r.proposals[0]);
 
@@ -74,16 +78,21 @@ describe('billing example (service design guide)', () => {
       plan: 'pro',
     });
 
-    if (p.kind !== 'PROPOSALS') throw new Error(p.kind);
+    if (p.kind !== 'PROPOSALS') {
+      throw new Error(p.kind);
+    }
 
     expect(p.proposals).toHaveLength(2);
 
     const r = await client.commit(p.proposals[1]);
 
-    if (r.kind !== 'RECEIPT') throw new Error(r.kind);
+    if (r.kind !== 'RECEIPT') {
+      throw new Error(r.kind);
+    }
 
     const dana = async () =>
-      ((await client.ask('billing.customer', { who: 'dana' })) as any).data;
+      ((await client.ask('billing.customer', { who: 'dana' })) as P.Answer)
+        .data as Record<string, unknown>;
 
     // Scheduled for renewal: still on team today, with pro pending.
     expect(await dana()).toMatchObject({ plan: 'team', next_plan: 'pro' });
@@ -95,7 +104,9 @@ describe('billing example (service design guide)', () => {
     const { client } = await setup();
     const p = await client.intent('billing.cancel', { who: 'Ben' });
 
-    if (p.kind !== 'PROPOSALS') throw new Error(p.kind);
+    if (p.kind !== 'PROPOSALS') {
+      throw new Error(p.kind);
+    }
 
     expect(p.proposals.map((x) => x.risk)).toEqual(['low', 'medium']);
     expect(p.proposals[0].undo).not.toBeNull();

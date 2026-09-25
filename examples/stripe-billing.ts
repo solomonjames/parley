@@ -1,17 +1,22 @@
-// A Parley service in front of the real Stripe API: the full example in the service design
-// guide (site/guide/service-design.md). The agent sees three capabilities, not Stripe's
-// endpoints. Each apply() makes the Stripe call, and each revert() makes the inverse one.
-//
-//   STRIPE_SECRET_KEY=sk_test_… PARLEY_TRUST=ed25519:… node examples/stripe-billing.ts
+/**
+ * A Parley service in front of the real Stripe API: the full example in the
+ * "From REST to Parley" guide (site/guide/service-design.md).
+ *
+ * The agent sees three capabilities, not Stripe's endpoints. Each apply()
+ * makes the Stripe call, and each revert() makes the call that reverses it.
+ *
+ *   STRIPE_SECRET_KEY=sk_test_… PARLEY_TRUST=ed25519:… \
+ *     node examples/stripe-billing.ts
+ */
 import {
-  ParleyError,
   clarify,
   fix,
   money,
+  ParleyError,
+  type Plan,
   send,
   service,
   update,
-  type Plan,
 } from 'parley-protocol';
 
 const API = 'https://api.stripe.com/v1';
@@ -23,112 +28,42 @@ const roundDown = (secs: number) =>
     ? Math.floor(secs / 86400) * 86400
     : Math.max(0, Math.floor(secs / 3600) * 3600);
 
+/** The fields of Stripe's objects that this service reads. */
+interface Customer {
+  id: string;
+  name: string;
+  email: string;
+}
+interface Charge {
+  id: string;
+  created: number;
+  amount: number;
+  amount_refunded: number;
+  currency: string;
+  status: string;
+}
+interface Subscription {
+  id: string;
+  status: string;
+  cancel_at_period_end: boolean;
+  items: {
+    data: {
+      current_period_start: number;
+      current_period_end: number;
+      price: { id: string; nickname: string | null };
+    }[];
+  };
+}
+interface List<T> {
+  data: T[];
+}
+
 export function stripeBilling(opts: {
   key: string;
   trust: string[];
   fetch?: typeof fetch;
 }) {
-  const f = opts.fetch ?? fetch;
-
-  // The only code that speaks REST. Stripe's error objects become errors that teach.
-  async function stripe(
-    method: 'GET' | 'POST' | 'DELETE',
-    path: string,
-    body?: Record<string, string>,
-    idempotencyKey?: string,
-  ): Promise<any> {
-    const res = await f(API + path, {
-      method,
-      headers: {
-        authorization: `Bearer ${opts.key}`,
-        ...(body
-          ? { 'content-type': 'application/x-www-form-urlencoded' }
-          : {}),
-        ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
-      },
-      body: body ? new URLSearchParams(body).toString() : undefined,
-    });
-    const json: any = await res.json();
-
-    if (res.ok) return json;
-
-    const message = json.error?.message ?? `Stripe returned ${res.status}`;
-
-    if (res.status === 404)
-      throw new ParleyError('not_found', message, {
-        fix: [fix('ASK billing.customer with a name or email')],
-      });
-
-    if (res.status === 429)
-      throw new ParleyError('limit', 'Stripe is rate limiting; retry shortly', {
-        retry: 2,
-      });
-
-    if (res.status >= 500)
-      throw new ParleyError('unavailable', message, { retry: 5 });
-
-    // Params were validated before any REST call, so a remaining 4xx means the state changed.
-    throw new ParleyError('conflict', message);
-  }
-
-  // People say "Chen" or an email, not cus_NffrFeUfNV2Hib. Stripe's exact match on a string
-  // field matches any record containing the words, so "Chen" finds "Chen Wei".
-  async function findCustomers(who: string): Promise<any[]> {
-    if (/^cus_\w+$/.test(who))
-      return [await stripe('GET', `/customers/${who}`)];
-
-    const q = JSON.stringify(who); // Stripe wants double-quoted, backslash-escaped strings
-    const query = new URLSearchParams({
-      query: `name:${q} OR email:${q}`,
-      limit: '5',
-    });
-
-    return (await stripe('GET', `/customers/search?${query}`)).data;
-  }
-
-  const label = (c: any) => `${c.name} <${c.email}>`;
-
-  // Intents resolve one customer, or answer with CLARIFY; each option is a params patch.
-  async function one(who: string, then: (c: any) => Promise<Plan | Plan[]>) {
-    const m = await findCustomers(who);
-
-    if (!m.length)
-      throw new ParleyError(
-        'not_found',
-        `no customer matches ${JSON.stringify(who)}`,
-        {
-          fix: [fix('try their email address')],
-        },
-      );
-
-    if (m.length > 1)
-      return clarify(
-        `${m.length} customers match "${who}". Which one?`,
-        m.map((c) => ({ label: label(c), params: { who: c.id } })),
-      );
-
-    return then(m[0]);
-  }
-
-  const charges = async (c: any) =>
-    (
-      await stripe(
-        'GET',
-        `/charges?${new URLSearchParams({ customer: c.id, limit: '5' })}`,
-      )
-    ).data;
-  const subscription = async (c: any) =>
-    (
-      await stripe(
-        'GET',
-        `/subscriptions?${new URLSearchParams({ customer: c.id, status: 'active', limit: '1' })}`,
-      )
-    ).data[0] ?? null;
-  // Since API version 2025-03-31 the billing period lives on the subscription item.
-  const period = (s: any) => ({
-    start: s.items.data[0].current_period_start as number,
-    end: s.items.data[0].current_period_end as number,
-  });
+  const stripe = connect(opts.key, opts.fetch ?? fetch);
 
   return (
     service({
@@ -140,57 +75,13 @@ export function stripeBilling(opts: {
         "Refunds and immediate cancellations can't be undone.",
       trust: opts.trust,
     })
-      // Replaces GET /v1/customers/search + GET /v1/subscriptions + GET /v1/charges.
+      // Replaces three GETs: customers/search, subscriptions and charges.
       .ask('billing.customer', {
         summary: "A customer's subscription and recent payments",
         params: { who: 'string — name, email or cus_ id' },
-        async run({ params }) {
-          const m = await findCustomers(params.who);
-
-          if (!m.length)
-            throw new ParleyError(
-              'not_found',
-              `no customer matches ${JSON.stringify(params.who)}`,
-              { fix: [fix('try their email address')] },
-            );
-
-          // An ASK can't CLARIFY, so an ambiguous read teaches instead: one fix per candidate.
-          if (m.length > 1)
-            throw new ParleyError(
-              'invalid_params',
-              `${m.length} customers match ${JSON.stringify(params.who)}`,
-              { fix: m.map((c) => fix(`use ${label(c)}`, { who: c.id })) },
-            );
-
-          const c = m[0];
-          const [sub, chs] = await Promise.all([subscription(c), charges(c)]);
-
-          return {
-            id: c.id,
-            name: c.name,
-            email: c.email,
-            plan: sub
-              ? (sub.items.data[0].price.nickname ?? sub.items.data[0].price.id)
-              : 'none',
-            ...(sub
-              ? {
-                  [sub.cancel_at_period_end ? 'cancels' : 'renews']: day(
-                    period(sub).end,
-                  ),
-                }
-              : {}),
-            // Flat, uniform rows, so Lens renders them as a table. Only the fields an agent needs.
-            payments: chs.map((ch: any) => ({
-              id: ch.id,
-              date: day(ch.created),
-              amount: amt(ch.amount, ch.currency),
-              refunded: amt(ch.amount_refunded, ch.currency),
-              status: ch.status,
-            })),
-          };
-        },
+        run: ({ params }) => customerOverview(stripe, params.who),
       })
-      // Replaces the lookups above + the agent's own proration math + POST /v1/refunds.
+      // Replaces those GETs, the agent's own math, and POST /v1/refunds.
       .intent('billing.refund', {
         summary: 'Refund a payment (irreversible)',
         params: {
@@ -200,169 +91,360 @@ export function stripeBilling(opts: {
         },
         risk: 'medium',
         plan: ({ params }) =>
-          one(params.who, async (c) => {
-            const [chs, sub] = await Promise.all([charges(c), subscription(c)]);
-            const ch = params.payment
-              ? chs.find((x: any) => x.id === params.payment)
-              : chs.find(
-                  (x: any) =>
-                    x.status === 'succeeded' && x.amount_refunded < x.amount,
-                );
-
-            if (!ch)
-              throw new ParleyError(
-                'not_found',
-                `no refundable payment${params.payment ? ` ${params.payment}` : ''} for ${c.name}`,
-                {
-                  fix: chs.map((x: any) =>
-                    fix(
-                      `use ${x.id} (${day(x.created)}, ${amt(x.amount, x.currency)})`,
-                      {
-                        payment: x.id,
-                      },
-                    ),
-                  ),
-                },
-              );
-
-            const left = ch.amount - ch.amount_refunded;
-            const refund = (amount: number, why: string): Plan => ({
-              summary: `Refund ${amt(amount, ch.currency)} of ${ch.id} to ${c.name} (${why})`,
-              effects: [
-                update(
-                  `charge/${ch.id}`,
-                  'amount_refunded',
-                  amt(ch.amount_refunded, ch.currency),
-                  amt(ch.amount_refunded + amount, ch.currency),
-                ),
-                send(c.email, `refund receipt; back on the card in 5–10 days`),
-              ],
-              cost: money(amount, ch.currency.toUpperCase()),
-              // Parley runs apply() at most once; the key covers a network failure inside it.
-              apply: () =>
-                stripe(
-                  'POST',
-                  '/refunds',
-                  {
-                    charge: ch.id,
-                    amount: String(amount),
-                    reason: 'requested_by_customer',
-                  },
-                  `parley-refund-${ch.id}-${ch.amount_refunded}-${amount}`,
-                ),
-              // No revert: Stripe can't reverse a refund, so the proposal says undo: never
-              // and Parley will never auto-commit it.
-            });
-
-            if (params.amount != null) {
-              const amount = Math.round(params.amount * 100);
-
-              if (amount <= 0 || amount > left)
-                throw new ParleyError(
-                  'invalid_params',
-                  `refund must be between 0.01 and ${amt(left, ch.currency)}`,
-                  {
-                    fix: [
-                      fix(`refund the rest (${amt(left, ch.currency)})`, {
-                        amount: left / 100,
-                      }),
-                    ],
-                  },
-                );
-
-              return refund(amount, 'partial');
-            }
-
-            // Alternatives a person would offer: all of it, or only the unused part of this period.
-            const plans = [refund(left, 'full')];
-
-            if (sub && ch.id === chs[0]?.id) {
-              const { start, end } = period(sub),
-                now = Date.now() / 1000;
-              const unused = Math.round(
-                left * Math.max(0, (end - now) / (end - start)),
-              );
-
-              if (unused > 0 && unused < left)
-                plans.push(
-                  refund(
-                    unused,
-                    `unused ${Math.round((end - now) / 86400)} days`,
-                  ),
-                );
-            }
-
-            return plans;
-          }),
+          one(stripe, params.who, (c) => refundPlans(stripe, c, params)),
       })
-      // Replaces two endpoints the agent had to tell apart: POST cancel_at_period_end (reversible)
-      // and DELETE (final). Here they're two proposals that say which is which.
+      // Replaces two endpoints the agent had to tell apart: a reversible POST
+      // and a final DELETE. Here they're two plans that say which is which.
       .intent('billing.cancel', {
         summary: 'Cancel a subscription',
         params: { who: 'string' },
         risk: 'low',
         plan: ({ params }) =>
-          one(params.who, async (c) => {
-            const sub = await subscription(c);
-
-            if (!sub)
-              throw new ParleyError(
-                'conflict',
-                `${c.name} has no active subscription`,
-              );
-
-            const { end } = period(sub),
-              path = `/subscriptions/${sub.id}`;
-            const now: Plan = {
-              summary: `Cancel ${c.name} now; access ends immediately, no refund`,
-              effects: [
-                update(
-                  `subscription/${sub.id}`,
-                  'status',
-                  sub.status,
-                  'canceled',
-                ),
-              ],
-              risk: 'medium',
-              apply: () => stripe('DELETE', path), // no inverse call exists, so no revert
-            };
-
-            if (sub.cancel_at_period_end) return now;
-
-            return [
-              {
-                summary: `Cancel ${c.name} on ${day(end)}; access until then`,
-                effects: [
-                  update(
-                    `subscription/${sub.id}`,
-                    'cancel_at_period_end',
-                    false,
-                    true,
-                  ),
-                ],
-                // Rounded down to whole days, so it reads "undo: 13d" and ends before the period.
-                undoWindow: roundDown(end - Date.now() / 1000),
-                apply: () =>
-                  stripe('POST', path, { cancel_at_period_end: 'true' }),
-                // The inverse REST call.
-                revert: () =>
-                  stripe('POST', path, { cancel_at_period_end: 'false' }),
-              },
-              now,
-            ];
-          }),
+          one(stripe, params.who, (c) => cancelPlans(stripe, c)),
       })
   );
+}
+
+/** The only code that speaks REST. Stripe errors become errors that teach. */
+function connect(key: string, f: typeof fetch) {
+  return async function stripe<T = unknown>(
+    method: 'GET' | 'POST' | 'DELETE',
+    path: string,
+    body?: Record<string, string>,
+    idempotencyKey?: string,
+  ): Promise<T> {
+    const res = await f(API + path, {
+      method,
+      headers: {
+        authorization: `Bearer ${key}`,
+        ...(body
+          ? { 'content-type': 'application/x-www-form-urlencoded' }
+          : {}),
+        ...(idempotencyKey ? { 'idempotency-key': idempotencyKey } : {}),
+      },
+      body: body ? new URLSearchParams(body).toString() : undefined,
+    });
+    const json: unknown = await res.json();
+
+    if (res.ok) {
+      return json as T;
+    }
+
+    const { error } = json as { error?: { message?: string } };
+
+    throw teach(res.status, error?.message ?? `Stripe returned ${res.status}`);
+  };
+}
+
+type Stripe = ReturnType<typeof connect>;
+
+function teach(status: number, message: string) {
+  if (status === 404) {
+    return new ParleyError('not_found', message, {
+      fix: [fix('ASK billing.customer with a name or email')],
+    });
+  }
+
+  if (status === 429) {
+    return new ParleyError('limit', 'Stripe is rate limiting; retry shortly', {
+      retry: 2,
+    });
+  }
+
+  if (status >= 500) {
+    return new ParleyError('unavailable', message, { retry: 5 });
+  }
+
+  // Params were validated before any REST call, so a 4xx here means the
+  // state changed underneath us.
+  return new ParleyError('conflict', message);
+}
+
+/**
+ * People say "Chen" or an email, not cus_NffrFeUfNV2Hib. Stripe's exact match
+ * on a string field matches any record containing the words, so "Chen" finds
+ * "Chen Wei".
+ */
+async function findCustomers(stripe: Stripe, who: string) {
+  if (/^cus_\w+$/.test(who)) {
+    return [await stripe<Customer>('GET', `/customers/${who}`)];
+  }
+
+  // Stripe wants double-quoted, backslash-escaped strings.
+  const q = JSON.stringify(who);
+  const query = new URLSearchParams({
+    query: `name:${q} OR email:${q}`,
+    limit: '5',
+  });
+
+  return (await stripe<List<Customer>>('GET', `/customers/search?${query}`))
+    .data;
+}
+
+const label = (c: Customer) => `${c.name} <${c.email}>`;
+const noMatch = (who: string) =>
+  new ParleyError('not_found', `no customer matches ${JSON.stringify(who)}`, {
+    fix: [fix('try their email address')],
+  });
+
+/** For an ASK: an ambiguous name is an error with one fix per candidate. */
+async function findOne(stripe: Stripe, who: string) {
+  const m = await findCustomers(stripe, who);
+
+  if (!m.length) {
+    throw noMatch(who);
+  }
+
+  if (m.length > 1) {
+    throw new ParleyError(
+      'invalid_params',
+      `${m.length} customers match ${JSON.stringify(who)}`,
+      { fix: m.map((c) => fix(`use ${label(c)}`, { who: c.id })) },
+    );
+  }
+
+  return m[0];
+}
+
+/** For an INTENT: an ambiguous name gets CLARIFY, one option per candidate. */
+async function one(
+  stripe: Stripe,
+  who: string,
+  then: (c: Customer) => Promise<Plan | Plan[]>,
+) {
+  const m = await findCustomers(stripe, who);
+
+  if (!m.length) {
+    throw noMatch(who);
+  }
+
+  if (m.length > 1) {
+    return clarify(
+      `${m.length} customers match "${who}". Which one?`,
+      m.map((c) => ({ label: label(c), params: { who: c.id } })),
+    );
+  }
+
+  return then(m[0]);
+}
+
+const charges = async (stripe: Stripe, c: Customer) =>
+  (
+    await stripe<List<Charge>>(
+      'GET',
+      `/charges?${new URLSearchParams({ customer: c.id, limit: '5' })}`,
+    )
+  ).data;
+const activeSub = (c: Customer) =>
+  new URLSearchParams({ customer: c.id, status: 'active', limit: '1' });
+const subscription = async (stripe: Stripe, c: Customer) =>
+  (await stripe<List<Subscription>>('GET', `/subscriptions?${activeSub(c)}`))
+    .data[0] ?? null;
+// Since API version 2025-03-31, the billing period is on the subscription item.
+const period = (s: Subscription) => ({
+  start: s.items.data[0].current_period_start,
+  end: s.items.data[0].current_period_end,
+});
+
+// #region ask
+async function customerOverview(stripe: Stripe, who: string) {
+  const c = await findOne(stripe, who);
+  const [sub, chs] = await Promise.all([
+    subscription(stripe, c),
+    charges(stripe, c),
+  ]);
+  const price = sub?.items.data[0].price;
+
+  return {
+    id: c.id,
+    name: c.name,
+    email: c.email,
+    plan: price ? (price.nickname ?? price.id) : 'none',
+    ...(sub
+      ? {
+          [sub.cancel_at_period_end ? 'cancels' : 'renews']: day(
+            period(sub).end,
+          ),
+        }
+      : {}),
+    // Flat rows with only what an agent needs, so Lens renders a table.
+    payments: chs.map((ch) => ({
+      id: ch.id,
+      date: day(ch.created),
+      amount: amt(ch.amount, ch.currency),
+      refunded: amt(ch.amount_refunded, ch.currency),
+      status: ch.status,
+    })),
+  };
+}
+// #endregion ask
+
+async function refundPlans(
+  stripe: Stripe,
+  c: Customer,
+  params: { payment?: string; amount?: number },
+): Promise<Plan | Plan[]> {
+  const [chs, sub] = await Promise.all([
+    charges(stripe, c),
+    subscription(stripe, c),
+  ]);
+  const ch = refundable(chs, c, params.payment);
+  const left = ch.amount - ch.amount_refunded;
+  const refund = refunder(stripe, c, ch);
+
+  if (params.amount != null) {
+    return refund(partial(params.amount, left, ch.currency), 'partial');
+  }
+
+  // The choices a person would offer: all of it, or the unused part.
+  const plans = [refund(left, 'full')];
+  const unused = sub && ch.id === chs[0]?.id ? unusedPart(left, sub) : null;
+
+  if (unused) {
+    plans.push(refund(unused.amount, `unused ${unused.days} days`));
+  }
+
+  return plans;
+}
+
+/** The requested charge, or else the latest one with something to refund. */
+function refundable(chs: Charge[], c: Customer, payment?: string) {
+  const ch = payment
+    ? chs.find((x) => x.id === payment)
+    : chs.find((x) => x.status === 'succeeded' && x.amount_refunded < x.amount);
+
+  if (ch) {
+    return ch;
+  }
+
+  throw new ParleyError(
+    'not_found',
+    `no refundable payment${payment ? ` ${payment}` : ''} for ${c.name}`,
+    {
+      fix: chs.map((x) =>
+        fix(`use ${x.id} (${day(x.created)}, ${amt(x.amount, x.currency)})`, {
+          payment: x.id,
+        }),
+      ),
+    },
+  );
+}
+
+/** A partial refund, converted to minor units and checked against `left`. */
+function partial(major: number, left: number, cur: string) {
+  const amount = Math.round(major * 100);
+
+  if (amount > 0 && amount <= left) {
+    return amount;
+  }
+
+  throw new ParleyError(
+    'invalid_params',
+    `refund must be between 0.01 and ${amt(left, cur)}`,
+    {
+      fix: [fix(`refund the rest (${amt(left, cur)})`, { amount: left / 100 })],
+    },
+  );
+}
+
+/** The part of `left` that pays for the rest of the period, if it's less. */
+function unusedPart(left: number, sub: Subscription) {
+  const { start, end } = period(sub);
+  const now = Date.now() / 1000;
+  const amount = Math.round(left * Math.max(0, (end - now) / (end - start)));
+
+  if (amount <= 0 || amount >= left) {
+    return null;
+  }
+
+  return { amount, days: Math.round((end - now) / 86400) };
+}
+
+// #region refund-plan
+function refunder(stripe: Stripe, c: Customer, ch: Charge) {
+  return (amount: number, why: string): Plan => ({
+    summary:
+      `Refund ${amt(amount, ch.currency)} of ${ch.id} to ${c.name}` +
+      ` (${why})`,
+    effects: [
+      update(
+        `charge/${ch.id}`,
+        'amount_refunded',
+        amt(ch.amount_refunded, ch.currency),
+        amt(ch.amount_refunded + amount, ch.currency),
+      ),
+      send(c.email, `refund receipt; back on the card in 5–10 days`),
+    ],
+    cost: money(amount, ch.currency.toUpperCase()),
+    // Parley runs apply() at most once; the key covers a network retry.
+    apply: () =>
+      stripe(
+        'POST',
+        '/refunds',
+        {
+          charge: ch.id,
+          amount: String(amount),
+          reason: 'requested_by_customer',
+        },
+        `parley-refund-${ch.id}-${ch.amount_refunded}-${amount}`,
+      ),
+    // No revert: Stripe can't reverse a refund, so the plan says
+    // "undo: never" and Parley never commits it automatically.
+  });
+}
+// #endregion refund-plan
+
+async function cancelPlans(
+  stripe: Stripe,
+  c: Customer,
+): Promise<Plan | Plan[]> {
+  const sub = await subscription(stripe, c);
+
+  if (!sub) {
+    throw new ParleyError('conflict', `${c.name} has no active subscription`);
+  }
+
+  const { end } = period(sub);
+  const path = `/subscriptions/${sub.id}`;
+  const now: Plan = {
+    summary: `Cancel ${c.name} now; access ends immediately, no refund`,
+    effects: [
+      update(`subscription/${sub.id}`, 'status', sub.status, 'canceled'),
+    ],
+    risk: 'medium',
+    apply: () => stripe('DELETE', path), // no inverse call exists, so no revert
+  };
+
+  if (sub.cancel_at_period_end) {
+    return now;
+  }
+
+  // #region cancel-plan
+  const atPeriodEnd: Plan = {
+    summary: `Cancel ${c.name} on ${day(end)}; access until then`,
+    effects: [
+      update(`subscription/${sub.id}`, 'cancel_at_period_end', false, true),
+    ],
+    // Whole days, so it reads "undo: 13d" and ends before the period does.
+    undoWindow: roundDown(end - Date.now() / 1000),
+    apply: () => stripe('POST', path, { cancel_at_period_end: 'true' }),
+    // The inverse REST call.
+    revert: () => stripe('POST', path, { cancel_at_period_end: 'false' }),
+  };
+  // #endregion cancel-plan
+
+  return [atPeriodEnd, now];
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const { listen } = await import('parley-protocol/node');
   const key = process.env.STRIPE_SECRET_KEY;
 
-  if (!key)
+  if (!key) {
     throw new Error(
       'set STRIPE_SECRET_KEY (a test-mode sk_test_… key is fine)',
     );
+  }
 
   const trust = (process.env.PARLEY_TRUST ?? '').split(',').filter(Boolean);
 

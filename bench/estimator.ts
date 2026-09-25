@@ -1,7 +1,8 @@
 // Reproduces the token-estimator comparison in docs/design.md: how well each candidate
 // `est()` tracks a real BPE tokenizer (o200k) on the text Parley actually sends.
-import { encode } from 'gpt-tokenizer/encoding/o200k_base';
+
 import { readFileSync } from 'node:fs';
+import { encode } from 'gpt-tokenizer/encoding/o200k_base';
 import { Client, est, lean, local } from 'parley-protocol';
 import { catalog, shop } from '../examples/shop.ts';
 

@@ -7,11 +7,8 @@ let seed = 0x9e3779b9;
 globalThis.crypto.getRandomValues = (<T extends ArrayBufferView | null>(
   a: T,
 ): T => {
-  const u8 = new Uint8Array(
-    (a as any).buffer,
-    (a as any).byteOffset,
-    (a as any).byteLength,
-  );
+  const view = a as ArrayBufferView;
+  const u8 = new Uint8Array(view.buffer, view.byteOffset, view.byteLength);
 
   for (let i = 0; i < u8.length; i++) {
     seed ^= seed << 13;
@@ -21,10 +18,10 @@ globalThis.crypto.getRandomValues = (<T extends ArrayBufferView | null>(
   }
 
   return a;
-}) as any;
+}) as typeof globalThis.crypto.getRandomValues;
 
-import { encode } from 'gpt-tokenizer/encoding/o200k_base';
 import { writeFileSync } from 'node:fs';
+import { encode } from 'gpt-tokenizer/encoding/o200k_base';
 import { Client, issueGrant, keyPair, local } from 'parley-protocol';
 import { INSTRUCTIONS, TOOLS as PARLEY_TOOLS } from 'parley-protocol/mcp';
 import { calendar } from '../examples/calendar.ts';
@@ -174,18 +171,36 @@ const REST_TOOLS = [
 const restDefs = JSON.stringify(REST_TOOLS);
 
 // REST payloads are built from the *same* data the Parley services return.
-const data = async (
+// Rows as the example services return them.
+interface AgendaRow {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  with: string;
+}
+interface MealRow {
+  sku: string;
+  name: string;
+  usd: number;
+  cal: number;
+  protein: number;
+}
+
+const data = async <T>(
   c: Client,
   cap: string,
   params: Record<string, unknown>,
 ) => {
   const r = await c.ask(cap, params, { budget: 1e6 });
 
-  if (r.kind !== 'ANSWER') throw new Error(r.lens);
+  if (r.kind !== 'ANSWER') {
+    throw new Error(r.lens);
+  }
 
-  return r.data as any;
+  return r.data as T;
 };
-const restEvent = (e: any) => ({
+const restEvent = (e: AgendaRow) => ({
   id: e.id,
   title: e.title,
   start: e.start,
@@ -211,7 +226,7 @@ const DAY = new Date(Date.now() + 3 * 86400e3).toISOString().slice(0, 10);
 
 async function tasks(): Promise<Task[]> {
   const out: Task[] = [];
-  const menuRow = (m: any) => ({
+  const menuRow = (m: MealRow) => ({
     sku: m.sku,
     name: m.name,
     price_usd: m.usd,
@@ -222,10 +237,14 @@ async function tasks(): Promise<Task[]> {
   // 1. Reschedule a meeting into a free slot. REST gets the usual CRUD tools *and*, as a
   //    separate row, an outcome-level endpoint, so the protocol isn't credited for API design.
   {
-    const ev = (await data(cal, 'calendar.agenda', { query: '1:1 Ana' })).map(
-      restEvent,
+    const ev = (
+      await data<AgendaRow[]>(cal, 'calendar.agenda', { query: '1:1 Ana' })
+    ).map(restEvent);
+    const free = await data<{ day: string; slots: string[] }>(
+      cal,
+      'calendar.free',
+      { day: DAY, minutes: 30 },
     );
-    const free = await data(cal, 'calendar.free', { day: DAY, minutes: 30 });
     const moved = {
       ...ev[0],
       start: free.slots[0],
@@ -244,7 +263,9 @@ async function tasks(): Promise<Task[]> {
       auto: true,
     });
 
-    if (r.kind !== 'RECEIPT') throw new Error(r.lens);
+    if (r.kind !== 'RECEIPT') {
+      throw new Error(r.lens);
+    }
 
     await cal.undo(r.receipt.id); // keep data identical across tasks
 
@@ -302,17 +323,21 @@ async function tasks(): Promise<Task[]> {
 
   // 2. Find vegan meals under 700 kcal and order four.
   {
-    const found = await data(sh, 'shop.search', { tag: 'vegan', max_cal: 700 });
-    const items = found.slice(0, 2).map((m: any) => ({ sku: m.sku, qty: 2 }));
-    const lines = items.map((it: any) => {
-      const m = found.find((f: any) => f.sku === it.sku);
-
-      return { sku: m.sku, name: m.name, qty: it.qty, unit_price: m.usd };
+    const found = await data<MealRow[]>(sh, 'shop.search', {
+      tag: 'vegan',
+      max_cal: 700,
     });
+    const picked = found.slice(0, 2);
+    const items = picked.map((m) => ({ sku: m.sku, qty: 2 }));
+    const lines = picked.map((m) => ({
+      sku: m.sku,
+      name: m.name,
+      qty: 2,
+      unit_price: m.usd,
+    }));
     const subtotal =
-      Math.round(
-        lines.reduce((s: number, l: any) => s + l.unit_price * 100 * l.qty, 0),
-      ) / 100;
+      Math.round(lines.reduce((s, l) => s + l.unit_price * 100 * l.qty, 0)) /
+      100;
     const order = {
       id: 'o1001',
       status: 'placed',
@@ -338,7 +363,9 @@ async function tasks(): Promise<Task[]> {
     };
     const r = await sh.intent('shop.order', intentArgs.params, { auto: true });
 
-    if (r.kind !== 'RECEIPT') throw new Error(r.lens);
+    if (r.kind !== 'RECEIPT') {
+      throw new Error(r.lens);
+    }
 
     out.push({
       name: 'Find vegan meals < 700 kcal and order four',
@@ -371,7 +398,7 @@ async function tasks(): Promise<Task[]> {
 
   // 3. Read the whole 60-item menu (same content both ways; pure encoding cost).
   {
-    const all = await data(sh, 'shop.search', {});
+    const all = await data<MealRow[]>(sh, 'shop.search', {});
     const a = await sh.ask('shop.search', {}, { budget: 1e6 });
 
     out.push({
@@ -405,9 +432,9 @@ async function tasks(): Promise<Task[]> {
   // 4. Skim the menu: Parley with an 800-token budget, REST with `limit` set to the same
   //    number of items Parley returned. Same items both ways; Parley also says what's left.
   {
-    const all = await data(sh, 'shop.search', {});
+    const all = await data<MealRow[]>(sh, 'shop.search', {});
     const a = await sh.ask('shop.search', {}, { budget: 800 });
-    const shown = (a as any).data.length as number;
+    const shown = (a as { data: unknown[] }).data.length;
 
     out.push({
       name: `Skim the menu (first ${shown} items: REST limit=${shown}, Parley budget=800)`,
@@ -464,7 +491,10 @@ function cost(defs: string, run: Run) {
 }
 
 const lines: string[] = [];
-const log = (s = '') => (console.log(s), lines.push(s));
+const log = (s = '') => {
+  console.log(s);
+  lines.push(s);
+};
 const pct = (a: number, b: number) => `${Math.round((1 - b / a) * 100)}%`;
 const n = (x: number) => x.toLocaleString('en-US');
 const minJ = (v: unknown) => JSON.stringify(v),
@@ -497,8 +527,11 @@ for (const t of T) {
     pr = cost(restDefs, t.rest(prettyJ)),
     px = cost(parleyDefs, t.parley);
 
-  if (!t.name.includes('outcome-level'))
-    (SM += m.cumulative), (SP += pr.cumulative), (SX += px.cumulative);
+  if (!t.name.includes('outcome-level')) {
+    SM += m.cumulative;
+    SP += pr.cumulative;
+    SX += px.cumulative;
+  }
 
   log(
     `| ${t.name} | ${m.calls} → ${px.calls} | ${n(m.cumulative)} | ${n(pr.cumulative)} | ${n(px.cumulative)} | **${pct(m.cumulative, px.cumulative)}** | ${pct(pr.cumulative, px.cumulative)} |`,

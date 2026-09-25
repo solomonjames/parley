@@ -4,14 +4,47 @@
  * Consent requests are routed to the human via MCP elicitation when the client supports
  * it; the model itself can never approve.
  */
-import { createToolHost, TOOLS } from './tools.js';
+
 import type { Client } from './client.js';
+import { createToolHost, TOOLS, type ToolHost } from './tools.js';
 
 export { INSTRUCTIONS, TOOLS } from './tools.js';
 
 const VERSION = '0.1.0';
 
-type Json = Record<string, any>;
+type Json = Record<string, unknown>;
+
+/** A JSON-RPC message in either direction: a request, a notification or a reply. */
+interface RpcMessage {
+  id?: string | number;
+  method?: string;
+  params?: InitializeParams & Partial<ToolCallParams>;
+  result?: Json;
+}
+
+interface InitializeParams {
+  capabilities?: Json;
+  protocolVersion?: string;
+}
+
+interface ToolCallParams {
+  name: string;
+  arguments?: Json;
+}
+
+interface ElicitResult {
+  action?: string;
+  content?: { approve?: unknown };
+}
+
+type Write = (m: Json) => void;
+
+/** What a request handler needs from the running bridge. */
+interface Session {
+  host: ToolHost;
+  write: Write;
+  clientCaps: Json;
+}
 
 export async function runMcpBridge(
   clients: Client[],
@@ -20,145 +53,186 @@ export async function runMcpBridge(
     output: process.stdout,
   },
 ) {
-  let clientCaps: Json = {};
-  let nextId = 1;
-  const waiting = new Map<number, (r: Json) => void>();
-  const write = (m: Json) => io.output.write(`${JSON.stringify(m)}\n`);
-  const request = (method: string, params: Json, timeoutMs = 10 * 60_000) =>
-    new Promise<Json>((resolve) => {
-      const id = nextId++;
-      const timer = setTimeout(
-        () => (waiting.delete(id), resolve({})),
-        timeoutMs,
-      ); // no answer = no approval
-
-      waiting.set(
-        id,
-        (r) => (clearTimeout(timer), waiting.delete(id), resolve(r)),
-      );
-      write({ jsonrpc: '2.0', id: `parley-${id}`, method, params });
-    });
-
+  const write: Write = (m) => {
+    io.output.write(`${JSON.stringify(m)}\n`);
+  };
+  const outgoing = outgoingRequests(write);
   // Consent goes to the human through MCP elicitation, when the client supports it.
   const host = await createToolHost(
     clients,
     async ({ service, shown, reason }) => {
-      if (!clientCaps.elicitation) return false;
+      if (!session.clientCaps.elicitation) {
+        return false;
+      }
 
-      const res = await request('elicitation/create', {
-        message: `Approve this action at ${service}?\n\n${shown}\n\nWhy you're asked: ${reason}`,
-        requestedSchema: {
-          type: 'object',
-          properties: {
-            approve: {
-              type: 'boolean',
-              title: 'Approve',
-              description: 'Sign a one-time consent for exactly this proposal',
-            },
-          },
-          required: ['approve'],
-        },
-      });
-
-      return (
-        res.result?.action === 'accept' && res.result?.content?.approve === true
+      const res = await outgoing.request(
+        'elicitation/create',
+        elicitation(
+          `Approve this action at ${service}?\n\n${shown}\n\nWhy you're asked: ${reason}`,
+        ),
       );
+      const result = res.result as ElicitResult | undefined;
+
+      return result?.action === 'accept' && result?.content?.approve === true;
     },
   );
-  const { instructions, call } = host;
+  const session: Session = { host, write, clientCaps: {} };
 
-  let buf = '';
-  let inflight = 0;
-  let ended = false;
-  const maybeExit = () => {
-    if (ended && inflight === 0) {
-      host.close();
-      done();
-    }
-  };
-  let done!: () => void;
-  const finished = new Promise<void>((r) => (done = r));
+  await new Promise<void>((resolve) => {
+    let inflight = 0;
+    let ended = false;
+    const maybeExit = () => {
+      if (ended && inflight === 0) {
+        host.close();
+        resolve();
+      }
+    };
 
-  io.input.on('end', () => {
-    ended = true;
-    maybeExit();
+    io.input.on('end', () => {
+      ended = true;
+      maybeExit();
+    });
+    onLines(io.input, (line) => {
+      const m = parseMessage(line);
+
+      if (m === undefined || outgoing.settle(m)) {
+        return;
+      }
+
+      inflight++;
+      void handle(m, session).finally(() => {
+        inflight--;
+        maybeExit();
+      });
+    });
   });
-  io.input.setEncoding?.('utf8');
-  io.input.on('data', (chunk: string) => {
+}
+
+/** Call `onLine` for each non-empty, newline-delimited line read from `input`. */
+function onLines(input: NodeJS.ReadableStream, onLine: (line: string) => void) {
+  let buf = '';
+
+  input.setEncoding?.('utf8');
+  input.on('data', (chunk: string) => {
     buf += chunk;
 
-    let nl: number;
-
-    while ((nl = buf.indexOf('\n')) >= 0) {
+    for (let nl = buf.indexOf('\n'); nl >= 0; nl = buf.indexOf('\n')) {
       const line = buf.slice(0, nl).trim();
 
       buf = buf.slice(nl + 1);
 
-      if (!line) continue;
-
-      let m: Json;
-
-      try {
-        m = JSON.parse(line);
-      } catch {
-        continue;
+      if (line) {
+        onLine(line);
       }
-
-      if (typeof m.id === 'string' && m.id.startsWith('parley-') && !m.method) {
-        waiting.get(Number(m.id.slice(7)))?.(m);
-
-        continue;
-      }
-
-      inflight++;
-      void handle(m).finally(() => {
-        inflight--;
-        maybeExit();
-      });
     }
   });
-  await finished;
+}
 
-  async function handle(m: Json) {
-    const reply = (result: Json) => write({ jsonrpc: '2.0', id: m.id, result });
+/** Parse one line; undefined when it isn't JSON (such lines are ignored). */
+function parseMessage(line: string): RpcMessage | undefined {
+  try {
+    return JSON.parse(line);
+  } catch {
+    return undefined;
+  }
+}
 
-    switch (m.method) {
-      case 'initialize':
-        clientCaps = m.params?.capabilities ?? {};
+/** Our own requests to the client (ids `parley-N`) and the matching of their replies. */
+function outgoingRequests(write: Write) {
+  let nextId = 1;
+  const waiting = new Map<number, (r: RpcMessage) => void>();
 
-        return reply({
-          protocolVersion: m.params?.protocolVersion ?? '2025-06-18',
-          capabilities: { tools: {} },
-          serverInfo: { name: 'parley-bridge', version: VERSION },
-          instructions,
-        });
-      case 'ping':
-        return reply({});
-      case 'tools/list':
-        return reply({ tools: TOOLS });
-      case 'tools/call':
-        try {
-          const r = await call(m.params.name, m.params.arguments ?? {});
+  const request = (method: string, params: Json, timeoutMs = 10 * 60_000) =>
+    new Promise<RpcMessage>((resolve) => {
+      const id = nextId++;
+      // no answer = no approval
+      const timer = setTimeout(() => {
+        waiting.delete(id);
+        resolve({});
+      }, timeoutMs);
 
-          return reply({
-            content: [{ type: 'text', text: r.text }],
-            ...(r.isError ? { isError: true } : {}),
-          });
-        } catch (e) {
-          return reply({
-            content: [
-              { type: 'text', text: `✗ transport: ${(e as Error).message}` },
-            ],
-            isError: true,
-          });
-        }
-      default:
-        if (m.id !== undefined)
-          write({
-            jsonrpc: '2.0',
-            id: m.id,
-            error: { code: -32601, message: `method not found: ${m.method}` },
-          });
+      waiting.set(id, (r) => {
+        clearTimeout(timer);
+        waiting.delete(id);
+        resolve(r);
+      });
+      write({ jsonrpc: '2.0', id: `parley-${id}`, method, params });
+    });
+
+  /** If `m` is a reply to one of our requests, deliver it and return true. */
+  const settle = (m: RpcMessage) => {
+    if (typeof m.id !== 'string' || !m.id.startsWith('parley-') || m.method) {
+      return false;
     }
+
+    waiting.get(Number(m.id.slice(7)))?.(m);
+
+    return true;
+  };
+
+  return { request, settle };
+}
+
+function elicitation(message: string): Json {
+  return {
+    message,
+    requestedSchema: {
+      type: 'object',
+      properties: {
+        approve: {
+          type: 'boolean',
+          title: 'Approve',
+          description: 'Sign a one-time consent for exactly this proposal',
+        },
+      },
+      required: ['approve'],
+    },
+  };
+}
+
+async function handle(m: RpcMessage, s: Session) {
+  const reply = (result: Json) => s.write({ jsonrpc: '2.0', id: m.id, result });
+
+  switch (m.method) {
+    case 'initialize':
+      s.clientCaps = m.params?.capabilities ?? {};
+
+      return reply({
+        protocolVersion: m.params?.protocolVersion ?? '2025-06-18',
+        capabilities: { tools: {} },
+        serverInfo: { name: 'parley-bridge', version: VERSION },
+        instructions: s.host.instructions,
+      });
+    case 'ping':
+      return reply({});
+    case 'tools/list':
+      return reply({ tools: TOOLS });
+    case 'tools/call':
+      return reply(await callTool(s.host, m.params as ToolCallParams));
+    default:
+      if (m.id !== undefined) {
+        s.write({
+          jsonrpc: '2.0',
+          id: m.id,
+          error: { code: -32601, message: `method not found: ${m.method}` },
+        });
+      }
+  }
+}
+
+/** Run a tools/call; any failure (even malformed params) becomes a tool error, not a crash. */
+async function callTool(host: ToolHost, params: ToolCallParams): Promise<Json> {
+  try {
+    const r = await host.call(params.name, params.arguments ?? {});
+
+    return {
+      content: [{ type: 'text', text: r.text }],
+      ...(r.isError ? { isError: true } : {}),
+    };
+  } catch (e) {
+    return {
+      content: [{ type: 'text', text: `✗ transport: ${(e as Error).message}` }],
+      isError: true,
+    };
   }
 }

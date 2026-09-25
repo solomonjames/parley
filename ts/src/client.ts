@@ -1,6 +1,6 @@
 /** Parley client: what an agent (or its harness) uses to talk to a service. */
 import { randomId } from './crypto.js';
-import { decodeGrant, makeProof } from './grants.js';
+import { type Caveat, decodeGrant, makeProof } from './grants.js';
 import { lens } from './lens.js';
 import type { Service } from './service.js';
 import type {
@@ -13,6 +13,7 @@ import type {
   Proposal,
   Proposals,
   ReceiptReply,
+  Reply,
   Request,
   Verb,
 } from './types.js';
@@ -40,6 +41,22 @@ export interface ClientOptions {
 }
 
 type Dist<T> = T extends unknown ? Omit<T, 'parley' | 'id'> : never;
+
+const hasSvc = (c: Caveat): c is { svc: string[] } =>
+  Boolean((c as { svc?: unknown }).svc);
+
+/** Whether a grant may be sent to `aud`: its `svc` caveat, if any, lists it. Undecodable grants may not. */
+function grantCovers(token: string, aud: string): boolean {
+  try {
+    const scope = decodeGrant(token)
+      .flatMap((b) => b.p.caveats)
+      .find(hasSvc);
+
+    return !scope || scope.svc.includes(aud);
+  } catch {
+    return false;
+  }
+}
 
 export class Client {
   private serviceId?: string;
@@ -80,22 +97,16 @@ export class Client {
   ): Promise<Pick<Request, 'grants' | 'proof'>> {
     const all = [...this.grants, ...extra];
 
-    if (!this.opts.key || !all.length) return {};
+    if (!this.opts.key || !all.length) {
+      return {};
+    }
 
     const aud = await this.audience();
-    const grants = all.filter((g) => {
-      try {
-        const svc = decodeGrant(g)
-          .flatMap((b) => b.p.caveats)
-          .find((c: any) => c.svc) as { svc: string[] } | undefined;
+    const grants = all.filter((g) => grantCovers(g, aud));
 
-        return !svc || svc.svc.includes(aud);
-      } catch {
-        return false;
-      }
-    });
-
-    if (!grants.length) return {};
+    if (!grants.length) {
+      return {};
+    }
 
     return {
       grants,
@@ -105,9 +116,15 @@ export class Client {
 
   /** The service's audience id (learned from HELLO). */
   async audience(): Promise<string> {
-    if (!this.serviceId) await this.hello(200);
+    if (!this.serviceId) {
+      await this.hello(200);
+    }
 
-    return this.serviceId!;
+    if (!this.serviceId) {
+      throw new Error('the service did not identify itself (HELLO failed)');
+    }
+
+    return this.serviceId;
   }
 
   async hello(
@@ -119,7 +136,9 @@ export class Client {
       ...(budget ? { budget } : {}),
     });
 
-    if (r.kind === 'BRIEF') this.serviceId = r.service.id;
+    if (r.kind === 'BRIEF') {
+      this.serviceId = r.service.id;
+    }
 
     return r;
   }
@@ -229,8 +248,83 @@ export function local(svc: Service): Transport {
   return {
     request: (frame, onEvent) =>
       svc.handle(JSON.parse(JSON.stringify(frame)), onEvent),
-    close() {},
+    close() {
+      // nothing to release: the service runs in this process
+    },
   };
+}
+
+/** Split off the complete lines in `buf`: the trimmed non-empty ones, and the unterminated rest. */
+function completeLines(buf: string): { complete: string[]; rest: string } {
+  const end = buf.lastIndexOf('\n') + 1;
+
+  return {
+    complete: buf
+      .slice(0, end)
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean),
+    rest: buf.slice(end),
+  };
+}
+
+/** Pass EVENT lines to `onEvent` until the final reply, which is returned (undefined if none yet). */
+function firstFinal(
+  lines: string[],
+  onEvent?: (e: Event) => void,
+): FinalReply | undefined {
+  for (const line of lines) {
+    const f = JSON.parse(line) as Reply;
+
+    if (f.kind === 'EVENT') {
+      onEvent?.(f);
+    } else {
+      return f;
+    }
+  }
+
+  return undefined;
+}
+
+/** Read an NDJSON reply stream up to its final reply. */
+async function readFinal(
+  body: NonNullable<Response['body']>,
+  onEvent?: (e: Event) => void,
+): Promise<FinalReply> {
+  const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+  let buf = '';
+
+  for (;;) {
+    const { value, done } = await reader.read();
+
+    if (value) {
+      buf += value;
+    }
+
+    if (buf.length > MAX_REPLY) {
+      throw new Error('reply exceeds 16 MiB without a newline');
+    }
+
+    const { complete, rest } = completeLines(buf);
+
+    buf = rest;
+
+    const final = firstFinal(complete, onEvent);
+
+    if (final) {
+      return final;
+    }
+
+    if (done) {
+      break;
+    }
+  }
+
+  if (buf.trim()) {
+    return JSON.parse(buf);
+  }
+
+  throw new Error('HTTP bridge closed without a final reply');
 }
 
 /** HTTP bridge transport (SPEC §2.4). Works anywhere `fetch` exists. */
@@ -246,43 +340,15 @@ export function http(
         body: JSON.stringify(frame),
       });
 
-      if (!res.ok || !res.body)
+      if (!res.ok || !res.body) {
         throw new Error(`HTTP ${res.status} from ${endpoint}`);
-
-      const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
-      let buf = '';
-
-      for (;;) {
-        const { value, done } = await reader.read();
-
-        if (value) buf += value;
-
-        if (buf.length > MAX_REPLY)
-          throw new Error('reply exceeds 16 MiB without a newline');
-
-        let nl: number;
-
-        while ((nl = buf.indexOf('\n')) >= 0) {
-          const line = buf.slice(0, nl).trim();
-
-          buf = buf.slice(nl + 1);
-
-          if (!line) continue;
-
-          const f = JSON.parse(line);
-
-          if (f.kind === 'EVENT') onEvent?.(f);
-          else return f;
-        }
-
-        if (done) break;
       }
 
-      if (buf.trim()) return JSON.parse(buf);
-
-      throw new Error('HTTP bridge closed without a final reply');
+      return readFinal(res.body, onEvent);
     },
-    close() {},
+    close() {
+      // each request is its own fetch; there is no connection to close
+    },
   };
 }
 
@@ -300,6 +366,29 @@ export function lines(
     }
   >();
   let buf = '';
+  /** Route one reply line to the request it answers; unparseable or unmatched lines are dropped. */
+  const deliver = (line: string) => {
+    let f: Reply;
+
+    try {
+      f = JSON.parse(line);
+    } catch {
+      return;
+    }
+
+    const p = pending.get(f.re);
+
+    if (!p) {
+      return;
+    }
+
+    if (f.kind === 'EVENT') {
+      p.onEvent?.(f);
+    } else {
+      pending.delete(f.re);
+      p.resolve(f);
+    }
+  };
 
   return {
     request(frame, onEvent) {
@@ -319,36 +408,18 @@ export function lines(
         return;
       }
 
-      let nl: number;
+      const { complete, rest } = completeLines(buf);
 
-      while ((nl = buf.indexOf('\n')) >= 0) {
-        const line = buf.slice(0, nl).trim();
+      buf = rest;
 
-        buf = buf.slice(nl + 1);
-
-        if (!line) continue;
-
-        let f: any;
-
-        try {
-          f = JSON.parse(line);
-        } catch {
-          continue;
-        }
-
-        const p = pending.get(f.re);
-
-        if (!p) continue;
-
-        if (f.kind === 'EVENT') p.onEvent?.(f);
-        else {
-          pending.delete(f.re);
-          p.resolve(f);
-        }
+      for (const line of complete) {
+        deliver(line);
       }
     },
     fail(err) {
-      for (const p of pending.values()) p.reject(err);
+      for (const p of pending.values()) {
+        p.reject(err);
+      }
 
       pending.clear();
     },

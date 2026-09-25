@@ -50,10 +50,11 @@ export default {
     const url = new URL(req.url);
     const name = url.pathname.split('/')[1];
 
-    if (!(name in SERVICES))
+    if (!(name in SERVICES)) {
       return new Response(HOME.replaceAll('<this-origin>', url.origin), {
         headers: { 'content-type': 'text/plain; charset=utf-8' },
       });
+    }
 
     let key = 'public';
     let body: string | undefined;
@@ -61,14 +62,19 @@ export default {
     if (req.method === 'POST') {
       body = await req.text();
 
-      if (body.length > MAX_FRAME)
+      if (body.length > MAX_FRAME) {
         return new Response('frame exceeds 1 MiB', { status: 413 });
+      }
 
       try {
         const k = JSON.parse(body)?.proof?.key;
 
-        if (typeof k === 'string' && k.length < 100) key = k;
-      } catch {}
+        if (typeof k === 'string' && k.length < 100) {
+          key = k;
+        }
+      } catch {
+        // Not JSON: the shared 'public' instance answers with the parse error.
+      }
     }
 
     const stub = env.DEMO.get(env.DEMO.idFromName(`${name}:${key}`));

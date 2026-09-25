@@ -1,18 +1,23 @@
 // Regression tests for the security audit findings (see docs/design.md).
-import net from 'node:net';
-import { PassThrough } from 'node:stream';
+
 import { mkdtempSync, writeFileSync } from 'node:fs';
+import net, { type AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import { afterAll, describe, expect, it } from 'vitest';
-import * as P from '../src/index.js';
-import { listen, serveHttp } from '../src/node.js';
-import { runMcpBridge } from '../src/mcp.js';
 import { shop } from '../../examples/shop.ts';
+import * as P from '../src/index.js';
+import { runMcpBridge } from '../src/mcp.js';
+import { listen, serveHttp } from '../src/node.js';
 
 const closers: (() => void)[] = [];
 
-afterAll(() => closers.forEach((c) => c()));
+afterAll(() => {
+  for (const close of closers) {
+    close();
+  }
+});
 
 const principal = await P.keyPair(),
   agent = await P.keyPair(),
@@ -33,12 +38,17 @@ function payService(opts: { slow?: number; failRevert?: boolean } = {}) {
       summary: `pay ${params.to} ${params.amt}`,
       effects: [P.charge(`acct/${params.to}`)],
       cost: P.money(params.amt),
-      apply: async () => (
-        opts.slow && (await sleep(opts.slow)),
-        { secret: `order-for-${params.to}` }
-      ),
+      apply: async () => {
+        if (opts.slow) {
+          await sleep(opts.slow);
+        }
+
+        return { secret: `order-for-${params.to}` };
+      },
       revert: async () => {
-        if (opts.failRevert) throw new Error('bank down');
+        if (opts.failRevert) {
+          throw new Error('bank down');
+        }
       },
     }),
   });
@@ -57,10 +67,23 @@ const client = async (
 const intent = async (c: P.Client, params: Record<string, unknown>) => {
   const r = await c.intent('pay.send', params);
 
-  if (r.kind !== 'PROPOSALS') throw new Error(r.lens);
+  if (r.kind !== 'PROPOSALS') {
+    throw new Error(r.lens);
+  }
 
   return r.proposals[0];
 };
+
+// The parts of the bridge's JSON-RPC messages these tests read.
+interface RpcMessage {
+  id: number;
+  method?: string;
+  result: {
+    tools?: { name: string }[];
+    content: { text: string }[];
+    isError?: boolean;
+  };
+}
 
 describe('security regressions', () => {
   it("[H1] malformed or aborted HTTP requests don't crash the bridge", async () => {
@@ -68,14 +91,17 @@ describe('security regressions', () => {
 
     closers.push(() => server.close());
 
-    const port = (server.address() as any).port;
+    const port = (server.address() as AddressInfo).port;
     // Send raw bytes, then hang up after a moment. The point is only that the server survives.
     const raw = (data: string) =>
       new Promise<void>((res) => {
         const s = net.connect(port, '127.0.0.1', () => s.write(data));
 
         s.on('error', () => {});
-        setTimeout(() => (s.destroy(), res()), 150);
+        setTimeout(() => {
+          s.destroy();
+          res();
+        }, 150);
       });
 
     await raw('GET /parley HTTP/1.1\r\nHost: [bad\r\n\r\n');
@@ -126,7 +152,7 @@ describe('security regressions', () => {
       async request(f, e) {
         const r = await real.handle(JSON.parse(JSON.stringify(f)), e);
 
-        if (f.verb === 'COMMIT' && r.kind === 'ERROR' && r.consent)
+        if (f.verb === 'COMMIT' && r.kind === 'ERROR' && r.consent) {
           return {
             ...r,
             consent: {
@@ -137,6 +163,7 @@ describe('security regressions', () => {
               summary: 'Apply a 5% coupon (free)',
             },
           };
+        }
 
         return r;
       },
@@ -156,17 +183,15 @@ describe('security regressions', () => {
       output = new PassThrough();
     let elicited = 0;
     const done = runMcpBridge([c], { input, output });
-    const replies = new Map<number, any>();
+    const replies = new Map<number, RpcMessage>();
     let buf = '';
 
     output.setEncoding('utf8');
     output.on('data', (d: string) => {
       buf += d;
 
-      let nl;
-
-      while ((nl = buf.indexOf('\n')) >= 0) {
-        const m = JSON.parse(buf.slice(0, nl));
+      for (let nl = buf.indexOf('\n'); nl >= 0; nl = buf.indexOf('\n')) {
+        const m: RpcMessage = JSON.parse(buf.slice(0, nl));
 
         buf = buf.slice(nl + 1);
 
@@ -179,18 +204,22 @@ describe('security regressions', () => {
               result: { action: 'accept', content: { approve: true } },
             })}\n`,
           );
-        } else replies.set(m.id, m);
+        } else {
+          replies.set(m.id, m);
+        }
       }
     });
 
-    const rpc = async (id: number, method: string, params: any) => {
+    const rpc = async (id: number, method: string, params: unknown) => {
       input.write(
         `${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`,
       );
 
-      while (!replies.has(id)) await sleep(5);
+      while (!replies.has(id)) {
+        await sleep(5);
+      }
 
-      return replies.get(id).result;
+      return replies.get(id)!.result;
     };
 
     await rpc(1, 'initialize', { capabilities: { elicitation: {} } });
@@ -305,7 +334,7 @@ describe('security regressions', () => {
       { risk: 'toString' },
       null,
       { risk: 'constructor' },
-    ] as any[]) {
+    ] as unknown as P.Caveat[]) {
       const g = await P.issueGrant({
         principal,
         to: agent.public,
@@ -328,7 +357,9 @@ describe('security regressions', () => {
     const c = await client(payService({ failRevert: true }), agent, principal);
     const r = await c.commit(await intent(c, { to: 'a', amt: 1 }));
 
-    if (r.kind !== 'RECEIPT') throw new Error(r.lens);
+    if (r.kind !== 'RECEIPT') {
+      throw new Error(r.lens);
+    }
 
     const frames: string[] = [];
     const [u1, u2] = await Promise.all([
@@ -345,7 +376,7 @@ describe('security regressions', () => {
 
     closers.push(() => server.close());
 
-    const s = net.connect((server.address() as any).port, '127.0.0.1');
+    const s = net.connect((server.address() as AddressInfo).port, '127.0.0.1');
     let out = '';
 
     s.setEncoding('utf8');
@@ -363,7 +394,9 @@ describe('security regressions', () => {
         '\n',
     );
 
-    for (let i = 0; i < 100 && !out.includes('"re":"ok"'); i++) await sleep(10);
+    for (let i = 0; i < 100 && !out.includes('"re":"ok"'); i++) {
+      await sleep(10);
+    }
 
     s.destroy();
     expect(out).toContain('frame exceeds 1 MiB');

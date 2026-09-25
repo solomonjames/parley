@@ -1,29 +1,31 @@
 #!/usr/bin/env node
+import { createInterface, type Interface } from 'node:readline/promises';
 /** parley — command line for the Parley protocol. */
 import { parseArgs } from 'node:util';
-import { createInterface } from 'node:readline/promises';
+import type { Client } from './client.js';
+import type { KeyPair } from './crypto.js';
+import { proposalHash } from './crypto.js';
 import {
+  type Caveat,
   consentGrant,
   decodeConsentCode,
   delegateGrant,
+  type GrantInfo,
   inspectGrant,
   issueGrant,
-  type Caveat,
 } from './grants.js';
 import { agentKey, home, loadGrants, principalKey, saveGrant } from './home.js';
 import { effectLine, fmtTime, lean, lens } from './lens.js';
-import { proposalHash } from './crypto.js';
 import { runMcpBridge } from './mcp.js';
+import { connect } from './node.js';
 import {
-  CLIENTS,
   addService,
+  CLIENTS,
   detectedClients,
   listServices,
   removeService,
 } from './setup.js';
-import { connect } from './node.js';
-import type { Client } from './client.js';
-import type { Verb } from './types.js';
+import type { ConsentRequest, Proposal, Risk, Verb } from './types.js';
 
 const HELP = `parley — the protocol agents speak
 
@@ -99,10 +101,10 @@ const { values: o, positionals: args } = parseArgs({
   },
 });
 
-const die = (msg: string): never => {
+function die(msg: string): never {
   console.error(msg);
   process.exit(1);
-};
+}
 
 function duration(s: string): number {
   const m =
@@ -123,22 +125,35 @@ function limit(s: string) {
 function caveats(): Caveat[] {
   const c: Caveat[] = [];
 
-  if (o.svc) c.push({ svc: o.svc });
+  if (o.svc) {
+    c.push({ svc: o.svc });
+  }
 
-  if (o.can) c.push({ can: o.can });
+  if (o.can) {
+    c.push({ can: o.can });
+  }
 
-  if (o.verbs)
+  if (o.verbs) {
     c.push({
       verbs: o.verbs.split(',').map((v) => v.trim().toUpperCase()) as Verb[],
     });
+  }
 
-  if (o.exp) c.push({ exp: Math.floor(Date.now() / 1000) + duration(o.exp) });
+  if (o.exp) {
+    c.push({ exp: Math.floor(Date.now() / 1000) + duration(o.exp) });
+  }
 
-  if (o.per) c.push({ per: limit(o.per) });
+  if (o.per) {
+    c.push({ per: limit(o.per) });
+  }
 
-  if (o.spend) c.push({ spend: limit(o.spend) });
+  if (o.spend) {
+    c.push({ spend: limit(o.spend) });
+  }
 
-  if (o.risk) c.push({ risk: o.risk as any });
+  if (o.risk) {
+    c.push({ risk: o.risk as Risk });
+  }
 
   return c;
 }
@@ -149,7 +164,9 @@ function kv(pairs: string[]): Record<string, unknown> {
   for (const p of pairs) {
     const i = p.indexOf('=');
 
-    if (i < 0) die(`expected key=value, got ${p}`);
+    if (i < 0) {
+      die(`expected key=value, got ${p}`);
+    }
 
     const v = p.slice(i + 1);
 
@@ -179,609 +196,714 @@ const show = (r: { lens: string }) =>
     o.json ? JSON.stringify({ ...r, lens: undefined }, null, 2) : r.lens,
   );
 
+/** A command that works locally (keys, grants, setup, servers). */
+type Command = (rest: string[]) => Promise<void>;
+/** A command that talks to the service at the first argument; `args` are the rest. */
+type ServiceCommand = (c: Client, args: string[]) => Promise<void>;
+
+const COMMANDS = new Map<string, Command>([
+  ['init', cmdInit],
+  ['whoami', cmdWhoami],
+  ['grant', cmdGrant],
+  ['grant-import', cmdGrantImport],
+  ['delegate', cmdDelegate],
+  ['inspect', cmdInspect],
+  ['approve', cmdApprove],
+  ['test-drive', cmdTestDrive],
+  ['demo', cmdDemo],
+  ['examples', cmdExamples],
+  ['openapi', cmdOpenapi],
+  ['mcp', cmdMcp],
+  ['add', cmdAdd],
+  ['remove', cmdRemove],
+  ['services', cmdServices],
+  ['setup', cmdInstall],
+  ['install', cmdInstall],
+  ['uninstall', cmdUninstall],
+  ['doctor', cmdDoctor],
+]);
+
+const SERVICE_COMMANDS = new Map<string, ServiceCommand>([
+  ['hello', cmdHello],
+  ['ask', cmdAsk],
+  ['intent', cmdIntent],
+  ['commit', cmdCommit],
+  ['undo', cmdUndo],
+  ['expand', cmdExpand],
+  [
+    'do',
+    (c, [capability, ...params]) => interactive(c, capability, kv(params)),
+  ],
+]);
+
 async function main() {
   const [cmd, ...rest] = args;
 
-  if (!cmd || o.help) return console.log(HELP);
+  if (!cmd || o.help) {
+    return console.log(HELP);
+  }
 
-  switch (cmd) {
-    case 'init': {
-      const p = await principalKey(true),
-        a = await agentKey(true);
+  const command = COMMANDS.get(cmd);
 
-      console.log(
-        `principal ${p!.public}\nagent     ${a!.public}\n\nnext: parley grant --exp 24h --spend 100USD --risk low`,
-      );
-
-      return;
-    }
-    case 'whoami': {
-      const p = await principalKey(),
-        a = await agentKey();
-
-      console.log(
-        `principal ${p?.public ?? '(none — run parley init)'}\nagent     ${a?.public ?? '(none)'}`,
-      );
-
-      return;
-    }
-    case 'grant': {
-      const p =
-        (await principalKey()) ?? die('no principal key — run parley init');
-      const to = o.to ?? (await agentKey())?.public ?? die('no agent key');
-      const token = await issueGrant({ principal: p, to, caveats: caveats() });
-      const info = await inspectGrant(token);
-
-      if (!o.to) saveGrant(token, 'grants', info.id.slice(0, 16));
-
-      console.log(token);
-      console.error(
-        `\ngrant ${info.id.slice(0, 16)} → ${to}\n${lean({ caveats: info.blocks[0].caveats })}${o.to ? '' : `\nsaved to ${home()}/grants`}`,
-      );
-
-      return;
-    }
-    case 'grant-import': {
-      const token = rest[0] ?? die('usage: parley grant-import <pg1.… token>');
-      const info = await inspectGrant(token);
-      const a = await agentKey();
-
-      if (!a || info.holder !== a.public)
-        die(
-          `this grant is for ${info.holder}, not this machine's agent key ${a?.public ?? '(none: run parley install)'}`,
-        );
-
-      saveGrant(token, 'grants', info.id.slice(0, 16));
-      console.log(`✓ imported grant ${info.id.slice(0, 16)} from ${info.iss}`);
-
-      return;
-    }
-    case 'delegate': {
-      const a = (await agentKey()) ?? die('no agent key');
-
-      console.log(
-        await delegateGrant(
-          rest[0] ?? die('usage: parley delegate <token> --to <key>'),
-          { holder: a, to: o.to ?? die('--to required'), caveats: caveats() },
-        ),
-      );
-
-      return;
-    }
-    case 'inspect': {
-      const info = await inspectGrant(
-        rest[0] ?? die('usage: parley inspect <token>'),
-      );
-
-      console.log(
-        lean({
-          id: info.id,
-          principal: info.iss,
-          holder: info.holder,
-          chain: info.blocks.map((b) => ({
-            to: b.sub,
-            issued: fmtTime(b.iat),
-            caveats: b.caveats.map((c) => JSON.stringify(c)),
-          })),
-        }),
-      );
-
-      return;
-    }
-    case 'approve': {
-      const p =
-        (await principalKey()) ??
-        die('no principal key here: approve on the machine that holds it');
-      const consent = decodeConsentCode(
-        rest[0] ?? die('usage: parley approve <pc1.… code>'),
-      );
-
-      if (consent.principal !== p.public)
-        die(
-          `this consent is for principal ${consent.principal}, not ${p.public}`,
-        );
-
-      const agent = o.to ?? (await agentKey())?.public ?? die('no agent key');
-
-      if (consent.detail) {
-        const d = consent.detail;
-
-        if (
-          d.id !== consent.proposal ||
-          d.hash !== consent.hash ||
-          d.capability !== consent.capability ||
-          (await proposalHash(d)) !== consent.hash
-        )
-          die(
-            "✗ this consent code's proposal doesn't match its hash: refusing",
-          );
-
-        console.log(
-          `at ${consent.service}:\n` +
-            lens({
-              parley: 1,
-              id: '-',
-              re: '-',
-              kind: 'PROPOSALS',
-              proposals: [d],
-            })
-              .split('\n')
-              .slice(1)
-              .join('\n'),
-        );
-      } else {
-        console.log(
-          `⚠ no proposal details in this code; only the service's summary:\n${consent.summary}\n  service: ${consent.service} · ${consent.capability} · proposal ${consent.proposal}`,
-        );
-      }
-
-      console.log(`  approval expires: ${fmtTime(consent.expires)}`);
-
-      if (!process.stdin.isTTY)
-        die('✗ approval needs an interactive terminal: a human has to confirm');
-
-      const rl = createInterface({
-        input: process.stdin,
-        output: process.stdout,
-      });
-      const ok = /^y/i.test(
-        await rl.question('\napprove this exact action? [y/N] › '),
-      );
-
-      rl.close();
-
-      if (!ok) die('not approved');
-
-      saveGrant(
-        await consentGrant({ principal: p, agent, consent }),
-        'consents',
-        consent.hash,
-      );
-      console.log(
-        '✓ approved: a one-time consent for this proposal only. The agent can commit now.',
-      );
-
-      return;
-    }
-    case 'test-drive': {
-      try {
-        await import('@anthropic-ai/sdk');
-      } catch {
-        // Keep parley-protocol dependency-free: fetch the SDK only for this command.
-        const { spawnSync } = await import('node:child_process');
-        const { createRequire } = await import('node:module');
-        const version = createRequire(import.meta.url)(
-          '../package.json',
-        ).version;
-
-        console.error('fetching @anthropic-ai/sdk for the test drive…');
-
-        const r = spawnSync(
-          'npx',
-          [
-            '-y',
-            '-p',
-            '@anthropic-ai/sdk',
-            '-p',
-            `parley-protocol@${version}`,
-            'parley',
-            ...process.argv.slice(2),
-          ],
-          { stdio: 'inherit' },
-        );
-
-        process.exit(r.status ?? 1);
-      }
-
-      const { testDrive } = await import('./testdrive.js');
-
-      await testDrive({ model: o.model, prompt: rest.join(' ') || undefined });
-      process.exit(0);
-    }
-    case 'demo': {
-      const { runDemo } = await import('./examples/demo.js');
-
-      await runDemo();
-      process.exit(0);
-    }
-    case 'examples': {
-      const { calendar, shop, billing } = await import('./examples/index.js');
-      const { listen } = await import('./node.js');
-      const trust = (process.env.PARLEY_TRUST ?? '').split(',').filter(Boolean);
-      const p = await principalKey();
-
-      if (p && !trust.length) trust.push(p.public);
-
-      const port = Number(o.port ?? 7447);
-
-      await listen(calendar({ trust }), { port, host: o.host });
-      await listen(shop({ trust }), { port: port + 2, host: o.host });
-      await listen(billing({ trust }), { port: port + 4, host: o.host });
-      console.error(
-        `✓ calendar parley://127.0.0.1:${port} · shop parley://127.0.0.1:${port + 2} · billing parley://127.0.0.1:${port + 4} · trusting ${trust.length} principal(s)${trust.length ? '' : ' (run parley init first to commit anything)'}\n  try: parley do parley://127.0.0.1:${port} calendar.reschedule event=Ana`,
-      );
-
-      return;
-    }
-    case 'openapi': {
-      const { fromOpenAPI, loadOpenAPI } = await import('./openapi.js');
-      const { listen, serveHttp } = await import('./node.js');
-      const { PRESETS, presetOptions } = await import('./presets.js');
-      const preset = o.preset
-        ? (PRESETS[o.preset] ??
-          die(
-            `unknown preset ${o.preset}; one of: ${Object.keys(PRESETS).join(', ')}`,
-          ))
-        : null;
-
-      if (preset)
-        for (const e of preset.env)
-          if (!process.env[e])
-            console.error(
-              `note: ${e} is not set; ${o.preset} will only do what works without it`,
-            );
-
-      const spec = await loadOpenAPI(
-        preset?.spec ??
-          rest[0] ??
-          die(
-            'usage: parley openapi <spec.json|url> [--base <url>]  (or --preset ' +
-              Object.keys(PRESETS).join('|') +
-              ')',
-          ),
-      );
-      const headers = {
-        ...(preset ? presetOptions(preset).headers : {}),
-        ...Object.fromEntries(
-          (o.header ?? []).map((h) => [
-            h.slice(0, h.indexOf(':')).trim(),
-            h.slice(h.indexOf(':') + 1).trim(),
-          ]),
-        ),
-      };
-      const trust = (process.env.PARLEY_TRUST ?? '').split(',').filter(Boolean);
-      const p = await principalKey();
-
-      if (p && !trust.length) trust.push(p.public);
-
-      const svc = fromOpenAPI(spec, {
-        ...(preset ? presetOptions(preset) : {}),
-        ...(o.base ? { baseUrl: o.base } : {}),
-        ...(o.id ? { id: o.id } : {}),
-        ...(o.prefix ? { prefix: o.prefix } : {}),
-        headers,
-        trust,
-      });
-      const port = Number(o.port ?? 7447);
-
-      await listen(svc, { port, host: o.host });
-
-      if (o.http) await serveHttp(svc, { port: Number(o.http), host: o.host });
-
-      const n = svc.capabilities.length;
-
-      console.error(
-        `✓ ${svc.id}: ${n} capabilities (${svc.capabilities.filter((c) => c.kind === 'ask').length} ask, ${svc.capabilities.filter((c) => c.kind === 'intent').length} intent)\n  parley://127.0.0.1:${port}${o.http ? `  ·  http://127.0.0.1:${o.http}/parley` : ''}\n  trusting ${trust.length} principal(s) for writes\n  try: parley hello parley://127.0.0.1:${port}`,
-      );
-
-      return;
-    }
-    case 'mcp': {
-      // With no URLs, serve the services registered with `parley add` (~/.parley/services.json).
-      const urls = rest.length ? rest : listServices();
-      const clients = (
-        await Promise.all(
-          urls.map((u) =>
-            client(u).catch(
-              (e) => (
-                console.error(`parley mcp: ${u}: ${(e as Error).message}`), null
-              ),
-            ),
-          ),
-        )
-      ).filter((c): c is Client => !!c);
-
-      await runMcpBridge(clients);
-      process.exit(0);
-    }
-    case 'add': {
-      const url = rest[0] ?? die('usage: parley add <url>');
-      const c = await client(url);
-      const b = await c.hello(400);
-
-      c.close();
-
-      if (b.kind !== 'BRIEF') return die(b.lens);
-
-      addService(url);
-      console.log(
-        `✓ added ${b.service.name} (${b.service.id}) · ${b.capabilities.length} capabilities\n  restart your AI tool to pick it up`,
-      );
-
-      return;
-    }
-    case 'remove': {
-      removeService(rest[0] ?? die('usage: parley remove <url>'));
-      console.log(`✓ removed ${rest[0]}`);
-
-      return;
-    }
-    case 'services': {
-      const s = listServices();
-
-      console.log(
-        s.length ? s.join('\n') : 'no services yet: parley add <url>',
-      );
-
-      return;
-    }
-    case 'setup':
-    case 'install': {
-      const scope = { local: !!o.local, cwd: process.cwd() };
-      const names = o.target
-        ? o.target.split(',').map((t) => t.trim())
-        : detectedClients();
-
-      for (const n of names)
-        if (!CLIENTS[n])
-          die(
-            `unknown target ${n}; one of: ${Object.keys(CLIENTS).join(', ')}`,
-          );
-
-      const a = (await agentKey()) ?? (await agentKey(true))!;
-
-      console.log(`agent key   ${a.public} (${home()})`);
-
-      // The principal (approval) key should live where agents can't read it. Only create it here
-      // when asked: --with-principal, or a yes at the interactive prompt.
-      let p = await principalKey();
-
-      if (!p) {
-        let create = !!o['with-principal'];
-
-        if (!create && process.stdin.isTTY && !o.yes) {
-          const rl = createInterface({
-            input: process.stdin,
-            output: process.stdout,
-          });
-
-          create = /^y/i.test(
-            await rl.question(
-              'Create your approval (principal) key on this machine too? Handy for trying Parley, but an agent with shell access could read it. [y/N] › ',
-            ),
-          );
-          rl.close();
-        }
-
-        if (create) {
-          p = (await principalKey(true))!;
-          console.log(
-            `principal   ${p.public} (on this machine: fine for trying things; see SECURITY.md for real use)`,
-          );
-        } else {
-          console.log(
-            `principal   not on this machine (recommended). On the device that holds it, run:\n              parley grant --to ${a.public} --risk low --per 25USD --spend 100USD --exp 30d\n            and save the token here with: parley grant-import <token>   (or re-run with --with-principal to try things quickly)`,
-          );
-        }
-      } else console.log(`principal   ${p.public}`);
-
-      if (p && !loadGrants('grants').length) {
-        const caveats: Caveat[] = [
-          { risk: 'low' },
-          { per: { max: 2500, currency: 'USD' } },
-          { spend: { max: 10000, currency: 'USD' } },
-          { exp: Math.floor(Date.now() / 1000) + 30 * 86400 },
-        ];
-        const token = await issueGrant({ principal: p, to: a.public, caveats });
-
-        saveGrant(token, 'grants', (await inspectGrant(token)).id.slice(0, 16));
-        console.log(
-          'policy      low-risk actions, ≤ 25.00 USD each, ≤ 100.00 USD total, 30 days. Anything else asks you. (change: parley grant …)',
-        );
-      }
-
-      if (!names.length)
-        console.log(
-          `\nno AI tools detected. Pick some: parley install --target ${Object.keys(CLIENTS).join(',')}`,
-        );
-
-      for (const n of names) {
-        try {
-          for (const line of CLIENTS[n].install(scope))
-            console.log(`✓ ${CLIENTS[n].name}: ${line}`);
-        } catch (e) {
-          console.log(`✗ ${CLIENTS[n].name}: ${(e as Error).message}`);
-        }
-      }
-
-      const s = listServices();
-
-      console.log(
-        s.length
-          ? `\nservices    ${s.join(', ')}`
-          : '\nnext: add a service with `parley add <url>`, or try the examples: `parley examples`, then `parley add parley://127.0.0.1:7447`',
-      );
-      console.log(
-        'restart your AI tool, then ask it to do something. Check anything with: parley doctor',
-      );
-
-      return;
-    }
-    case 'uninstall': {
-      const scope = { local: !!o.local, cwd: process.cwd() };
-      const names = o.target
-        ? o.target.split(',').map((t) => t.trim())
-        : Object.keys(CLIENTS);
-      let n = 0;
-
-      for (const name of names) {
-        try {
-          for (const line of CLIENTS[name]?.uninstall(scope) ?? []) {
-            console.log(`✓ ${CLIENTS[name].name}: ${line}`);
-            n++;
-          }
-        } catch (e) {
-          console.log(
-            `✗ ${CLIENTS[name]?.name ?? name}: ${(e as Error).message}`,
-          );
-        }
-      }
-
-      console.log(
-        n
-          ? `done. Keys and grants in ${home()} were left in place (delete that folder to remove them).`
-          : 'nothing to remove.',
-      );
-
-      return;
-    }
-    case 'doctor': {
-      const ok = (m: string) => console.log(`✓ ${m}`),
-        warn = (m: string) => console.log(`! ${m}`),
-        bad = (m: string) => console.log(`✗ ${m}`);
-      const major = Number(process.versions.node.split('.')[0]);
-
-      if (major >= 20) ok(`node ${process.versions.node}`);
-      else bad(`node ${process.versions.node}: Parley needs node ≥ 20`);
-
-      const a = await agentKey();
-
-      if (a) ok(`agent key ${a.public.slice(0, 24)}…`);
-      else bad('no agent key: run parley install');
-
-      const p = await principalKey();
-
-      if (p)
-        warn(
-          `principal key is readable here (${process.env.PARLEY_PRINCIPAL_HOME ?? home()}). Fine for trying things; for real use keep it away from agents (SECURITY.md)`,
-        );
-      else ok('principal key is not on this machine (recommended)');
-
-      const now = Math.floor(Date.now() / 1000);
-      const grants = loadGrants('grants');
-
-      if (!grants.length)
-        bad(
-          'no grants: your agent can read but not act. parley grant … (or parley install)',
-        );
-
-      for (const g of grants) {
-        try {
-          const info = await inspectGrant(g);
-          const cav = info.blocks.flatMap((b) => b.caveats) as any[];
-          const exp = Math.min(
-            ...cav.filter((c) => c.exp).map((c) => c.exp),
-            Infinity,
-          );
-          const scope =
-            cav.find((c) => c.svc)?.svc?.join(', ') ?? 'all services';
-          const holder =
-            a && info.holder === a.public ? '' : ' (held by another key!)';
-
-          if (exp !== Infinity && exp <= now)
-            bad(
-              `grant ${info.id.slice(0, 10)} expired ${fmtTime(exp)}${holder}`,
-            );
-          else
-            ok(
-              `grant ${info.id.slice(0, 10)}: ${scope}; ${exp === Infinity ? 'no expiry' : `expires ${fmtTime(exp)}`}${holder}`,
-            );
-        } catch {
-          bad('a saved grant is unreadable');
-        }
-      }
-
-      const services = listServices();
-
-      if (!services.length) warn('no services: parley add <url>');
-
-      for (const u of services) {
-        const t0 = Date.now();
-
-        try {
-          const c = await client(u);
-          const b = await c.hello(200);
-
-          c.close();
-
-          if (b.kind === 'BRIEF')
-            ok(`${u}: ${b.service.name} (${Date.now() - t0} ms)`);
-          else bad(`${u}: ${b.lens}`);
-        } catch (e) {
-          bad(`${u}: ${(e as Error).message}`);
-        }
-      }
-
-      const scope = { local: !!o.local, cwd: process.cwd() };
-      const installed = Object.values(CLIENTS)
-        .filter((t) => {
-          try {
-            return t.installed(scope);
-          } catch {
-            return false;
-          }
-        })
-        .map((t) => t.name);
-
-      if (installed.length) ok(`registered with: ${installed.join(', ')}`);
-      else warn('not registered with any AI tool: parley install');
-
-      return;
-    }
+  if (command) {
+    return command(rest);
   }
 
   const [url, ...more] = rest;
 
-  if (!url) die(HELP);
+  if (!url) {
+    die(HELP);
+  }
 
   const c = await client(url);
-  const budget = o.budget ? Number(o.budget) : undefined;
 
   try {
-    switch (cmd) {
-      case 'hello':
-        show(await c.hello(budget));
+    const talk =
+      SERVICE_COMMANDS.get(cmd) ?? die(`unknown command ${cmd}\n\n${HELP}`);
 
-        break;
-      case 'ask':
-        show(await c.ask(more[0], kv(more.slice(1)), { budget }));
-
-        break;
-      case 'intent':
-        show(
-          await c.intent(more[0], kv(more.slice(1)), { goal: o.goal, budget }),
-        );
-
-        break;
-      case 'commit':
-        show(
-          await c.commit(
-            { id: more[0], hash: more[1] },
-            { onEvent: (e) => console.error(e.lens) },
-          ),
-        );
-
-        break;
-      case 'undo':
-        show(await c.undo(more[0], { onEvent: (e) => console.error(e.lens) }));
-
-        break;
-      case 'expand':
-        show(await c.expand(more[0], { budget }));
-
-        break;
-      case 'do':
-        await interactive(c, more[0], kv(more.slice(1)));
-
-        break;
-      default:
-        die(`unknown command ${cmd}\n\n${HELP}`);
-    }
+    await talk(c, more);
   } finally {
     c.close();
   }
 }
 
+const budgetFlag = () => (o.budget ? Number(o.budget) : undefined);
+
+/** Where to install for AI tools: this project (--local) or the user's home. */
+const installScope = () => ({ local: !!o.local, cwd: process.cwd() });
+
+/** Ask a yes/no question on the terminal; only an answer starting with y counts as yes. */
+async function confirm(question: string): Promise<boolean> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const yes = /^y/i.test(await rl.question(question));
+
+  rl.close();
+
+  return yes;
+}
+
+/** Principals whose grants a local service trusts: PARLEY_TRUST, else the principal key here. */
+async function trustedPrincipals(): Promise<string[]> {
+  const trust = (process.env.PARLEY_TRUST ?? '').split(',').filter(Boolean);
+  const p = await principalKey();
+
+  if (p && !trust.length) {
+    trust.push(p.public);
+  }
+
+  return trust;
+}
+
+/** A proposal's Lens without the header line. */
+const proposalLens = (d: Proposal) =>
+  lens({ parley: 1, id: '-', re: '-', kind: 'PROPOSALS', proposals: [d] })
+    .split('\n')
+    .slice(1)
+    .join('\n');
+
+// ---- identity ----
+
+async function cmdInit() {
+  const p = await principalKey(true),
+    a = await agentKey(true);
+
+  console.log(
+    `principal ${p.public}\nagent     ${a.public}\n\nnext: parley grant --exp 24h --spend 100USD --risk low`,
+  );
+}
+
+async function cmdWhoami() {
+  const p = await principalKey(),
+    a = await agentKey();
+
+  console.log(
+    `principal ${p?.public ?? '(none — run parley init)'}\nagent     ${a?.public ?? '(none)'}`,
+  );
+}
+
+async function cmdGrant() {
+  const p = (await principalKey()) ?? die('no principal key — run parley init');
+  const to = o.to ?? (await agentKey())?.public ?? die('no agent key');
+  const token = await issueGrant({ principal: p, to, caveats: caveats() });
+  const info = await inspectGrant(token);
+
+  if (!o.to) {
+    saveGrant(token, 'grants', info.id.slice(0, 16));
+  }
+
+  console.log(token);
+  console.error(
+    `\ngrant ${info.id.slice(0, 16)} → ${to}\n${lean({ caveats: info.blocks[0].caveats })}${o.to ? '' : `\nsaved to ${home()}/grants`}`,
+  );
+}
+
+async function cmdGrantImport(rest: string[]) {
+  const token = rest[0] ?? die('usage: parley grant-import <pg1.… token>');
+  const info = await inspectGrant(token);
+  const a = await agentKey();
+
+  if (!a || info.holder !== a.public) {
+    die(
+      `this grant is for ${info.holder}, not this machine's agent key ${a?.public ?? '(none: run parley install)'}`,
+    );
+  }
+
+  saveGrant(token, 'grants', info.id.slice(0, 16));
+  console.log(`✓ imported grant ${info.id.slice(0, 16)} from ${info.iss}`);
+}
+
+async function cmdDelegate(rest: string[]) {
+  const a = (await agentKey()) ?? die('no agent key');
+
+  console.log(
+    await delegateGrant(
+      rest[0] ?? die('usage: parley delegate <token> --to <key>'),
+      {
+        holder: a,
+        to: o.to ?? die('--to required'),
+        caveats: caveats(),
+      },
+    ),
+  );
+}
+
+async function cmdInspect(rest: string[]) {
+  const info = await inspectGrant(
+    rest[0] ?? die('usage: parley inspect <token>'),
+  );
+
+  console.log(
+    lean({
+      id: info.id,
+      principal: info.iss,
+      holder: info.holder,
+      chain: info.blocks.map((b) => ({
+        to: b.sub,
+        issued: fmtTime(b.iat),
+        caveats: b.caveats.map((c) => JSON.stringify(c)),
+      })),
+    }),
+  );
+}
+
+async function cmdApprove(rest: string[]) {
+  const p =
+    (await principalKey()) ??
+    die('no principal key here: approve on the machine that holds it');
+  const consent = decodeConsentCode(
+    rest[0] ?? die('usage: parley approve <pc1.… code>'),
+  );
+
+  if (consent.principal !== p.public) {
+    die(`this consent is for principal ${consent.principal}, not ${p.public}`);
+  }
+
+  const agent = o.to ?? (await agentKey())?.public ?? die('no agent key');
+
+  await showConsent(consent);
+  console.log(`  approval expires: ${fmtTime(consent.expires)}`);
+
+  if (!process.stdin.isTTY) {
+    die('✗ approval needs an interactive terminal: a human has to confirm');
+  }
+
+  if (!(await confirm('\napprove this exact action? [y/N] › '))) {
+    die('not approved');
+  }
+
+  saveGrant(
+    await consentGrant({ principal: p, agent, consent }),
+    'consents',
+    consent.hash,
+  );
+  console.log(
+    '✓ approved: a one-time consent for this proposal only. The agent can commit now.',
+  );
+}
+
+/** Print what a consent code asks for, refusing if its proposal details don't match its hash. */
+async function showConsent(consent: ConsentRequest & { detail?: Proposal }) {
+  const d = consent.detail;
+
+  if (!d) {
+    console.log(
+      `⚠ no proposal details in this code; only the service's summary:\n${consent.summary}\n  service: ${consent.service} · ${consent.capability} · proposal ${consent.proposal}`,
+    );
+
+    return;
+  }
+
+  if (
+    d.id !== consent.proposal ||
+    d.hash !== consent.hash ||
+    d.capability !== consent.capability ||
+    (await proposalHash(d)) !== consent.hash
+  ) {
+    die("✗ this consent code's proposal doesn't match its hash: refusing");
+  }
+
+  console.log(`at ${consent.service}:\n${proposalLens(d)}`);
+}
+
+// ---- try it ----
+
+async function cmdTestDrive(rest: string[]) {
+  try {
+    await import('@anthropic-ai/sdk');
+  } catch {
+    // Keep parley-protocol dependency-free: fetch the SDK only for this command.
+    const { spawnSync } = await import('node:child_process');
+    const { createRequire } = await import('node:module');
+    const version = createRequire(import.meta.url)('../package.json').version;
+
+    console.error('fetching @anthropic-ai/sdk for the test drive…');
+
+    const r = spawnSync(
+      'npx',
+      [
+        '-y',
+        '-p',
+        '@anthropic-ai/sdk',
+        '-p',
+        `parley-protocol@${version}`,
+        'parley',
+        ...process.argv.slice(2),
+      ],
+      { stdio: 'inherit' },
+    );
+
+    process.exit(r.status ?? 1);
+  }
+
+  const { testDrive } = await import('./testdrive.js');
+
+  await testDrive({ model: o.model, prompt: rest.join(' ') || undefined });
+  process.exit(0);
+}
+
+async function cmdDemo() {
+  const { runDemo } = await import('./examples/demo.js');
+
+  await runDemo();
+  process.exit(0);
+}
+
+async function cmdExamples() {
+  const { calendar, shop, billing } = await import('./examples/index.js');
+  const { listen } = await import('./node.js');
+  const trust = await trustedPrincipals();
+  const port = Number(o.port ?? 7447);
+
+  await listen(calendar({ trust }), { port, host: o.host });
+  await listen(shop({ trust }), { port: port + 2, host: o.host });
+  await listen(billing({ trust }), { port: port + 4, host: o.host });
+  console.error(
+    `✓ calendar parley://127.0.0.1:${port} · shop parley://127.0.0.1:${port + 2} · billing parley://127.0.0.1:${port + 4} · trusting ${trust.length} principal(s)${trust.length ? '' : ' (run parley init first to commit anything)'}\n  try: parley do parley://127.0.0.1:${port} calendar.reschedule event=Ana`,
+  );
+}
+
+// ---- bridges ----
+
+async function cmdOpenapi(rest: string[]) {
+  const { fromOpenAPI, loadOpenAPI } = await import('./openapi.js');
+  const { listen, serveHttp } = await import('./node.js');
+  const { PRESETS, presetOptions } = await import('./presets.js');
+  const preset = o.preset
+    ? (PRESETS[o.preset] ??
+      die(
+        `unknown preset ${o.preset}; one of: ${Object.keys(PRESETS).join(', ')}`,
+      ))
+    : null;
+
+  for (const e of preset?.env ?? []) {
+    if (!process.env[e]) {
+      console.error(
+        `note: ${e} is not set; ${o.preset} will only do what works without it`,
+      );
+    }
+  }
+
+  const spec = await loadOpenAPI(
+    preset?.spec ??
+      rest[0] ??
+      die(
+        'usage: parley openapi <spec.json|url> [--base <url>]  (or --preset ' +
+          Object.keys(PRESETS).join('|') +
+          ')',
+      ),
+  );
+  const headers = {
+    ...(preset ? presetOptions(preset).headers : {}),
+    ...headerFlags(),
+  };
+  const trust = await trustedPrincipals();
+  const svc = fromOpenAPI(spec, {
+    ...(preset ? presetOptions(preset) : {}),
+    ...(o.base ? { baseUrl: o.base } : {}),
+    ...(o.id ? { id: o.id } : {}),
+    ...(o.prefix ? { prefix: o.prefix } : {}),
+    headers,
+    trust,
+  });
+  const port = Number(o.port ?? 7447);
+
+  await listen(svc, { port, host: o.host });
+
+  if (o.http) {
+    await serveHttp(svc, { port: Number(o.http), host: o.host });
+  }
+
+  const count = (kind: string) =>
+    svc.capabilities.filter((c) => c.kind === kind).length;
+
+  console.error(
+    `✓ ${svc.id}: ${svc.capabilities.length} capabilities (${count('ask')} ask, ${count('intent')} intent)\n  parley://127.0.0.1:${port}${o.http ? `  ·  http://127.0.0.1:${o.http}/parley` : ''}\n  trusting ${trust.length} principal(s) for writes\n  try: parley hello parley://127.0.0.1:${port}`,
+  );
+}
+
+/** --header "K: V" flags as a header map. */
+const headerFlags = () =>
+  Object.fromEntries(
+    (o.header ?? []).map((h) => [
+      h.slice(0, h.indexOf(':')).trim(),
+      h.slice(h.indexOf(':') + 1).trim(),
+    ]),
+  );
+
+async function cmdMcp(rest: string[]) {
+  // With no URLs, serve the services registered with `parley add` (~/.parley/services.json).
+  const urls = rest.length ? rest : listServices();
+  const clients = (
+    await Promise.all(
+      urls.map((u) =>
+        client(u).catch((e) => {
+          console.error(`parley mcp: ${u}: ${(e as Error).message}`);
+
+          return null;
+        }),
+      ),
+    )
+  ).filter((c): c is Client => !!c);
+
+  await runMcpBridge(clients);
+  process.exit(0);
+}
+
+// ---- services for your AI tools ----
+
+async function cmdAdd(rest: string[]) {
+  const url = rest[0] ?? die('usage: parley add <url>');
+  const c = await client(url);
+  const b = await c.hello(400);
+
+  c.close();
+
+  if (b.kind !== 'BRIEF') {
+    return die(b.lens);
+  }
+
+  addService(url);
+  console.log(
+    `✓ added ${b.service.name} (${b.service.id}) · ${b.capabilities.length} capabilities\n  restart your AI tool to pick it up`,
+  );
+}
+
+async function cmdRemove(rest: string[]) {
+  removeService(rest[0] ?? die('usage: parley remove <url>'));
+  console.log(`✓ removed ${rest[0]}`);
+}
+
+async function cmdServices() {
+  const s = listServices();
+
+  console.log(s.length ? s.join('\n') : 'no services yet: parley add <url>');
+}
+
+async function cmdInstall() {
+  const scope = installScope();
+  const names = o.target
+    ? o.target.split(',').map((t) => t.trim())
+    : detectedClients();
+
+  for (const n of names) {
+    if (!CLIENTS[n]) {
+      die(`unknown target ${n}; one of: ${Object.keys(CLIENTS).join(', ')}`);
+    }
+  }
+
+  const a = (await agentKey()) ?? (await agentKey(true));
+
+  console.log(`agent key   ${a.public} (${home()})`);
+
+  const p = await installPrincipal(a);
+
+  if (p && !loadGrants('grants').length) {
+    await installDefaultPolicy(p, a);
+  }
+
+  if (!names.length) {
+    console.log(
+      `\nno AI tools detected. Pick some: parley install --target ${Object.keys(CLIENTS).join(',')}`,
+    );
+  }
+
+  for (const n of names) {
+    try {
+      for (const line of CLIENTS[n].install(scope)) {
+        console.log(`✓ ${CLIENTS[n].name}: ${line}`);
+      }
+    } catch (e) {
+      console.log(`✗ ${CLIENTS[n].name}: ${(e as Error).message}`);
+    }
+  }
+
+  const s = listServices();
+
+  console.log(
+    s.length
+      ? `\nservices    ${s.join(', ')}`
+      : '\nnext: add a service with `parley add <url>`, or try the examples: `parley examples`, then `parley add parley://127.0.0.1:7447`',
+  );
+  console.log(
+    'restart your AI tool, then ask it to do something. Check anything with: parley doctor',
+  );
+}
+
+/**
+ * The principal (approval) key should live where agents can't read it. Only create it here
+ * when asked: --with-principal, or a yes at the interactive prompt.
+ */
+async function installPrincipal(a: KeyPair): Promise<KeyPair | null> {
+  const existing = await principalKey();
+
+  if (existing) {
+    console.log(`principal   ${existing.public}`);
+
+    return existing;
+  }
+
+  let create = !!o['with-principal'];
+
+  if (!create && process.stdin.isTTY && !o.yes) {
+    create = await confirm(
+      'Create your approval (principal) key on this machine too? Handy for trying Parley, but an agent with shell access could read it. [y/N] › ',
+    );
+  }
+
+  if (!create) {
+    console.log(
+      `principal   not on this machine (recommended). On the device that holds it, run:\n              parley grant --to ${a.public} --risk low --per 25USD --spend 100USD --exp 30d\n            and save the token here with: parley grant-import <token>   (or re-run with --with-principal to try things quickly)`,
+    );
+
+    return null;
+  }
+
+  const p = await principalKey(true);
+
+  console.log(
+    `principal   ${p.public} (on this machine: fine for trying things; see SECURITY.md for real use)`,
+  );
+
+  return p;
+}
+
+/** Grant the agent a safe default policy: low risk, ≤ 25 USD each, ≤ 100 USD total, 30 days. */
+async function installDefaultPolicy(p: KeyPair, a: KeyPair) {
+  const caveats: Caveat[] = [
+    { risk: 'low' },
+    { per: { max: 2500, currency: 'USD' } },
+    { spend: { max: 10000, currency: 'USD' } },
+    { exp: Math.floor(Date.now() / 1000) + 30 * 86400 },
+  ];
+  const token = await issueGrant({ principal: p, to: a.public, caveats });
+
+  saveGrant(token, 'grants', (await inspectGrant(token)).id.slice(0, 16));
+  console.log(
+    'policy      low-risk actions, ≤ 25.00 USD each, ≤ 100.00 USD total, 30 days. Anything else asks you. (change: parley grant …)',
+  );
+}
+
+async function cmdUninstall() {
+  const scope = installScope();
+  const names = o.target
+    ? o.target.split(',').map((t) => t.trim())
+    : Object.keys(CLIENTS);
+  let n = 0;
+
+  for (const name of names) {
+    try {
+      for (const line of CLIENTS[name]?.uninstall(scope) ?? []) {
+        console.log(`✓ ${CLIENTS[name].name}: ${line}`);
+        n++;
+      }
+    } catch (e) {
+      console.log(`✗ ${CLIENTS[name]?.name ?? name}: ${(e as Error).message}`);
+    }
+  }
+
+  console.log(
+    n
+      ? `done. Keys and grants in ${home()} were left in place (delete that folder to remove them).`
+      : 'nothing to remove.',
+  );
+}
+
+// ---- doctor ----
+
+const ok = (m: string) => console.log(`✓ ${m}`);
+const warn = (m: string) => console.log(`! ${m}`);
+const bad = (m: string) => console.log(`✗ ${m}`);
+
+async function cmdDoctor() {
+  const major = Number(process.versions.node.split('.')[0]);
+
+  if (major >= 20) {
+    ok(`node ${process.versions.node}`);
+  } else {
+    bad(`node ${process.versions.node}: Parley needs node ≥ 20`);
+  }
+
+  const a = await agentKey();
+
+  if (a) {
+    ok(`agent key ${a.public.slice(0, 24)}…`);
+  } else {
+    bad('no agent key: run parley install');
+  }
+
+  const p = await principalKey();
+
+  if (p) {
+    warn(
+      `principal key is readable here (${process.env.PARLEY_PRINCIPAL_HOME ?? home()}). Fine for trying things; for real use keep it away from agents (SECURITY.md)`,
+    );
+  } else {
+    ok('principal key is not on this machine (recommended)');
+  }
+
+  await checkGrants(a);
+  await checkServices();
+  checkRegistration();
+}
+
+async function checkGrants(a: KeyPair | null) {
+  const grants = loadGrants('grants');
+
+  if (!grants.length) {
+    bad(
+      'no grants: your agent can read but not act. parley grant … (or parley install)',
+    );
+  }
+
+  for (const g of grants) {
+    try {
+      checkGrant(await inspectGrant(g), a);
+    } catch {
+      bad('a saved grant is unreadable');
+    }
+  }
+}
+
+function checkGrant(info: GrantInfo, a: KeyPair | null) {
+  const now = Math.floor(Date.now() / 1000);
+  const cav = info.blocks.flatMap((b) => b.caveats);
+  const exp = Math.min(
+    ...cav.flatMap((c) => ('exp' in c && c.exp ? [c.exp] : [])),
+    Infinity,
+  );
+  const scope =
+    cav
+      .find((c): c is { svc: string[] } => 'svc' in c && !!c.svc)
+      ?.svc.join(', ') ?? 'all services';
+  const holder = a && info.holder === a.public ? '' : ' (held by another key!)';
+
+  if (exp !== Infinity && exp <= now) {
+    bad(`grant ${info.id.slice(0, 10)} expired ${fmtTime(exp)}${holder}`);
+  } else {
+    ok(
+      `grant ${info.id.slice(0, 10)}: ${scope}; ${exp === Infinity ? 'no expiry' : `expires ${fmtTime(exp)}`}${holder}`,
+    );
+  }
+}
+
+async function checkServices() {
+  const services = listServices();
+
+  if (!services.length) {
+    warn('no services: parley add <url>');
+  }
+
+  for (const u of services) {
+    const t0 = Date.now();
+
+    try {
+      const c = await client(u);
+      const b = await c.hello(200);
+
+      c.close();
+
+      if (b.kind === 'BRIEF') {
+        ok(`${u}: ${b.service.name} (${Date.now() - t0} ms)`);
+      } else {
+        bad(`${u}: ${b.lens}`);
+      }
+    } catch (e) {
+      bad(`${u}: ${(e as Error).message}`);
+    }
+  }
+}
+
+function checkRegistration() {
+  const scope = installScope();
+  const installed = Object.values(CLIENTS)
+    .filter((t) => {
+      try {
+        return t.installed(scope);
+      } catch {
+        return false;
+      }
+    })
+    .map((t) => t.name);
+
+  if (installed.length) {
+    ok(`registered with: ${installed.join(', ')}`);
+  } else {
+    warn('not registered with any AI tool: parley install');
+  }
+}
+
+// ---- talk to a service ----
+
+async function cmdHello(c: Client) {
+  show(await c.hello(budgetFlag()));
+}
+
+async function cmdAsk(c: Client, [capability, ...params]: string[]) {
+  show(await c.ask(capability, kv(params), { budget: budgetFlag() }));
+}
+
+async function cmdIntent(c: Client, [capability, ...params]: string[]) {
+  show(
+    await c.intent(capability, kv(params), {
+      goal: o.goal,
+      budget: budgetFlag(),
+    }),
+  );
+}
+
+async function cmdCommit(c: Client, [id, hash]: string[]) {
+  show(await c.commit({ id, hash }, { onEvent: (e) => console.error(e.lens) }));
+}
+
+async function cmdUndo(c: Client, [receipt]: string[]) {
+  show(await c.undo(receipt, { onEvent: (e) => console.error(e.lens) }));
+}
+
+async function cmdExpand(c: Client, [handle]: string[]) {
+  show(await c.expand(handle, { budget: budgetFlag() }));
+}
+
+/** `parley do`: intent → choose → commit, answering questions and consent prompts at the terminal. */
 async function interactive(
   c: Client,
   capability: string,
@@ -803,66 +925,23 @@ async function interactive(
         continue;
       }
 
-      if (r.kind !== 'PROPOSALS') return;
+      if (r.kind !== 'PROPOSALS') {
+        return;
+      }
 
-      const pick =
-        r.proposals.length === 1
-          ? r.proposals[0]
-          : (r.proposals.find((p) => p.id === '') ?? null);
-      let chosen = pick;
+      const chosen = await chooseProposal(rl, r.proposals);
 
       if (!chosen) {
-        const ans = await rl.question(
-          `\ncommit which? [1-${r.proposals.length}, blank to stop] › `,
-        );
-
-        if (!ans.trim()) return;
-
-        chosen = r.proposals[Number(ans) - 1] ?? die('no such proposal');
-      } else if (!/^y/i.test(await rl.question('\ncommit? [y/N] › '))) return;
+        return;
+      }
 
       let res = await c.commit(chosen, { onEvent: (e) => console.log(e.lens) });
 
       if (res.kind === 'ERROR' && res.code === 'consent_required') {
         console.log(res.lens);
-
-        const p = await principalKey();
-        const k = res.consent!;
-
-        if (
-          k.proposal !== chosen.id ||
-          k.hash !== chosen.hash ||
-          k.capability !== chosen.capability ||
-          k.service !== (await c.audience())
-        )
-          die(
-            "✗ the service's consent request doesn't match the proposal shown; not signing",
-          );
-
-        if (p && p.public === k.principal) {
-          console.log(
-            `\n  ${chosen.summary}\n${chosen.effects.map((e) => `    ${effectLine(e)}`).join('\n')}`,
-          );
-
-          if (
-            /^y/i.test(
-              await rl.question(
-                '\n[principal] approve this exact proposal? [y/N] › ',
-              ),
-            )
-          ) {
-            const token = await consentGrant({
-              principal: p,
-              agent: (await agentKey())!.public,
-              consent: { ...k, expires: Math.min(k.expires, chosen.expires) },
-            });
-
-            res = await c.commit(chosen, {
-              grants: [token],
-              onEvent: (e) => console.log(e.lens),
-            });
-          }
-        }
+        res =
+          (await consentAndRetry({ c, rl, chosen, consent: res.consent })) ??
+          res;
       }
 
       console.log(res.lens);
@@ -872,6 +951,89 @@ async function interactive(
   } finally {
     rl.close();
   }
+}
+
+/** Pick the proposal to commit: confirm a lone one, or choose by number. Null means stop. */
+async function chooseProposal(
+  rl: Interface,
+  proposals: Proposal[],
+): Promise<Proposal | null> {
+  const pick =
+    proposals.length === 1
+      ? proposals[0]
+      : (proposals.find((p) => p.id === '') ?? null);
+
+  if (pick) {
+    return /^y/i.test(await rl.question('\ncommit? [y/N] › ')) ? pick : null;
+  }
+
+  const ans = await rl.question(
+    `\ncommit which? [1-${proposals.length}, blank to stop] › `,
+  );
+
+  if (!ans.trim()) {
+    return null;
+  }
+
+  return proposals[Number(ans) - 1] ?? die('no such proposal');
+}
+
+/**
+ * The service wants the principal's consent. If the principal key is here, show the proposal,
+ * and on a yes sign a one-time consent and commit again. Returns the new reply, or null.
+ */
+async function consentAndRetry({
+  c,
+  rl,
+  chosen,
+  consent: k,
+}: {
+  c: Client;
+  rl: Interface;
+  chosen: Proposal;
+  consent: ConsentRequest | undefined;
+}) {
+  const p = await principalKey();
+
+  if (
+    !k ||
+    k.proposal !== chosen.id ||
+    k.hash !== chosen.hash ||
+    k.capability !== chosen.capability ||
+    k.service !== (await c.audience())
+  ) {
+    die(
+      "✗ the service's consent request doesn't match the proposal shown; not signing",
+    );
+  }
+
+  if (!p || p.public !== k.principal) {
+    return null;
+  }
+
+  console.log(
+    `\n  ${chosen.summary}\n${chosen.effects.map((e) => `    ${effectLine(e)}`).join('\n')}`,
+  );
+
+  if (
+    !/^y/i.test(
+      await rl.question('\n[principal] approve this exact proposal? [y/N] › '),
+    )
+  ) {
+    return null;
+  }
+
+  const a = (await agentKey()) ?? die('no agent key');
+  const token = await consentGrant({
+    principal: p,
+    agent: a.public,
+    consent: { ...k, expires: Math.min(k.expires, chosen.expires) },
+  });
+
+  return c.commit(chosen, {
+    grants: [token],
+    onEvent: (e) => console.log(e.lens),
+  });
 }
 
 main().catch((e) => die(`✗ ${(e as Error).message}`));

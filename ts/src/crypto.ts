@@ -20,7 +20,9 @@ async function privateKey(seed: string): Promise<CryptoKey> {
   if (!k) {
     const raw = unb64u(seed);
 
-    if (raw.length !== 32) throw new Error('Ed25519 seed must be 32 bytes');
+    if (raw.length !== 32) {
+      throw new Error('Ed25519 seed must be 32 bytes');
+    }
 
     const pkcs8 = new Uint8Array(48);
 
@@ -60,11 +62,15 @@ export async function verify(
   sig: string,
 ): Promise<boolean> {
   try {
-    if (!publicKey.startsWith('ed25519:')) return false;
+    if (!publicKey.startsWith('ed25519:')) {
+      return false;
+    }
 
     const raw = unb64u(publicKey.slice(8));
 
-    if (raw.length !== 32) return false;
+    if (raw.length !== 32) {
+      return false;
+    }
 
     const key = await subtle.importKey('raw', raw, { name: 'Ed25519' }, false, [
       'verify',

@@ -84,37 +84,46 @@ export default defineConfig({
         const toks = state.tokens;
 
         for (let i = 2; i < toks.length; i++) {
-          const first = toks[i].children?.[0];
+          const children = toks[i].children ?? [];
+          const first = children[0];
 
           if (
             toks[i].type !== 'inline' ||
             toks[i - 2].type !== 'list_item_open' ||
             first?.type !== 'text'
-          )
+          ) {
             continue;
+          }
 
           const m = /^\[( |x)\] /i.exec(first.content);
 
-          if (!m) continue;
+          if (!m) {
+            continue;
+          }
 
           first.content = first.content.slice(4);
 
           const box = new state.Token('html_inline', '', 0);
 
           box.content = `<input type="checkbox" class="task-list-item-checkbox"${m[1] === ' ' ? '' : ' checked'}> `;
-          toks[i].children!.unshift(box);
+          children.unshift(box);
           toks[i - 2].attrJoin('class', 'task-list-item');
         }
       });
       md.core.ruler.push('repo-links', (state) => {
-        for (const tok of state.tokens)
+        for (const tok of state.tokens) {
           for (const t of tok.children ?? []) {
-            if (t.type !== 'link_open') continue;
+            if (t.type !== 'link_open') {
+              continue;
+            }
 
             const href = t.attrGet('href');
 
-            if (href) t.attrSet('href', repoLink(href));
+            if (href) {
+              t.attrSet('href', repoLink(href));
+            }
           }
+        }
       });
     },
   },
@@ -151,7 +160,9 @@ const PAGES: Record<string, string> = {
 
 /** Map a repo-relative link in included markdown to a site page, or to GitHub. */
 function repoLink(href: string): string {
-  if (/^([a-z]+:|\/|#)/i.test(href)) return href;
+  if (/^([a-z]+:|\/|#)/i.test(href)) {
+    return href;
+  }
 
   const [path, hash] = href.split('#');
 
@@ -159,8 +170,9 @@ function repoLink(href: string): string {
     !/\.md$|^(\.\.\/)*(ts|python|examples|bench|conformance|docs|site|deploy)\b|\.(ts|py|json|svg|txt)$/.test(
       path,
     )
-  )
+  ) {
     return href;
+  }
 
   // Normalize against the repo root: included files live at the root, in docs/, python/ or bench/.
   const clean = path.replace(/^(\.\.\/)+/, '').replace(/^\.\//, '');
@@ -176,7 +188,9 @@ function repoLink(href: string): string {
   const page = candidates.map((c) => PAGES[c]).find(Boolean);
 
   // VitePress's link renderer adds the base to internal links after this runs.
-  if (page) return page + (hash ? `#${hash}` : '');
+  if (page) {
+    return page + (hash ? `#${hash}` : '');
+  }
 
   return `${repo}/blob/main/${clean}${hash ? `#${hash}` : ''}`;
 }

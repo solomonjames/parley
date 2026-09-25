@@ -1,11 +1,22 @@
-import { PassThrough } from 'node:stream';
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { PassThrough } from 'node:stream';
 import { describe, expect, it } from 'vitest';
+import { shop } from '../../examples/shop.ts';
 import * as P from '../src/index.js';
 import { runMcpBridge } from '../src/mcp.js';
-import { shop } from '../../examples/shop.ts';
+
+// The parts of the bridge's JSON-RPC messages these tests read.
+interface RpcMessage {
+  id: number;
+  method?: string;
+  result: {
+    tools?: { name: string }[];
+    content: { text: string }[];
+    isError?: boolean;
+  };
+}
 
 async function bridge(elicit: boolean) {
   process.env.PARLEY_HOME = mkdtempSync(join(tmpdir(), 'parley-'));
@@ -27,21 +38,19 @@ async function bridge(elicit: boolean) {
   const input = new PassThrough(),
     output = new PassThrough();
   const done = runMcpBridge([client], { input, output });
-  const pending = new Map<number, (m: any) => void>();
+  const pending = new Map<number, (m: RpcMessage) => void>();
   let buf = '';
 
   output.setEncoding('utf8');
   output.on('data', (c: string) => {
     buf += c;
 
-    let nl;
-
-    while ((nl = buf.indexOf('\n')) >= 0) {
-      const m = JSON.parse(buf.slice(0, nl));
+    for (let nl = buf.indexOf('\n'); nl >= 0; nl = buf.indexOf('\n')) {
+      const m: RpcMessage = JSON.parse(buf.slice(0, nl));
 
       buf = buf.slice(nl + 1);
 
-      if (m.method === 'elicitation/create')
+      if (m.method === 'elicitation/create') {
         input.write(
           `${JSON.stringify({
             jsonrpc: '2.0',
@@ -49,13 +58,15 @@ async function bridge(elicit: boolean) {
             result: { action: 'accept', content: { approve: true } },
           })}\n`,
         );
-      else pending.get(m.id)?.(m);
+      } else {
+        pending.get(m.id)?.(m);
+      }
     }
   });
 
   let id = 0;
-  const rpc = (method: string, params?: any) =>
-    new Promise<any>((res) => {
+  const rpc = (method: string, params?: unknown) =>
+    new Promise<RpcMessage>((res) => {
       pending.set(++id, res);
       input.write(
         `${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`,
@@ -67,18 +78,22 @@ async function bridge(elicit: boolean) {
     capabilities: elicit ? { elicitation: {} } : {},
   });
 
-  const tool = async (name: string, args: any) =>
+  const tool = async (name: string, args: Record<string, unknown>) =>
     (await rpc('tools/call', { name, arguments: args })).result;
 
-  return { rpc, tool, end: () => (input.end(), done) };
+  const end = () => {
+    input.end();
+
+    return done;
+  };
+
+  return { rpc, tool, end };
 }
 
 describe('MCP bridge', () => {
   it('lists tools and returns Lens; consent via elicitation', async () => {
     const b = await bridge(true);
-    const tools = (await b.rpc('tools/list')).result.tools.map(
-      (t: any) => t.name,
-    );
+    const tools = (await b.rpc('tools/list')).result.tools?.map((t) => t.name);
 
     expect(tools).toContain('parley_commit');
 

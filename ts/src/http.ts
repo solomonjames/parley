@@ -2,6 +2,71 @@
 import type { Service } from './service.js';
 
 const MAX_FRAME = 1 << 20;
+const TOO_LARGE = Symbol('too large');
+
+/** The request id an error reply should answer: the frame's `id` if it has a string one, else '?'. */
+export function frameId(frame: unknown): string {
+  const id = (frame as { id?: unknown } | null | undefined)?.id;
+
+  return typeof id === 'string' ? id : '?';
+}
+
+const tooLarge = () => new Response('frame exceeds 1 MiB', { status: 413 });
+
+/** The POSTed JSON frame; null when unreadable or not JSON (the service answers that with an ERROR). */
+async function readFrame(req: Request): Promise<unknown> {
+  try {
+    const text = await req.text();
+
+    if (new TextEncoder().encode(text).length > MAX_FRAME) {
+      return TOO_LARGE;
+    }
+
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
+
+/** Stream the service's events and final reply as NDJSON. */
+function ndjsonReply(svc: Service, frame: unknown): Response {
+  const enc = new TextEncoder();
+  const stream = new ReadableStream({
+    async start(ctrl) {
+      const re = frameId(frame);
+
+      try {
+        const final = await svc.handle(frame, (e) =>
+          ctrl.enqueue(enc.encode(`${JSON.stringify(e)}\n`)),
+        );
+
+        ctrl.enqueue(enc.encode(`${JSON.stringify(final)}\n`));
+      } catch {
+        ctrl.enqueue(
+          enc.encode(
+            `${JSON.stringify({
+              parley: 1,
+              id: 's_err',
+              re,
+              kind: 'ERROR',
+              code: 'internal',
+              message: 'reply could not be serialized',
+            })}\n`,
+          ),
+        );
+      }
+
+      ctrl.close();
+    },
+  });
+
+  return new Response(stream, {
+    headers: {
+      'content-type': 'application/x-ndjson',
+      'cache-control': 'no-store',
+    },
+  });
+}
 
 export function fetchHandler(svc: Service, o: { path?: string } = {}) {
   return async (req: Request): Promise<Response> => {
@@ -17,59 +82,16 @@ export function fetchHandler(svc: Service, o: { path?: string } = {}) {
       return Response.json({ ...svc.brief(budget), endpoint });
     }
 
-    if (req.method !== 'POST' || url.pathname !== endpoint)
+    if (req.method !== 'POST' || url.pathname !== endpoint) {
       return new Response('not a parley endpoint', { status: 404 });
+    }
 
-    if (Number(req.headers.get('content-length') ?? 0) > MAX_FRAME)
-      return new Response('frame exceeds 1 MiB', { status: 413 });
+    if (Number(req.headers.get('content-length') ?? 0) > MAX_FRAME) {
+      return tooLarge();
+    }
 
-    let frame: unknown = null;
+    const frame = await readFrame(req);
 
-    try {
-      const text = await req.text();
-
-      if (new TextEncoder().encode(text).length > MAX_FRAME)
-        return new Response('frame exceeds 1 MiB', { status: 413 });
-
-      frame = JSON.parse(text);
-    } catch {}
-
-    const enc = new TextEncoder();
-    const stream = new ReadableStream({
-      async start(ctrl) {
-        const re =
-          typeof (frame as any)?.id === 'string' ? (frame as any).id : '?';
-
-        try {
-          const final = await svc.handle(frame, (e) =>
-            ctrl.enqueue(enc.encode(`${JSON.stringify(e)}\n`)),
-          );
-
-          ctrl.enqueue(enc.encode(`${JSON.stringify(final)}\n`));
-        } catch {
-          ctrl.enqueue(
-            enc.encode(
-              `${JSON.stringify({
-                parley: 1,
-                id: 's_err',
-                re,
-                kind: 'ERROR',
-                code: 'internal',
-                message: 'reply could not be serialized',
-              })}\n`,
-            ),
-          );
-        }
-
-        ctrl.close();
-      },
-    });
-
-    return new Response(stream, {
-      headers: {
-        'content-type': 'application/x-ndjson',
-        'cache-control': 'no-store',
-      },
-    });
+    return frame === TOO_LARGE ? tooLarge() : ndjsonReply(svc, frame);
   };
 }

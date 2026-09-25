@@ -36,8 +36,9 @@ describe('parley install/uninstall targets', () => {
 
       const scope = { local: false, cwd: home };
 
-      for (const t of ['claude-code', 'codex', 'cursor', 'gemini'])
+      for (const t of ['claude-code', 'codex', 'cursor', 'gemini']) {
         CLIENTS[t].install(scope);
+      }
 
       const cfg = JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8'));
 
@@ -59,8 +60,9 @@ describe('parley install/uninstall targets', () => {
         ),
       ).toHaveLength(1);
 
-      for (const t of ['claude-code', 'codex', 'cursor', 'gemini'])
+      for (const t of ['claude-code', 'codex', 'cursor', 'gemini']) {
         CLIENTS[t].uninstall(scope);
+      }
 
       expect(readFileSync(join(home, '.claude.json'), 'utf8')).toBe(
         claudeJson.replace('"x"\n    }\n  }', '"x"\n    }\n  }'),

@@ -24,4 +24,31 @@ CI fails if the committed vectors don't match the reference implementation.
 npm install && npm run build && npm test     # TypeScript
 cd python && uv run pytest                   # Python
 npm run demo && npm run bench
+npm run lint && npm run lint:style           # the checks CI runs
 ```
+
+## Code style
+
+TypeScript and JavaScript are formatted by [Biome](https://biomejs.dev) (80 columns, single
+quotes) and linted by Biome plus [oxlint](https://oxc.rs) for spacing. `npm install` sets up a
+pre-commit hook ([lefthook](https://lefthook.dev)) that fixes formatting and spacing in staged
+files and blocks the commit on lint errors. `npm run format` and `npm run lint:style:fix` fix
+everything by hand.
+
+The rules exist to make the code easy for people to read:
+
+- **Blank lines separate kinds of statements**: imports from declarations, declarations from
+  logic, logic from `return`, and around every block. Runs of the same kind stay together, so
+  a function's shape shows before you read it.
+- **Small functions.** A function stays under 50 lines, under Biome's cognitive-complexity
+  limit, and takes at most 4 parameters (use an options object beyond that). When one grows,
+  extract a helper named for what it does.
+- **Real types.** No `any` (use `unknown` and narrow), and no `!` non-null assertions (check,
+  then throw a clear error or return early).
+- **Comments say why, not what.** Document declarations with `/** */` so editors show it.
+  Inside functions, `//` explains a constraint or a trade-off the code can't show.
+
+Tests and benchmarks are exempt from the length, complexity and non-null rules.
+
+The commit that first applied the formatting is listed in `.git-blame-ignore-revs`. GitHub
+honors it; locally, run `git config blame.ignoreRevsFile .git-blame-ignore-revs`.

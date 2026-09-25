@@ -77,14 +77,18 @@ export function writeBlock(file: string): string {
 }
 
 export function removeBlock(file: string): boolean {
-  if (!existsSync(file)) return false;
+  if (!existsSync(file)) {
+    return false;
+  }
 
   const cur = readFileSync(file, 'utf8');
   const next = `${cur
     .replace(new RegExp(`\\n?${START}[\\s\\S]*?${END}\\n?`), '\n')
     .trimEnd()}\n`;
 
-  if (next === cur) return false;
+  if (next === cur) {
+    return false;
+  }
 
   writeFileSync(file, next);
 
@@ -117,8 +121,13 @@ const has = (cmd: string) => {
   }
 };
 
-const readJson = (file: string): Record<string, any> => {
-  if (!existsSync(file)) return {};
+/** An MCP client config file: top-level sections, one of which maps server names to entries. */
+type JsonConfig = Record<string, Record<string, unknown> | undefined>;
+
+const readJson = (file: string): JsonConfig => {
+  if (!existsSync(file)) {
+    return {};
+  }
 
   try {
     return JSON.parse(readFileSync(file, 'utf8'));
@@ -129,14 +138,28 @@ const readJson = (file: string): Record<string, any> => {
   }
 };
 
-function jsonTarget(
-  name: string,
-  file: (s: Scope) => string,
-  detect: () => boolean,
-  block?: (s: Scope) => string,
+/** A tool whose MCP servers live in a JSON config file under `key`. */
+interface JsonTargetOptions {
+  name: string;
+  /** The JSON config file. */
+  file: (s: Scope) => string;
+  detect: () => boolean;
+  /** Where to write agent instructions, if the tool reads any. */
+  block?: (s: Scope) => string;
+  /** The config key holding MCP servers (default `mcpServers`). */
+  key?: string;
+  /** Extra fields for the server entry. */
+  extra?: Record<string, unknown>;
+}
+
+function jsonTarget({
+  name,
+  file,
+  detect,
+  block,
   key = 'mcpServers',
-  extra: Record<string, unknown> = {},
-): Target {
+  extra = {},
+}: JsonTargetOptions): Target {
   return {
     name,
     detect,
@@ -161,15 +184,19 @@ function jsonTarget(
       const f = file(s);
       const cfg = readJson(f);
 
-      if (cfg[key]?.parley) {
-        delete cfg[key].parley;
+      const servers = cfg[key];
+
+      if (servers?.parley) {
+        delete servers.parley;
         writeFileSync(f, `${JSON.stringify(cfg, null, 2)}\n`);
         out.push(`removed "parley" from ${f}`);
       }
 
       const b = block?.(s);
 
-      if (b && removeBlock(b)) out.push(`removed instructions from ${b}`);
+      if (b && removeBlock(b)) {
+        out.push(`removed instructions from ${b}`);
+      }
 
       return out;
     },
@@ -195,59 +222,60 @@ const claudeDesktopConfig = () =>
 
 export const CLIENTS: Record<string, Target> = {
   // alwaysLoad keeps the tools out of Claude Code's deferred tool search.
-  'claude-code': jsonTarget(
-    'Claude Code',
-    (s) =>
+  'claude-code': jsonTarget({
+    name: 'Claude Code',
+    file: (s) =>
       s.local ? join(s.cwd, '.mcp.json') : join(homedir(), '.claude.json'),
-    () => has('claude') || existsSync(join(homedir(), '.claude')),
-    (s) =>
+    detect: () => has('claude') || existsSync(join(homedir(), '.claude')),
+    block: (s) =>
       s.local
         ? join(s.cwd, 'CLAUDE.md')
         : join(homedir(), '.claude', 'CLAUDE.md'),
-    'mcpServers',
-    { type: 'stdio', alwaysLoad: true },
-  ),
-  'claude-desktop': jsonTarget('Claude Desktop', claudeDesktopConfig, () =>
-    existsSync(dirname(claudeDesktopConfig())),
-  ),
-  cursor: jsonTarget(
-    'Cursor',
-    (s) =>
+    extra: { type: 'stdio', alwaysLoad: true },
+  }),
+  'claude-desktop': jsonTarget({
+    name: 'Claude Desktop',
+    file: claudeDesktopConfig,
+    detect: () => existsSync(dirname(claudeDesktopConfig())),
+  }),
+  cursor: jsonTarget({
+    name: 'Cursor',
+    file: (s) =>
       s.local
         ? join(s.cwd, '.cursor', 'mcp.json')
         : join(homedir(), '.cursor', 'mcp.json'),
-    () => existsSync(join(homedir(), '.cursor')),
-    (s) => (s.local ? join(s.cwd, '.cursor', 'rules', 'parley.mdc') : ''),
-  ),
+    detect: () => existsSync(join(homedir(), '.cursor')),
+    block: (s) =>
+      s.local ? join(s.cwd, '.cursor', 'rules', 'parley.mdc') : '',
+  }),
   // Windsurf became Devin Desktop; its Cascade agent reads $XDG_CONFIG_HOME/devin/mcp_config.json. Keep the legacy path if that's what exists.
-  windsurf: jsonTarget(
-    'Windsurf / Devin Desktop',
-    () =>
+  windsurf: jsonTarget({
+    name: 'Windsurf / Devin Desktop',
+    file: () =>
       existsSync(join(homedir(), '.codeium', 'windsurf')) &&
       !existsSync(devinDir())
         ? join(homedir(), '.codeium', 'windsurf', 'mcp_config.json')
         : join(devinDir(), 'mcp_config.json'),
-    () =>
+    detect: () =>
       existsSync(join(homedir(), '.codeium', 'windsurf')) ||
       existsSync(devinDir()),
-  ),
-  gemini: jsonTarget(
-    'Gemini CLI',
-    (s) => join(s.local ? s.cwd : homedir(), '.gemini', 'settings.json'),
-    () => existsSync(join(homedir(), '.gemini')),
-    (s) =>
+  }),
+  gemini: jsonTarget({
+    name: 'Gemini CLI',
+    file: (s) => join(s.local ? s.cwd : homedir(), '.gemini', 'settings.json'),
+    detect: () => existsSync(join(homedir(), '.gemini')),
+    block: (s) =>
       s.local
         ? join(s.cwd, 'GEMINI.md')
         : join(homedir(), '.gemini', 'GEMINI.md'),
-  ),
-  vscode: jsonTarget(
-    'VS Code',
-    (s) => join(s.cwd, '.vscode', 'mcp.json'),
-    () => has('code'),
-    undefined,
-    'servers',
-    { type: 'stdio' },
-  ),
+  }),
+  vscode: jsonTarget({
+    name: 'VS Code',
+    file: (s) => join(s.cwd, '.vscode', 'mcp.json'),
+    detect: () => has('code'),
+    key: 'servers',
+    extra: { type: 'stdio' },
+  }),
   codex: {
     name: 'Codex CLI',
     detect: () => existsSync(join(homedir(), '.codex')),
@@ -291,23 +319,28 @@ export const CLIENTS: Record<string, Target> = {
         if (i >= 0) {
           let j = i + 1;
 
-          while (j < lines.length && !/^\s*\[/.test(lines[j])) j++;
+          while (j < lines.length && !/^\s*\[/.test(lines[j])) {
+            j++;
+          }
 
           next = [...lines.slice(0, i), ...lines.slice(j)]
             .join('\n')
             .replace(/\n{3,}/g, '\n\n');
         }
 
-        if (next !== cur)
-          writeFileSync(file, next),
-            out.push(`removed [mcp_servers.parley] from ${file}`);
+        if (next !== cur) {
+          writeFileSync(file, next);
+          out.push(`removed [mcp_servers.parley] from ${file}`);
+        }
       }
 
       const agents = s.local
         ? join(s.cwd, 'AGENTS.md')
         : join(homedir(), '.codex', 'AGENTS.md');
 
-      if (removeBlock(agents)) out.push(`removed instructions from ${agents}`);
+      if (removeBlock(agents)) {
+        out.push(`removed instructions from ${agents}`);
+      }
 
       return out;
     },
