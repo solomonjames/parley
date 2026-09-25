@@ -51,6 +51,21 @@ export default defineConfig({
     // GitHub-style slugs, so anchors in the repo's markdown work here too.
     anchor: { slugify: githubSlug },
     config(md) {
+      // GitHub-style task lists: "- [ ] item" renders as a checkbox readers can tick.
+      md.core.ruler.after("inline", "task-lists", (state) => {
+        const toks = state.tokens;
+        for (let i = 2; i < toks.length; i++) {
+          const first = toks[i].children?.[0];
+          if (toks[i].type !== "inline" || toks[i - 2].type !== "list_item_open" || first?.type !== "text") continue;
+          const m = /^\[( |x)\] /i.exec(first.content);
+          if (!m) continue;
+          first.content = first.content.slice(4);
+          const box = new state.Token("html_inline", "", 0);
+          box.content = `<input type="checkbox" class="task-list-item-checkbox"${m[1] === " " ? "" : " checked"}> `;
+          toks[i].children!.unshift(box);
+          toks[i - 2].attrJoin("class", "task-list-item");
+        }
+      });
       md.core.ruler.push("repo-links", (state) => {
         for (const tok of state.tokens) for (const t of tok.children ?? []) {
           if (t.type !== "link_open") continue;
@@ -132,7 +147,7 @@ function sidebar() {
     {
       text: "Build",
       items: [
-        { text: "Designing a good service", link: "/guide/service-design" },
+        { text: "From REST to Parley", link: "/guide/service-design" },
         { text: "Build a service", link: "/guide/build-a-service" },
         { text: "Wrap any REST API", link: "/guide/openapi" },
         { text: "Docker", link: "/guide/docker" },

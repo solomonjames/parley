@@ -1,6 +1,6 @@
 # Build a service
 
-A Parley service is a set of capabilities plus the protocol machinery around them, which the library provides. You write what's specific to your domain: what can be read, and how an intent turns into concrete, undoable plans. For what makes those choices good, see [Designing a good service](/guide/service-design).
+A Parley service is a set of capabilities plus the protocol machinery around them, which the library provides. You write what's specific to your domain: what can be read, and how an intent turns into concrete, undoable plans. For what makes those choices good, see [From REST to Parley](/guide/service-design).
 
 ## Capabilities
 

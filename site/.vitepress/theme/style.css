@@ -96,3 +96,7 @@ h1, h2, h3, h4, .VPNavBarTitle .title, .vp-doc h1, .vp-doc h2, .vp-doc h3 {
 .vp-doc .side-by-side div[class*="language-"] code { width: auto; font-size: 12.5px; }
 .vp-doc .side-by-side div[class*="language-"] .line { display: inline-block; width: 100%; padding-left: 4ch; text-indent: -4ch; }
 @media (max-width: 860px) { .vp-doc .side-by-side { grid-template-columns: 1fr; } }
+
+/* Task lists ("- [ ] item"): a checkbox instead of a bullet. */
+.vp-doc li.task-list-item { list-style: none; margin-left: -1.25em; }
+.vp-doc .task-list-item-checkbox { margin-right: 0.45em; accent-color: var(--vp-c-brand-1); vertical-align: -1px; }

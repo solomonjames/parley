@@ -1,16 +1,40 @@
-# Designing a good service
+# From REST to Parley
 
-Pointing [the OpenAPI adapter](/guide/openapi) at an existing API gets you Parley's safety: signed policy, previews, consent and budgets. It doesn't change the shape of the API. The agent still has to chain endpoints together, one turn at a time, and every turn re-reads the whole conversation. Most of what an agent spends goes on those turns, not on payload bytes ([live eval](/benchmark/live)).
+You have a REST API. This page shows how to turn it into a Parley service agents can use well. It covers how each REST concept maps to Parley, then a step-by-step translation of a Stripe-style billing API, ending with the complete code.
 
-A service designed for Parley does that orchestration itself. The agent states the outcome, and the service answers with concrete plans. This page shows what that looks like, using a subscription-billing API shaped like Stripe's.
+**Why not just wrap it?** Pointing [the OpenAPI adapter](/guide/openapi) at your spec gets you Parley's safety in one command: signed policy, previews, consent and budgets. But it keeps REST's shape. The agent still chains endpoints together one turn at a time, and every turn re-reads the whole conversation. Most of what an agent spends goes on those turns, not on payload bytes ([live eval](/benchmark/live)). A native service moves the orchestration into the service: the agent states the outcome, and the service answers with concrete plans.
 
-::: info Why Stripe
-Stripe's API is one of the best-designed REST APIs there is, for its intended reader: a developer writing code in advance. The point here isn't that it's badly made. An agent is a different reader, one that decides at runtime, pays per token, and acts for someone who isn't watching. The Parley side is a runnable example with made-up data: [`ts/src/examples/billing.ts`](../../ts/src/examples/billing.ts), under 200 lines.
+::: info About the examples
+Stripe's API is one of the best-designed REST APIs there is, for its intended reader: a developer writing code in advance. An agent is a different reader. It decides at runtime, pays per token, and acts for someone who isn't watching. The code here is ours, not Stripe's:
+
+- [`examples/stripe-billing.ts`](../../examples/stripe-billing.ts) sits in front of the real Stripe API (use a test-mode key). It's the [full example](#the-full-example) below.
+- [`ts/src/examples/billing.ts`](../../ts/src/examples/billing.ts) is the same design with made-up data. It runs in the [playground](/playground) and in `parley examples`.
 :::
+
+## The mapping
+
+| In your REST API | In Parley | What changes |
+|---|---|---|
+| A resource (`/customers`, `/charges`) | Nothing directly | Capabilities are organized by job, not by resource |
+| A `GET`, or several you always call together | `ASK` | One ASK answers one whole question. It may make several REST calls |
+| A `POST`, `PATCH` or `DELETE` | `INTENT`, then `COMMIT` | The intent returns plans. Nothing happens until commit |
+| The REST write call | The plan's `apply()` | Runs only on `COMMIT`, at most once |
+| The inverse call (re-enable, un-cancel) | The plan's `revert()` | Makes the plan undoable, for its `undoWindow` |
+| Side effects in your docs ("sends a receipt") | The plan's `effects` | Listed in the proposal and covered by its hash |
+| The amount a call moves | The plan's `cost` | Checked against the human's spend caps |
+| A preview or dry-run endpoint | The proposal itself | Every write is previewed |
+| Two endpoints for two ways of doing it | Two proposals from one intent | Each with its own cost, risk and undo |
+| Ids in the path (`cus_NffrFeUfNV2Hib`) | Names, emails or ids in params | The service resolves them, or replies `CLARIFY` |
+| Request body validation | The compact param schema | Near-miss keys get fixes automatically |
+| `4xx` errors | Errors with `fix` patches | They say how to succeed |
+| `Idempotency-Key` headers | Built in | `COMMIT` is idempotent by proposal hash |
+| Pagination cursors | Built in | Budgets and `EXPAND` |
+| API keys and scopes | Grants | Scoped to actions, risk and spend, signed by the human |
+| Confirmation screens in your UI | Built in | `consent_required`, then the human signs the exact proposal |
 
 ## One job, side by side
 
-A customer emails support: *"Please refund the rest of this month, I'm cancelling."* The agent has the customer's name.
+A customer writes to support: *"Please refund the rest of this month, I'm cancelling."* The agent has the customer's name.
 
 <div class="side-by-side">
 <div>
@@ -18,17 +42,17 @@ A customer emails support: *"Please refund the rest of this month, I'm cancellin
 **REST: four calls, and the agent does the math**
 
 ```http
-GET  /v1/customers/search?query=name:'Chen Wei'
+GET  /v1/customers/search?query=name:"Chen"
 GET  /v1/subscriptions?customer=cus_Nf3…
      → period dates, to work out the unused part
-GET  /v1/charges?customer=cus_Nf3…&limit=3
+GET  /v1/charges?customer=cus_Nf3…&limit=5
      → find the latest payment
 POST /v1/refunds
      charge=ch_3P…  amount=2287
      reason=requested_by_customer
 ```
 
-Each response is a full object with dozens of fields and long ids. Nothing in the API says a refund is permanent, or that the customer gets an email. The agent's credential can refund any amount to anyone.
+Each response is a full object with dozens of fields and long ids. Nothing in the API says a refund is permanent, or that the customer gets an email. The agent's key can refund any amount to anyone.
 
 </div>
 <div>
@@ -39,132 +63,216 @@ Each response is a full object with dozens of fields and long ids. Nothing in th
 INTENT billing.refund {who: "Chen"}
 
 2 proposals — risk: medium · undo: never
-[p_2kOHY6Sz] Refund 49.00 USD of pay_112 to Chen Wei (full)
-  ~ update payment/pay_112.refunded: 0.00 USD → 49.00 USD
-  > send chen@wei.studio — refund receipt
+[p_tJnW1A-y] Refund 49.00 USD of ch_2 to Chen Wei (full)
+  ~ update charge/ch_2.amount_refunded: 0.00 USD → 49.00 USD
+  > send chen@wei.studio — refund receipt; back on the card in 5–10 days
   cost: 49.00 USD
-[p_GrZxWvUD] Refund 22.87 USD of pay_112 to Chen Wei (unused 14 days)
-  …
+[p_VPlXarXR] Refund 22.87 USD of ch_2 to Chen Wei (unused 14 days)
+  ~ update charge/ch_2.amount_refunded: 0.00 USD → 22.87 USD
+  > send chen@wei.studio — refund receipt; back on the card in 5–10 days
   cost: 22.87 USD
 ```
 
-The agent picks the second proposal. The refund can't be undone, so the service never auto-commits it. The human's grant decides whether the agent can commit it alone or has to ask.
+The agent commits the second proposal. A refund can't be undone, so Parley never auto-commits it. The human's grant decides whether the agent may commit it alone or has to ask.
 
 </div>
 </div>
 
-The same pattern holds across the API:
+## Translating an API in five steps
 
-| The job | REST calls the agent makes | Parley |
+### Step 1: List the jobs, then map endpoints to them
+
+Don't start from your endpoint list. Start from the sentences people say to an agent about your product, then find the endpoints each one needs. Here is the translation for the billing jobs of a Stripe-backed SaaS:
+
+| What the user says | Stripe endpoints involved today | Parley capability |
 |---|---|---|
-| Look up a customer | search, then subscriptions, then charges | `ASK billing.customer {who}`, one joined answer |
-| Refund the unused part of the month | 4, and the agent does the arithmetic | `INTENT billing.refund`, which offers full or unused |
-| Upgrade now, with proration | 5: search, subscription, price lookup, `POST /v1/invoices/create_preview` to see the charge, then the update | `INTENT billing.change_plan`; the proposal's `cost` is the preview |
-| Change plan at renewal instead | a different API: subscription schedules, 2 more calls | the second proposal of the same intent |
-| Cancel | `DELETE /v1/subscriptions/:id` (immediate, permanent) or `POST … cancel_at_period_end=true` (reversible), and the agent must know which is which | `INTENT billing.cancel`: two proposals, labeled `undo: 3d` and `undo: never` |
+| "What's going on with Chen's account?" | `GET /v1/customers/search`, `GET /v1/subscriptions`, `GET /v1/charges` | `ASK billing.customer {who}` |
+| "Refund Chen's last payment" | the three reads above, `POST /v1/refunds` | `INTENT billing.refund {who}`, with full and unused-days proposals |
+| "Refund $20 of it" | the same | `INTENT billing.refund {who, amount: 20}` |
+| "Cancel Chen at the end of the month" | `GET /v1/subscriptions`, `POST /v1/subscriptions/:id` with `cancel_at_period_end=true` | `INTENT billing.cancel {who}`, first proposal (`undo: 13d`) |
+| "Cancel Chen right now" | `GET /v1/subscriptions`, `DELETE /v1/subscriptions/:id` | `INTENT billing.cancel {who}`, second proposal (`undo: never`) |
+| "Actually, keep Chen's subscription" | `POST /v1/subscriptions/:id` with `cancel_at_period_end=false` | `UNDO` the cancel receipt. No capability needed |
+| "Move Chen to Pro" | `GET /v1/prices`, `POST /v1/invoices/create_preview`, `POST /v1/subscriptions/:id` | `INTENT billing.change_plan {who, plan}`, with "now, prorated" and "at renewal" proposals |
+| "Move Chen to Pro at renewal" | `POST /v1/subscription_schedules`, then update its phases | the second proposal of the same intent |
 
-The whole service is five capabilities, and its `HELLO` brief is about 200 tokens.
+The [full example](#the-full-example) implements the first six rows. The made-up-data version also has `billing.change_plan`.
 
-## The principles
+Three things happen in this step:
 
-### 1. Name capabilities after jobs, not resources
+- **Reads merge.** Three `GET`s that are always called together become one `ASK`.
+- **Writes gain alternatives.** Two endpoints that do the same job in different ways (`DELETE` vs. `cancel_at_period_end`) become two proposals of one intent, labeled with their consequences.
+- **Some endpoints disappear.** Reversing an action becomes `UNDO`. Endpoints agents shouldn't touch at all, like API key management or webhook configuration, are simply left out.
 
-Start from the sentences a user says to an agent ("refund Chen", "move Dana to Pro", "cancel Ben at the end of the month"), not from your database tables. Each sentence becomes one intent. Reads work the same way: `billing.customer` answers "what's going on with this customer", which in REST takes three resources.
+Aim for a handful of capabilities, not hundreds. The full example has three, and its `HELLO` brief is 136 tokens.
 
-A good service has a handful of capabilities, not hundreds. If one intent needs a flag that changes what it does entirely, split it into two.
+### Step 2: Turn reads into ASKs
 
-### 2. Accept references the way people make them
+An ASK's `run()` makes whatever REST calls it needs, then returns only what the agent needs to answer the question.
 
-The user said "Chen", not `cus_Nf3ZkqX8a2`. Let the service resolve names, emails and ids, so the agent doesn't spend a lookup turn on it.
+<div class="side-by-side">
+<div>
 
-When a reference is ambiguous, don't guess. An intent replies `CLARIFY`, and each option carries a params patch the agent merges:
+**REST: three responses, abridged**
 
-```text
-? 2 customers match "Ana". Which one?
-  1. Ana Ruiz <ana.ruiz@acme.co> · pro
-  2. Ana Li <ana@northwind.io> · team
+```json
+{ "object": "search_result", "data": [{
+    "id": "cus_NffrFeUfNV2Hib",
+    "object": "customer",
+    "address": null, "balance": 0,
+    "created": 1680893993,
+    "email": "chen@wei.studio",
+    "invoice_settings": { … },
+    "name": "Chen Wei", …
+}]}
+{ "object": "list", "data": [{
+    "id": "sub_1MowQVLkdIwHu7ix",
+    "items": { "data": [{
+      "current_period_end": 1791849600,
+      "price": { "id": "price_1Mo…", … }, …
+}]}
+{ "object": "list", "data": [{
+    "id": "ch_3MmlLrLkdIwHu7ix0snN0B15",
+    "amount": 4900, "amount_refunded": 0,
+    "billing_details": { … },
+    "outcome": { … },
+    "payment_method_details": { … }, …
 ```
 
-Match carefully. Our first version used substring matching, so "Ana" also matched "D**ana** Park". Match on the start of words.
+</div>
+<div>
 
-### 3. Shape reads for the question
+**Parley: one ASK** (abridged; the [full code](#the-full-example) is below)
 
-Return what the agent needs to answer the question in one pass: the customer's plan, card and recent payments together. Keep rows flat and uniform so [Lens](/guide/lens) can render them as tables, keep ids short, and leave out fields no agent will read.
-
-```text
-payments[3]{id,date,usd,status,refunded_usd}:
-  pay_101,2026-07-18,49,paid,0
-  pay_102,2026-08-17,49,paid,0
-  pay_103,2026-09-16,49,paid,0
+```ts
+.ask("billing.customer", {
+  summary: "A customer's subscription and recent payments",
+  params: { who: "string — name, email or cus_ id" },
+  async run({ params }) {
+    const c = await findOne(params.who);
+    const [sub, chs] = await Promise.all([subscription(c), charges(c)]);
+    return {
+      id: c.id, name: c.name, email: c.email,
+      plan: sub?.items.data[0].price.nickname ?? "none",
+      renews: day(period(sub).end),
+      payments: chs.map((ch) => ({
+        id: ch.id, date: day(ch.created),
+        amount: amt(ch.amount, ch.currency),
+        refunded: amt(ch.amount_refunded, ch.currency),
+        status: ch.status,
+      })),
+    };
+  },
+})
 ```
 
-Don't build pagination. Return the whole list; the library fits it to the agent's [budget](/guide/budgets) and hands out an `EXPAND` handle for the rest.
-
-### 4. Put the preview in the proposal
-
-In REST, finding out what a write will do takes a separate API when one exists at all: Stripe offers `create_preview` for invoices, but most writes have no preview. In Parley, every write is previewed by definition. A proposal lists:
-
-- **every effect**, including the ones people forget: the receipt email, the card charge, the account credit
-- **the cost**, in minor units, which is what the human's spend caps are checked against
-- **the risk and the undo window**
-
-If you can't list an effect in the proposal, `apply()` must not do it ([SPEC §5.1](/reference/spec#51-proposal)).
-
-### 5. Rate risk by consequence, and be honest about undo
-
-HTTP methods say nothing about consequences. `POST /v1/refunds` sends money away for good; `POST /v1/customers` is harmless. Rate each plan by what happens in the world:
-
-- A refund is `undo: never`, even for a dollar. Money that has left can't be pulled back, so the plan has no `revert`, and Parley never auto-commits it.
-- Cancelling at the end of the period is low risk and undoable until then, because the customer can simply stay. Cancelling now is medium risk and final.
-
-Give a plan a `revert` only if it really restores the previous state. The human's policy relies on it: auto-commit only ever applies to undoable plans.
-
-### 6. Offer the alternatives a person would
-
-CRUD gives one way to do each thing. A good employee would ask "full refund, or just the unused days?" and "now, or at renewal?" Return those as separate proposals, each with its own cost, risk and undo. In REST, the second option is often a different API entirely.
-
-Order matters. With `auto: true`, the service commits the **first** proposal if the policy allows. Put the most common, most reversible choice first.
-
-### 7. Make errors teach
-
-Every error should tell the agent how to succeed next time, with a params patch it can apply without thinking:
-
 ```text
-✗ invalid_params: refund must be between 0.01 and 49.00 USD
-  fix: refund the rest (49.00 USD) → params {"usd":49}
+id: cus_chen
+name: Chen Wei
+email: chen@wei.studio
+plan: pro
+renews: 2026-10-09
+payments[2]{id,date,amount,refunded,status}:
+  ch_2,2026-09-09,49.00 USD,0.00 USD,succeeded
+  ch_1,2026-08-10,49.00 USD,0.00 USD,succeeded
 ```
 
-A reference that matches nothing points to the read that would find it. A plan change to the current plan offers the other plans.
+</div>
+</div>
 
-### 8. Leave the plumbing to the protocol
+Rules for reads:
 
-Delete these from your design; Parley already has them:
+- **Accept references the way people make them.** Take a name, email or id in one param, and resolve it in the service.
+- **Join what's always read together.** Customer, subscription and payments come back as one answer.
+- **Project.** Return the fields an agent reasons about, formatted for reading: dates, not Unix timestamps; `49.00 USD`, not `4900`.
+- **Keep rows flat and uniform,** so [Lens](/guide/lens) renders them as a table.
+- **Don't paginate.** Return the list; the library fits it to the agent's [budget](/guide/budgets) and hands out an `EXPAND` handle for the rest.
 
-| REST concern | In Parley |
-|---|---|
-| `Idempotency-Key` headers | `COMMIT` is idempotent by proposal hash. A retry returns the original receipt |
-| Pagination cursors | Budgets and `EXPAND` |
-| API keys scoped to resources | Grants scoped to actions, risk and spend, signed by the human |
-| "Are you sure?" flows in your own UI | `consent_required`, and the human signs the exact proposal |
-| Webhooks for long operations | `EVENT` progress frames during `COMMIT` |
+### Step 3: Turn writes into INTENTs
 
-## From wrapper to native
+Each write becomes an intent whose `plan()` returns one or more **plans**. Every part of a plan comes from something you already know about the REST call:
 
-You don't have to rewrite your API. A practical path:
+| Plan field | Where it comes from | For `POST /v1/refunds` |
+|---|---|---|
+| `summary` | One line a person would read | `Refund 22.87 USD of ch_2 to Chen Wei (unused 14 days)` |
+| `effects` | Everything the call changes, including side effects your docs mention | `~ charge/ch_2.amount_refunded`, `> send chen@wei.studio` |
+| `cost` | The money the call moves | `22.87 USD` |
+| `risk` | The consequence in the world, not the HTTP method | `medium`: money leaves for good |
+| `apply()` | The REST call itself | `POST /v1/refunds` with an idempotency key |
+| `revert()` | The inverse REST call, if one exists | none, so `undo: never` |
+| `undoWindow` | How long the inverse keeps working | none |
 
-1. **Wrap it.** `parley openapi <spec>` works today, with risk overrides and field projections in a [preset](/guide/openapi).
-2. **Write intents for the top jobs.** A native service can sit in front of your existing REST API. In production, `billing.refund`'s `apply()` would call `POST /v1/refunds` with `Idempotency-Key` set to the proposal hash. The agent never sees the REST calls.
-3. **Retire the wrapped endpoints** as native intents cover them.
+In code:
+
+```ts
+const refund = (amount: number, why: string): Plan => ({
+  summary: `Refund ${amt(amount, ch.currency)} of ${ch.id} to ${c.name} (${why})`,
+  effects: [
+    update(`charge/${ch.id}`, "amount_refunded", amt(ch.amount_refunded, ch.currency), amt(ch.amount_refunded + amount, ch.currency)),
+    send(c.email, "refund receipt; back on the card in 5–10 days"),
+  ],
+  cost: money(amount, ch.currency.toUpperCase()),
+  apply: () => stripe("POST", "/refunds", { charge: ch.id, amount: String(amount), reason: "requested_by_customer" }, idempotencyKey),
+  // No revert: Stripe can't reverse a refund, so Parley will never auto-commit it.
+});
+return [refund(left, "full"), refund(unused, `unused ${days} days`)];
+```
+
+Where an inverse call exists, `revert()` makes it, and the plan becomes undoable. Cancelling at the end of the period is reversed by setting `cancel_at_period_end` back to `false`:
+
+```ts
+{
+  summary: `Cancel ${c.name} on ${day(end)}; access until then`,
+  effects: [update(`subscription/${sub.id}`, "cancel_at_period_end", false, true)],
+  undoWindow: roundDown(end - now),   // "undo: 13d"; never outlives the period
+  apply: () => stripe("POST", path, { cancel_at_period_end: "true" }),
+  revert: () => stripe("POST", path, { cancel_at_period_end: "false" }),
+}
+```
+
+Rules for writes:
+
+- **List every effect.** If `apply()` does something the proposal doesn't list, it breaks the contract the human signed ([SPEC §5.1](/reference/spec#51-proposal)).
+- **Give a plan `revert()` only if it truly restores the old state.** Parley's auto-commit only ever applies to undoable plans, so an honest `undo: never` is what keeps a refund from going out unreviewed.
+- **Offer the alternatives a person would.** With `auto: true`, the service commits the *first* proposal if the policy allows it, so put the most common, most reversible choice first.
+- **Round undo windows down** to whole days or hours. Lens prints durations exactly, so `1209599s` reads worse than `13d`.
+
+### Step 4: Map your errors
+
+Validate params before any REST call, so what's left from upstream is mostly about state. Then translate status codes into errors that teach:
+
+| Upstream | Parley error | The fix to include |
+|---|---|---|
+| Your own validation fails | `invalid_params` | The valid range, with a params patch: `refund the rest (49.00 USD) → {"amount":49}` |
+| Several records match | `CLARIFY` for an intent, `invalid_params` for an ASK | One option or fix per candidate, each a params patch |
+| `404` | `not_found` | The ASK that would find the right id |
+| `400`/`409` after validation passed | `conflict` | What changed, such as "already refunded" |
+| `429` | `limit` | `retry` in seconds |
+| `5xx` | `unavailable` | `retry` in seconds |
+
+### Step 5: Delete the plumbing
+
+You don't write idempotency handling (beyond the upstream key in `apply()`), pagination, confirmation flows, or scope checks. The library handles `EXPAND`, replays, requester binding, grant verification, spend reservation, consent and undo windows. See [Build a service](/guide/build-a-service) for the API.
+
+## The full example
+
+Three capabilities in front of the real Stripe API, under 200 lines. The tests run it against a fake of the Stripe endpoints it uses ([`ts/test/stripe-billing.test.ts`](../../ts/test/stripe-billing.test.ts)).
+
+```sh
+STRIPE_SECRET_KEY=sk_test_… PARLEY_TRUST="$(parley whoami | awk '/principal/{print $2}')" node examples/stripe-billing.ts
+parley add parley://127.0.0.1:7453   # now your AI tool can use it
+```
+
+<<< ../../examples/stripe-billing.ts
 
 ## Checklist
 
-- [ ] Each intent is a sentence a user would say, and the service has a handful, not hundreds
+- [ ] Each intent is a sentence a user would say, and there are a handful, not hundreds
 - [ ] Names and emails are accepted wherever ids are; ambiguity returns `CLARIFY`
-- [ ] Each read answers a whole question in one call, with flat rows and short ids
+- [ ] Each ASK answers a whole question in one call, with flat rows and readable values
+- [ ] `apply()` makes the REST call; `revert()` makes the inverse call, or doesn't exist
 - [ ] Every proposal lists all its effects, including emails and charges, and its real cost
-- [ ] Risk reflects consequences, not HTTP methods; `revert` exists only when it truly restores state
+- [ ] Risk reflects consequences, not HTTP methods
 - [ ] Alternatives are separate proposals, with the safest common choice first
+- [ ] Undo windows are rounded down and never outlive what `revert()` can undo
 - [ ] Every error carries a fix, with a params patch where possible
-- [ ] No pagination, idempotency keys or confirmation flows of your own
-
-Next: [Build a service](/guide/build-a-service) covers the API these examples use.
+- [ ] No pagination, idempotency or confirmation flows of your own

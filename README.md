@@ -55,7 +55,7 @@ agent ──UNDO r1 (the human changed their mind)──────────
 |---|---|
 | **See it work with a real model** (30 s) | `npx parley-protocol test-drive` runs Claude through a booking and a purchase that needs *your* approval. Needs an Anthropic API key. No key? Use `npx parley-protocol demo` or the [browser playground](https://solomonjames.github.io/parley/playground) |
 | **Give my AI tool safe actions** | In Claude Code: `/plugin marketplace add solomonjames/parley` then `/plugin install parley@parley`. Anywhere else: `npx parley-protocol install` (auto-detects Claude Code, Cursor, Codex, Gemini, VS Code, Windsurf and Claude Desktop). Then [add services](#use-it-from-claude-code-today) or [wrap an API](#wrap-any-rest-api-in-one-command): `parley openapi --preset github` |
-| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec. [Designing a good service](https://solomonjames.github.io/parley/guide/service-design) shows a Stripe-style API redesigned for agents, side by side |
+| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec. [From REST to Parley](https://solomonjames.github.io/parley/guide/service-design) translates a Stripe-style API step by step, with full code |
 | **Implement the protocol** | Read the [spec](SPEC.md) and pass the [conformance vectors](conformance). Go and Rust ports are welcome |
 
 ## What changes
@@ -296,8 +296,8 @@ Params are validated against the compact schema automatically, and typos get fix
 ``rename `dya` to `day` ``. Budgets, `EXPAND`, idempotent commits, replay protection,
 grant verification, spend accounting and consent are all handled for you.
 
-What makes a service *good* for agents? [Designing a good service](https://solomonjames.github.io/parley/guide/service-design) redesigns a
-Stripe-style billing API as Parley intents, side by side with the REST calls it replaces.
+Have a REST API already? [From REST to Parley](https://solomonjames.github.io/parley/guide/service-design) maps each REST concept
+to Parley and translates a Stripe-backed billing API step by step, with the full code.
 
 ### Act as an agent
 
