@@ -9,7 +9,7 @@ const PRICES: Record<PlanId, number> = { starter: 1900, pro: 4900, team: 9900 };
 const DAY = 86400_000;
 
 interface Payment { id: string; at: number; amount: number; status: "paid" | "failed"; refunded: number }
-interface Customer { id: string; name: string; email: string; plan: PlanId; status: "active" | "past_due" | "canceled"; card: string; renews: number; cancelAt: number | null; payments: Payment[] }
+interface Customer { id: string; name: string; email: string; plan: PlanId; status: "active" | "past_due" | "canceled"; card: string; renews: number; cancelAt: number | null; nextPlan: PlanId | null; payments: Payment[] }
 
 const usd = (cents: number) => `${(cents / 100).toFixed(2)} USD`;
 const date = (ms: number) => new Date(ms).toISOString().slice(0, 10);
@@ -25,7 +25,7 @@ export function billing(opts: { trust: string[] | ((principal: string) => boolea
       id: `pay_${++seq}`, at: renews - (k + 1) * 30 * DAY, amount: PRICES[plan],
       status: k === 0 && lastFailed ? "failed" : "paid", refunded: 0,
     }));
-    return { id, name, email, plan, status: lastFailed ? "past_due" : "active", card, renews, cancelAt: null, payments };
+    return { id, name, email, plan, status: lastFailed ? "past_due" : "active", card, renews, cancelAt: null, nextPlan: null, payments };
   };
   const customers: Customer[] = [
     customer("cus_ana_r", "Ana Ruiz", "ana.ruiz@acme.co", "pro", 21, "visa ••4242"),
@@ -81,7 +81,7 @@ export function billing(opts: { trust: string[] | ((principal: string) => boolea
         const c = m[0];
         return {
           id: c.id, name: c.name, email: c.email, plan: c.plan, usd_month: PRICES[c.plan] / 100, status: c.status, card: c.card,
-          renews: date(c.renews), ...(c.cancelAt ? { cancels: date(c.cancelAt) } : {}),
+          renews: date(c.renews), ...(c.nextPlan ? { next_plan: c.nextPlan } : {}), ...(c.cancelAt ? { cancels: date(c.cancelAt) } : {}),
           payments: c.payments.map((p) => ({ id: p.id, date: date(p.at), usd: p.amount / 100, status: p.status, refunded_usd: p.refunded / 100 })),
         };
       },
@@ -142,8 +142,9 @@ export function billing(opts: { trust: string[] | ((principal: string) => boolea
           summary: `${c.name}: ${from} → ${to} on ${date(c.renews)}, nothing charged today`,
           effects: [update(sub, "plan", from, to, `from ${date(c.renews)}`)],
           undoWindow: Math.floor((c.renews - now) / 1000),
-          apply: () => ((c.plan = to), { plan: to, from: date(c.renews) }),
-          revert: () => { c.plan = from; },
+          // Scheduled, not applied: until renewal the customer is still on (and billed for) the old plan.
+          apply: () => ((c.nextPlan = to), { plan: to, from: date(c.renews) }),
+          revert: () => { c.nextPlan = null; },
         };
         return [immediate, later];
       }),

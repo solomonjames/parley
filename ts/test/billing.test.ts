@@ -49,9 +49,11 @@ describe("billing example (service design guide)", () => {
     expect(p.proposals).toHaveLength(2);
     const r = await client.commit(p.proposals[1]);
     if (r.kind !== "RECEIPT") throw new Error(r.kind);
-    expect(((await client.ask("billing.customer", { who: "dana" })) as any).data.plan).toBe("pro");
+    const dana = async () => ((await client.ask("billing.customer", { who: "dana" })) as any).data;
+    // Scheduled for renewal: still on team today, with pro pending.
+    expect(await dana()).toMatchObject({ plan: "team", next_plan: "pro" });
     await client.undo(r.receipt.id);
-    expect(((await client.ask("billing.customer", { who: "dana" })) as any).data.plan).toBe("team");
+    expect((await dana()).next_plan).toBeUndefined();
   });
 
   it("cancel offers an undoable end-of-period option and a riskier immediate one", async () => {
