@@ -1,0 +1,18 @@
+# Pre-commit: format and lint staged files, the same checks CI runs.
+# See CONTRIBUTING.md#code-style.
+pre-commit:
+  parallel: false
+  jobs:
+    # Blank-line padding and comment style. Auto-fixed and re-staged.
+    - name: style
+      glob: "*.{ts,mts,js,mjs,cjs}"
+      exclude:
+        - "python/**"
+        - "**/dist/**"
+      run: npx oxlint --config .oxlintrc.json --fix {staged_files}
+      stage_fixed: true
+    # Formatting is fixed and re-staged; lint errors fail the commit.
+    - name: biome
+      glob: "*.{ts,mts,js,mjs,cjs}"
+      run: npx biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true

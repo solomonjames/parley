@@ -1,0 +1,41 @@
+{
+  "plugins": ["jsdoc"],
+  "jsPlugins": ["@stylistic/eslint-plugin"],
+  "categories": { "correctness": "off" },
+  "ignorePatterns": ["**/dist/**", "**/node_modules/**", "site/.vitepress/cache/**"],
+  "rules": {
+    "@stylistic/padding-line-between-statements": [
+      "error",
+      { "blankLine": "always", "prev": "*", "next": "*" },
+
+      { "blankLine": "any", "prev": "import", "next": "import" },
+      { "blankLine": "any", "prev": "directive", "next": "directive" },
+      { "blankLine": "any", "prev": ["const", "let", "var"], "next": ["const", "let", "var"] },
+      { "blankLine": "any", "prev": ["type", "interface"], "next": ["type", "interface"] },
+      { "blankLine": "any", "prev": "expression", "next": "expression" },
+      { "blankLine": "any", "prev": "singleline-export", "next": "singleline-export" },
+      { "blankLine": "any", "prev": "ts-method", "next": "ts-method" },
+      { "blankLine": "any", "prev": "function-overload", "next": "function-overload" },
+
+      { "blankLine": "any", "prev": ["case", "default"], "next": "*" },
+      { "blankLine": "any", "prev": "case", "next": "case" }
+    ],
+    "@stylistic/lines-between-class-members": ["error", "always", { "exceptAfterSingleLine": true }],
+
+    "@stylistic/spaced-comment": [
+      "error",
+      "always",
+      { "markers": ["/", "!"], "exceptions": ["-", "=", "*"] }
+    ],
+
+    "jsdoc/empty-tags": "error",
+    "jsdoc/check-access": "error",
+    "jsdoc/check-property-names": "error",
+    "jsdoc/implements-on-classes": "error",
+    "jsdoc/no-defaults": "error",
+    "jsdoc/require-param-name": "error",
+    "jsdoc/require-param-description": "error",
+    "jsdoc/require-returns-description": "error",
+    "jsdoc/require-throws-description": "error"
+  }
+}

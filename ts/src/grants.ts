@@ -3,13 +3,24 @@
  * A principal signs a root block granting a holder key some authority; any holder may
  * append a block delegating a narrower grant to another key.
  */
-import { b64u, fromUtf8, unb64u, utf8 } from "./b64.js";
-import { canonical } from "./canonical.js";
-import { keyPair, sha256, sign, verify, type KeyPair } from "./crypto.js";
-import type { ConsentRequest, Money, Proof, Proposal, Risk, Verb } from "./types.js";
-import { fmtMoney } from "./lens.js";
+import { b64u, fromUtf8, unb64u, utf8 } from './b64.js';
+import { canonical } from './canonical.js';
+import { keyPair, sha256, sign, verify, type KeyPair } from './crypto.js';
+import type {
+  ConsentRequest,
+  Money,
+  Proof,
+  Proposal,
+  Risk,
+  Verb,
+} from './types.js';
+import { fmtMoney } from './lens.js';
 
-export type Limit = { max: number; currency: string };
+export interface Limit {
+  max: number;
+  currency: string;
+}
+
 export type Caveat =
   | { svc: string[] }
   | { verbs: Verb[] }
@@ -21,9 +32,12 @@ export type Caveat =
   | { risk: Risk }
   | { only: string };
 
-export interface Block { p: Record<string, unknown> & { sub: string; caveats: Caveat[]; iat: number }; s: string }
+export interface Block {
+  p: Record<string, unknown> & { sub: string; caveats: Caveat[]; iat: number };
+  s: string;
+}
 
-const PREFIX = "pg1.";
+const PREFIX = 'pg1.';
 const RISK_ORDER: Record<Risk, number> = { low: 0, medium: 1, high: 2 };
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -32,50 +46,103 @@ export function encodeGrant(blocks: Block[]): string {
 }
 
 export function decodeGrant(token: string): Block[] {
-  if (!token.startsWith(PREFIX)) throw new Error("not a pg1 grant");
+  if (!token.startsWith(PREFIX)) throw new Error('not a pg1 grant');
+
   const blocks = JSON.parse(fromUtf8(unb64u(token.slice(PREFIX.length))));
-  if (!Array.isArray(blocks) || blocks.length === 0) throw new Error("grant has no blocks");
+
+  if (!Array.isArray(blocks) || blocks.length === 0)
+    throw new Error('grant has no blocks');
+
   for (const b of blocks) {
-    if (typeof b?.s !== "string" || typeof b?.p?.sub !== "string" || !Array.isArray(b?.p?.caveats)) throw new Error("malformed block");
+    if (
+      typeof b?.s !== 'string' ||
+      typeof b?.p?.sub !== 'string' ||
+      !Array.isArray(b?.p?.caveats)
+    )
+      throw new Error('malformed block');
   }
+
   return blocks;
 }
 
 export const blockId = (b: Block) => sha256(b.s);
 
 /** Issue a root grant from `principal` to the key `to`. */
-export async function issueGrant(opts: { principal: KeyPair | string; to: string; caveats?: Caveat[]; iat?: number; nonce?: string }): Promise<string> {
-  const principal = typeof opts.principal === "string" ? await keyPair(opts.principal) : opts.principal;
+export async function issueGrant(opts: {
+  principal: KeyPair | string;
+  to: string;
+  caveats?: Caveat[];
+  iat?: number;
+  nonce?: string;
+}): Promise<string> {
+  const principal =
+    typeof opts.principal === 'string'
+      ? await keyPair(opts.principal)
+      : opts.principal;
   const p = {
     iss: principal.public,
     sub: opts.to,
     caveats: opts.caveats ?? [],
     iat: opts.iat ?? now(),
-    nonce: opts.nonce ?? b64u(globalThis.crypto.getRandomValues(new Uint8Array(12))),
+    nonce:
+      opts.nonce ?? b64u(globalThis.crypto.getRandomValues(new Uint8Array(12))),
   };
+
   return encodeGrant([{ p, s: await sign(principal.seed, canonical(p)) }]);
 }
 
 /** Attenuate: the current holder (by seed) delegates a narrower grant to `to`. */
-export async function delegateGrant(token: string, opts: { holder: KeyPair | string; to: string; caveats?: Caveat[]; iat?: number }): Promise<string> {
+export async function delegateGrant(
+  token: string,
+  opts: {
+    holder: KeyPair | string;
+    to: string;
+    caveats?: Caveat[];
+    iat?: number;
+  },
+): Promise<string> {
   const blocks = decodeGrant(token);
-  const holder = typeof opts.holder === "string" ? await keyPair(opts.holder) : opts.holder;
+  const holder =
+    typeof opts.holder === 'string' ? await keyPair(opts.holder) : opts.holder;
   const last = blocks[blocks.length - 1];
-  if (last.p.sub !== holder.public) throw new Error("only the current holder can delegate this grant");
-  const p = { prev: await sha256(last.s), sub: opts.to, caveats: opts.caveats ?? [], iat: opts.iat ?? now() };
-  return encodeGrant([...blocks, { p, s: await sign(holder.seed, canonical(p)) }]);
+
+  if (last.p.sub !== holder.public)
+    throw new Error('only the current holder can delegate this grant');
+
+  const p = {
+    prev: await sha256(last.s),
+    sub: opts.to,
+    caveats: opts.caveats ?? [],
+    iat: opts.iat ?? now(),
+  };
+
+  return encodeGrant([
+    ...blocks,
+    { p, s: await sign(holder.seed, canonical(p)) },
+  ]);
 }
 
 /**
  * Consent grant (SPEC §6.6): one-shot approval of one exact proposal. It is scoped to COMMIT
  * of that proposal's capability at that service, so it authorizes nothing else.
  */
-export function consentGrant(opts: { principal: KeyPair | string; agent: string; consent: Pick<ConsentRequest, "service" | "capability" | "hash" | "expires"> }): Promise<string> {
+export function consentGrant(opts: {
+  principal: KeyPair | string;
+  agent: string;
+  consent: Pick<ConsentRequest, 'service' | 'capability' | 'hash' | 'expires'>;
+}): Promise<string> {
   const c = opts.consent;
+
   return issueGrant({
     principal: opts.principal,
     to: opts.agent,
-    caveats: [{ svc: [c.service] }, { verbs: ["COMMIT"] }, { can: [c.capability] }, { only: c.hash }, { exp: c.expires }],
+    caveats: [
+      { svc: [c.service] },
+      { verbs: ['COMMIT'] },
+      { can: [c.capability] },
+      { only: c.hash },
+      { exp: c.expires },
+    ],
   });
 }
 
@@ -84,29 +151,60 @@ export function consentGrant(opts: { principal: KeyPair | string; agent: string;
  * `detail` carries the full proposal (as the agent saw it) so the approver can show its
  * effects and re-check the hash, instead of trusting a service-written summary.
  */
-export function consentCode(c: ConsentRequest, detail?: Omit<Proposal, "data">): string {
+export function consentCode(
+  c: ConsentRequest,
+  detail?: Omit<Proposal, 'data'>,
+): string {
   const { data: _d, ...d } = (detail ?? {}) as Proposal;
-  return "pc1." + b64u(utf8(canonical(detail ? { ...c, detail: d } : c)));
+
+  return `pc1.${b64u(utf8(canonical(detail ? { ...c, detail: d } : c)))}`;
 }
 
-export function decodeConsentCode(code: string): ConsentRequest & { detail?: Proposal } {
-  if (!code.startsWith("pc1.")) throw new Error("not a consent code (expected pc1.…)");
+export function decodeConsentCode(
+  code: string,
+): ConsentRequest & { detail?: Proposal } {
+  if (!code.startsWith('pc1.'))
+    throw new Error('not a consent code (expected pc1.…)');
+
   const c = JSON.parse(fromUtf8(unb64u(code.slice(4))));
-  for (const k of ["proposal", "hash", "service", "capability", "principal", "summary"]) if (typeof c[k] !== "string") throw new Error(`consent code missing ${k}`);
-  if (!Number.isSafeInteger(c.expires)) throw new Error("consent code missing expires");
+
+  for (const k of [
+    'proposal',
+    'hash',
+    'service',
+    'capability',
+    'principal',
+    'summary',
+  ])
+    if (typeof c[k] !== 'string') throw new Error(`consent code missing ${k}`);
+
+  if (!Number.isSafeInteger(c.expires))
+    throw new Error('consent code missing expires');
+
   return c;
 }
 
-export interface GrantInfo { id: string; iss: string; holder: string; blocks: { id: string; sub: string; caveats: Caveat[]; iat: number }[] }
+export interface GrantInfo {
+  id: string;
+  iss: string;
+  holder: string;
+  blocks: { id: string; sub: string; caveats: Caveat[]; iat: number }[];
+}
 
 export async function inspectGrant(token: string): Promise<GrantInfo> {
   const blocks = decodeGrant(token);
   const ids = await Promise.all(blocks.map(blockId));
+
   return {
     id: ids[0],
     iss: blocks[0].p.iss as string,
     holder: blocks[blocks.length - 1].p.sub,
-    blocks: blocks.map((b, i) => ({ id: ids[i], sub: b.p.sub, caveats: b.p.caveats, iat: b.p.iat })),
+    blocks: blocks.map((b, i) => ({
+      id: ids[i],
+      sub: b.p.sub,
+      caveats: b.p.caveats,
+      iat: b.p.iat,
+    })),
   };
 }
 
@@ -126,116 +224,292 @@ export interface CheckContext {
 }
 
 export type GrantCheck =
-  | { ok: true; id: string; iss: string; holder: string; spendBlocks: { id: string; max: number }[] }
-  | { ok: false; code: "unauthorized" | "forbidden" | "consent_required"; reason: string; iss?: string; need?: Caveat[] };
+  | {
+      ok: true;
+      id: string;
+      iss: string;
+      holder: string;
+      spendBlocks: { id: string; max: number }[];
+    }
+  | {
+      ok: false;
+      code: 'unauthorized' | 'forbidden' | 'consent_required';
+      reason: string;
+      iss?: string;
+      need?: Caveat[];
+    };
 
-const CONSENTABLE = new Set(["per", "spend", "risk"]);
+const CONSENTABLE = new Set(['per', 'spend', 'risk']);
 
-const strList = (v: unknown) => Array.isArray(v) && v.every((x) => typeof x === "string");
-const isLimit = (v: any) => v && typeof v === "object" && Number.isSafeInteger(v.max) && typeof v.currency === "string";
+const strList = (v: unknown) =>
+  Array.isArray(v) && v.every((x) => typeof x === 'string');
+const isLimit = (v: any) =>
+  v &&
+  typeof v === 'object' &&
+  Number.isSafeInteger(v.max) &&
+  typeof v.currency === 'string';
 
 /** Caveats with malformed values fail closed (as a hard failure). */
 function malformed(k: string, v: unknown): string | null {
   const ok =
-    k === "svc" || k === "verbs" || k === "can" ? strList(v)
-    : k === "exp" || k === "nbf" ? Number.isSafeInteger(v)
-    : k === "per" || k === "spend" ? isLimit(v)
-    : k === "risk" ? typeof v === "string" && Object.hasOwn(RISK_ORDER, v)
-    : k === "only" ? typeof v === "string"
-    : true; // unknown keys are handled by the switch
+    k === 'svc' || k === 'verbs' || k === 'can'
+      ? strList(v)
+      : k === 'exp' || k === 'nbf'
+        ? Number.isSafeInteger(v)
+        : k === 'per' || k === 'spend'
+          ? isLimit(v)
+          : k === 'risk'
+            ? typeof v === 'string' && Object.hasOwn(RISK_ORDER, v)
+            : k === 'only'
+              ? typeof v === 'string'
+              : true; // unknown keys are handled by the switch
+
   return ok ? null : `malformed caveat ${JSON.stringify({ [k]: v })}`;
 }
 
 export function matchCapability(pattern: string, cap: string): boolean {
-  return pattern === "*" || pattern === cap || (pattern.endsWith("*") && cap.startsWith(pattern.slice(0, -1)));
+  return (
+    pattern === '*' ||
+    pattern === cap ||
+    (pattern.endsWith('*') && cap.startsWith(pattern.slice(0, -1)))
+  );
 }
 
 /** Verify a grant token against a request (SPEC §6.4). Never throws. */
-export async function checkGrant(token: string, ctx: CheckContext): Promise<GrantCheck> {
+export async function checkGrant(
+  token: string,
+  ctx: CheckContext,
+): Promise<GrantCheck> {
   try {
     return await checkGrantUnsafe(token, ctx);
   } catch (e) {
-    return { ok: false, code: "forbidden", reason: `malformed grant content: ${(e as Error).message}` };
+    return {
+      ok: false,
+      code: 'forbidden',
+      reason: `malformed grant content: ${(e as Error).message}`,
+    };
   }
 }
 
-async function checkGrantUnsafe(token: string, ctx: CheckContext): Promise<GrantCheck> {
+async function checkGrantUnsafe(
+  token: string,
+  ctx: CheckContext,
+): Promise<GrantCheck> {
   let blocks: Block[];
+
   try {
     blocks = decodeGrant(token);
   } catch (e) {
-    return { ok: false, code: "unauthorized", reason: `malformed grant: ${(e as Error).message}` };
+    return {
+      ok: false,
+      code: 'unauthorized',
+      reason: `malformed grant: ${(e as Error).message}`,
+    };
   }
+
   const iss = blocks[0].p.iss;
-  if (typeof iss !== "string") return { ok: false, code: "unauthorized", reason: "root block has no iss" };
+
+  if (typeof iss !== 'string')
+    return { ok: false, code: 'unauthorized', reason: 'root block has no iss' };
 
   let signer = iss;
+
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i];
-    if (i > 0 && b.p.prev !== (await sha256(blocks[i - 1].s))) return { ok: false, code: "unauthorized", reason: `block ${i} is not chained to block ${i - 1}` };
-    if (!(await verify(signer, canonical(b.p), b.s))) return { ok: false, code: "unauthorized", reason: `bad signature on block ${i}` };
+
+    if (i > 0 && b.p.prev !== (await sha256(blocks[i - 1].s)))
+      return {
+        ok: false,
+        code: 'unauthorized',
+        reason: `block ${i} is not chained to block ${i - 1}`,
+      };
+
+    if (!(await verify(signer, canonical(b.p), b.s)))
+      return {
+        ok: false,
+        code: 'unauthorized',
+        reason: `bad signature on block ${i}`,
+      };
+
     signer = b.p.sub;
   }
-  const trusted = typeof ctx.trusted === "function" ? ctx.trusted(iss) : ctx.trusted.includes(iss);
-  if (!trusted) return { ok: false, code: "unauthorized", reason: "grant is issued by a principal this service does not trust", iss };
+
+  const trusted =
+    typeof ctx.trusted === 'function'
+      ? ctx.trusted(iss)
+      : ctx.trusted.includes(iss);
+
+  if (!trusted)
+    return {
+      ok: false,
+      code: 'unauthorized',
+      reason: 'grant is issued by a principal this service does not trust',
+      iss,
+    };
+
   const holder = signer;
-  if (holder !== ctx.proofKey) return { ok: false, code: "unauthorized", reason: "proof key is not the grant holder", iss };
+
+  if (holder !== ctx.proofKey)
+    return {
+      ok: false,
+      code: 'unauthorized',
+      reason: 'proof key is not the grant holder',
+      iss,
+    };
 
   const t = ctx.now ?? now();
-  const p = ctx.verb === "COMMIT" ? ctx.proposal : undefined;
+  const p = ctx.verb === 'COMMIT' ? ctx.proposal : undefined;
   const hard: { c: Caveat; why: string }[] = [];
   const soft: { c: Caveat; why: string }[] = [];
   const spendBlocks: { id: string; max: number }[] = [];
 
   for (const b of blocks) {
     const id = await sha256(b.s);
+
     for (const c of b.p.caveats as Record<string, any>[]) {
-      if (!c || typeof c !== "object" || Array.isArray(c)) {
-        hard.push({ c: c as unknown as Caveat, why: `malformed caveat ${JSON.stringify(c)}` });
+      if (!c || typeof c !== 'object' || Array.isArray(c)) {
+        hard.push({
+          c: c as unknown as Caveat,
+          why: `malformed caveat ${JSON.stringify(c)}`,
+        });
+
         continue;
       }
+
       const keys = Object.keys(c);
-      const k = keys.length === 1 ? keys[0] : "";
+      const k = keys.length === 1 ? keys[0] : '';
       const v = c[k];
       let why: string | null = malformed(k, v);
-      if (!why) switch (k) {
-        case "svc": if (!v.includes(ctx.service)) why = `not valid for service ${ctx.service}`; break;
-        case "verbs": if (!v.includes(ctx.verb)) why = `does not allow ${ctx.verb}`; break;
-        case "can": if (!v.some((pat: string) => matchCapability(pat, ctx.capability))) why = `does not cover ${ctx.capability}`; break;
-        case "exp": if (!(t < v)) why = "grant has expired"; break;
-        case "nbf": if (!(t >= v)) why = "grant is not valid yet"; break;
-        case "per":
-          if (p?.cost && (p.cost.currency !== v.currency || p.cost.amount > v.max)) why = `cost exceeds the per-commit limit of ${fmtMoney({ amount: v.max, currency: v.currency })}`;
-          break;
-        case "spend":
-          if (p?.cost) {
-            const total = (ctx.spent?.(id) ?? 0) + p.cost.amount;
-            if (p.cost.currency !== v.currency || total > v.max) why = `would exceed the spend limit of ${fmtMoney({ amount: v.max, currency: v.currency })}`;
-          }
-          if (ctx.verb === "COMMIT" && !why) spendBlocks.push({ id, max: v.max });
-          break;
-        case "risk": if (p && RISK_ORDER[p.risk] > RISK_ORDER[v as Risk]) why = `risk ${p.risk} exceeds ceiling ${v}`; break;
-        case "only": if (ctx.verb === "COMMIT" && p?.hash !== v) why = "grant is bound to a different proposal"; break;
-        default: why = `unknown caveat ${JSON.stringify(c)}`;
-      }
-      if (why) (CONSENTABLE.has(k) && !why.startsWith("malformed") ? soft : hard).push({ c: c as Caveat, why });
+
+      if (!why)
+        switch (k) {
+          case 'svc':
+            if (!v.includes(ctx.service))
+              why = `not valid for service ${ctx.service}`;
+
+            break;
+          case 'verbs':
+            if (!v.includes(ctx.verb)) why = `does not allow ${ctx.verb}`;
+
+            break;
+          case 'can':
+            if (!v.some((pat: string) => matchCapability(pat, ctx.capability)))
+              why = `does not cover ${ctx.capability}`;
+
+            break;
+          case 'exp':
+            if (!(t < v)) why = 'grant has expired';
+
+            break;
+          case 'nbf':
+            if (!(t >= v)) why = 'grant is not valid yet';
+
+            break;
+          case 'per':
+            if (
+              p?.cost &&
+              (p.cost.currency !== v.currency || p.cost.amount > v.max)
+            )
+              why = `cost exceeds the per-commit limit of ${fmtMoney({ amount: v.max, currency: v.currency })}`;
+
+            break;
+          case 'spend':
+            if (p?.cost) {
+              const total = (ctx.spent?.(id) ?? 0) + p.cost.amount;
+
+              if (p.cost.currency !== v.currency || total > v.max)
+                why = `would exceed the spend limit of ${fmtMoney({ amount: v.max, currency: v.currency })}`;
+            }
+
+            if (ctx.verb === 'COMMIT' && !why)
+              spendBlocks.push({ id, max: v.max });
+
+            break;
+          case 'risk':
+            if (p && RISK_ORDER[p.risk] > RISK_ORDER[v as Risk])
+              why = `risk ${p.risk} exceeds ceiling ${v}`;
+
+            break;
+          case 'only':
+            if (ctx.verb === 'COMMIT' && p?.hash !== v)
+              why = 'grant is bound to a different proposal';
+
+            break;
+          default:
+            why = `unknown caveat ${JSON.stringify(c)}`;
+        }
+
+      if (why)
+        (CONSENTABLE.has(k) && !why.startsWith('malformed') ? soft : hard).push(
+          { c: c as Caveat, why },
+        );
     }
   }
-  if (hard.length) return { ok: false, code: "forbidden", reason: hard.map((h) => h.why).join("; "), iss, need: hard.map((h) => h.c) };
-  if (soft.length) return { ok: false, code: "consent_required", reason: soft.map((h) => h.why).join("; "), iss };
+
+  if (hard.length)
+    return {
+      ok: false,
+      code: 'forbidden',
+      reason: hard.map((h) => h.why).join('; '),
+      iss,
+      need: hard.map((h) => h.c),
+    };
+
+  if (soft.length)
+    return {
+      ok: false,
+      code: 'consent_required',
+      reason: soft.map((h) => h.why).join('; '),
+      iss,
+    };
+
   return { ok: true, id: await sha256(blocks[0].s), iss, holder, spendBlocks };
 }
 
-export interface ProofTarget { aud: string; verb: Verb; target: string }
-
-export async function makeProof(seed: string, t: ProofTarget, ts = now()): Promise<Proof> {
-  const kp = await keyPair(seed);
-  return { key: kp.public, ts, sig: await sign(seed, canonical({ aud: t.aud, verb: t.verb, target: t.target, ts })) };
+export interface ProofTarget {
+  aud: string;
+  verb: Verb;
+  target: string;
 }
 
-export async function checkProof(proof: Proof | undefined, t: ProofTarget, at = now()): Promise<string | null> {
-  if (!proof || typeof proof.key !== "string" || typeof proof.sig !== "string" || !Number.isSafeInteger(proof.ts)) return "missing or malformed proof";
-  if (Math.abs(at - proof.ts) > 300) return "proof timestamp is outside the 300s window";
-  const ok = await verify(proof.key, canonical({ aud: t.aud, verb: t.verb, target: t.target, ts: proof.ts }), proof.sig);
-  return ok ? null : "proof signature is invalid";
+export async function makeProof(
+  seed: string,
+  t: ProofTarget,
+  ts = now(),
+): Promise<Proof> {
+  const kp = await keyPair(seed);
+
+  return {
+    key: kp.public,
+    ts,
+    sig: await sign(
+      seed,
+      canonical({ aud: t.aud, verb: t.verb, target: t.target, ts }),
+    ),
+  };
+}
+
+export async function checkProof(
+  proof: Proof | undefined,
+  t: ProofTarget,
+  at = now(),
+): Promise<string | null> {
+  if (
+    !proof ||
+    typeof proof.key !== 'string' ||
+    typeof proof.sig !== 'string' ||
+    !Number.isSafeInteger(proof.ts)
+  )
+    return 'missing or malformed proof';
+
+  if (Math.abs(at - proof.ts) > 300)
+    return 'proof timestamp is outside the 300s window';
+
+  const ok = await verify(
+    proof.key,
+    canonical({ aud: t.aud, verb: t.verb, target: t.target, ts: proof.ts }),
+    proof.sig,
+  );
+
+  return ok ? null : 'proof signature is invalid';
 }

@@ -1,0 +1,100 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+  "files": {
+    "includes": [
+      "ts/src/**",
+      "ts/test/**",
+      "ts/scripts/**",
+      "ts/*.ts",
+      "examples/**",
+      "bench/**",
+      "deploy/demo/src/**",
+      "scripts/**",
+      "site/scripts/**",
+      "site/.vitepress/*.ts",
+      "site/.vitepress/theme/*.ts",
+      "!**/*.json",
+      "!**/*.jsonc",
+      "!**/*.md"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single"
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "complexity": {
+        "noExcessiveCognitiveComplexity": "error",
+        "noExcessiveLinesPerFunction": {
+          "level": "error",
+          "options": {
+            "skipBlankLines": true
+          }
+        },
+        "useMaxParams": "error"
+      },
+      "style": {
+        "noNonNullAssertion": "error",
+        "useConsistentTypeDefinitions": {
+          "level": "error",
+          "options": {
+            "style": "interface"
+          }
+        }
+      },
+      "suspicious": {
+        "noEmptyBlockStatements": "error",
+        "noImportCycles": "error"
+      },
+      "nursery": {
+        "noFloatingPromises": "error",
+        "noMisusedPromises": "error",
+        "useExhaustiveSwitchCases": "error"
+      }
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["ts/test/**", "bench/**"],
+      "linter": {
+        "rules": {
+          "complexity": {
+            "noExcessiveCognitiveComplexity": "off",
+            "noExcessiveLinesPerFunction": "off"
+          },
+          "style": {
+            "noNonNullAssertion": "off"
+          },
+          "suspicious": {
+            "noEmptyBlockStatements": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "ts/src/**",
+        "examples/**",
+        "deploy/**",
+        "scripts/**",
+        "site/**"
+      ],
+      "linter": {
+        "rules": {
+          "suspicious": {
+            "noFocusedTests": "off"
+          }
+        }
+      }
+    }
+  ]
+}
