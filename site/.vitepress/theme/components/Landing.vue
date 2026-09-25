@@ -259,7 +259,7 @@ claude mcp add parley -- npx parley-protocol mcp \
 
     <section class="band end">
       <h2>Try it without installing anything</h2>
-      <p>Play the agent against a calendar and a shop, set the human's policy, and watch what the model would read.</p>
+      <p>Play the agent against a calendar, a shop and a billing system, set the human's policy, and watch what the model would read.</p>
       <div class="ctas">
         <a class="btn primary" :href="withBase('/playground')">Open the playground</a>
         <a class="btn" :href="withBase('/reference/spec')">Read the spec</a>

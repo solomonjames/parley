@@ -90,4 +90,9 @@ h1, h2, h3, h4, .VPNavBarTitle .title, .vp-doc h1, .vp-doc h2, .vp-doc h3 {
 .vp-doc .side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .vp-doc .side-by-side > div { min-width: 0; }
 .vp-doc .side-by-side p { font-size: 0.92rem; }
+/* Half-width columns are too narrow for Lens lines: wrap code instead of hiding it behind a scrollbar. */
+.vp-doc .side-by-side div[class*="language-"] pre,
+.vp-doc .side-by-side div[class*="language-"] code { white-space: pre-wrap; overflow-wrap: anywhere; }
+.vp-doc .side-by-side div[class*="language-"] code { width: auto; font-size: 12.5px; }
+.vp-doc .side-by-side div[class*="language-"] .line { display: inline-block; width: 100%; padding-left: 4ch; text-indent: -4ch; }
 @media (max-width: 860px) { .vp-doc .side-by-side { grid-template-columns: 1fr; } }

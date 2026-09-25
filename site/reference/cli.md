@@ -71,7 +71,7 @@ Checks your node version, the agent key, **whether the principal key is readable
 
 - `parley test-drive ["task"] [--model <id>]` runs a real Claude model (default `claude-opus-5`) against the example calendar and shop in your terminal, with a throwaway policy. Anything outside it asks you to approve. It fetches the Anthropic SDK on first use; the package itself has no runtime dependencies.
 - `parley demo` is a narrated, scripted run with no API key needed.
-- `parley examples [--port 7447] [--host 0.0.0.0]` serves the example calendar and shop (calendar on the port, shop on port + 2). Use `--host 0.0.0.0` inside containers.
+- `parley examples [--port 7447] [--host 0.0.0.0]` serves the example calendar, shop and billing services (calendar on the port, shop on port + 2, billing on port + 4). Use `--host 0.0.0.0` inside containers.
 
 See the [test drive walkthrough](/guide/test-drive) for more.
 

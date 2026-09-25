@@ -39,14 +39,11 @@ Each response is a full object with dozens of fields and long ids. Nothing in th
 INTENT billing.refund {who: "Chen"}
 
 2 proposals — risk: medium · undo: never
-[p_2kOHY6Sz] Refund 49.00 USD of pay_112 to
-              Chen Wei (full)
-  ~ update payment/pay_112.refunded:
-      0.00 USD → 49.00 USD
+[p_2kOHY6Sz] Refund 49.00 USD of pay_112 to Chen Wei (full)
+  ~ update payment/pay_112.refunded: 0.00 USD → 49.00 USD
   > send chen@wei.studio — refund receipt
   cost: 49.00 USD
-[p_GrZxWvUD] Refund 22.87 USD of pay_112 to
-              Chen Wei (unused 14 days)
+[p_GrZxWvUD] Refund 22.87 USD of pay_112 to Chen Wei (unused 14 days)
   …
   cost: 22.87 USD
 ```

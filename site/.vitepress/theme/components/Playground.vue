@@ -16,7 +16,7 @@ const clients = shallowRef<Record<string, Client>>({});
 const grant = ref("");
 const grantInfo = ref<any>(null);
 
-const SERVICES = { calendar: "calendar.example", shop: "shop.example" } as const;
+const SERVICES = { calendar: "calendar.example", shop: "shop.example", billing: "billing.example" } as const;
 type Svc = keyof typeof SERVICES;
 const VERBS = ["HELLO", "ASK", "INTENT", "COMMIT", "UNDO", "EXPAND"] as const;
 
@@ -30,6 +30,11 @@ const EXAMPLES: Record<string, object> = {
   "shop.search": { tag: "vegan", max_cal: 700 },
   "shop.order": { items: [{ sku: "m047", qty: 2 }, { sku: "m055", qty: 2 }], deliver: day(1) },
   "shop.tip": { order: "o1001", usd: 5 },
+  "billing.customers": { status: "active" },
+  "billing.customer": { who: "Chen" },
+  "billing.refund": { who: "Chen" },
+  "billing.change_plan": { who: "Dana", plan: "pro" },
+  "billing.cancel": { who: "Ben" },
 };
 
 const form = reactive({
@@ -43,7 +48,7 @@ const form = reactive({
   budget: 600,
   target: "",
 });
-const policy = reactive({ calendar: true, shop: true, risk: "low", per: "40", spend: "100", exp: "8h" });
+const policy = reactive({ calendar: true, shop: true, billing: true, risk: "low", per: "40", spend: "100", exp: "8h" });
 
 const log = ref<Exchange[]>([]);
 const selected = ref<number | null>(null);
@@ -68,11 +73,11 @@ const targets = computed(() => {
 
 onMounted(async () => {
   try {
-    const [c, cal, sh] = await Promise.all([import("parley-protocol"), import("@examples/calendar.ts"), import("@examples/shop.ts")]);
+    const [c, cal, sh, bi] = await Promise.all([import("parley-protocol"), import("@examples/calendar.ts"), import("@examples/shop.ts"), import("@examples/billing.ts")]);
     core.value = c;
     const [principal, agent] = await Promise.all([c.keyPair(), c.keyPair()]);
     keys.value = { principal, agent };
-    services.value = { calendar: cal.calendar({ trust: [principal.public] }), shop: sh.shop({ trust: [principal.public] }) };
+    services.value = { calendar: cal.calendar({ trust: [principal.public] }), shop: sh.shop({ trust: [principal.public] }), billing: bi.billing({ trust: [principal.public] }) };
     await rebuildGrant();
     await nextTick();
     await send(); // open on a real exchange
@@ -85,7 +90,7 @@ onMounted(async () => {
 
 function caveats() {
   const out: any[] = [];
-  const svc = [policy.calendar && SERVICES.calendar, policy.shop && SERVICES.shop].filter(Boolean);
+  const svc = (Object.keys(SERVICES) as Svc[]).filter((s) => policy[s]).map((s) => SERVICES[s]);
   out.push({ svc });
   if (policy.risk) out.push({ risk: policy.risk });
   const usd = (s: string) => Math.round(Number(s) * 100);
@@ -243,6 +248,12 @@ function preset(kind: string) {
       const r = current.value?.reply;
       if (r?.kind === "PROPOSALS") await act("COMMIT", r.proposals[0].id, "shop");
     });
+  // A refund can't be undone, so it's never auto-committed, and it's above the policy's risk.
+  if (kind === "refund")
+    set("billing", "INTENT", "billing.refund", EXAMPLES["billing.refund"], { auto: true }, async () => {
+      const r = current.value?.reply;
+      if (r?.kind === "PROPOSALS") await act("COMMIT", r.proposals[r.proposals.length - 1].id, "billing");
+    });
   if (kind === "budget") set("shop", "ASK", "shop.search", {}, { useBudget: true, budget: 250 });
   if (kind === "typo") set("calendar", "ASK", "calendar.agenda", { dya: day(0) });
 }
@@ -317,7 +328,7 @@ function onKey(e: KeyboardEvent) {
       <div>
         <h1>Playground</h1>
         <p>
-          You're the agent. A calendar and a meal shop run in this page on the real Parley core, and your requests are
+          You're the agent. A calendar, a meal shop and a billing system run in this page on the real Parley core, and your requests are
           signed with a grant from the human's policy. The right side shows exactly what a model would read.
         </p>
       </div>
@@ -325,6 +336,7 @@ function onKey(e: KeyboardEvent) {
         <button type="button" @click="preset('auto')">Move a meeting in one round trip</button>
         <button type="button" @click="preset('clarify')">Ambiguous request</button>
         <button type="button" @click="preset('consent')">Order over the limit</button>
+        <button type="button" @click="preset('refund')">A refund that can't be undone</button>
         <button type="button" @click="preset('budget')">60 items in 250 tokens</button>
         <button type="button" @click="preset('typo')">A typo that teaches</button>
       </div>
@@ -401,6 +413,7 @@ function onKey(e: KeyboardEvent) {
           <div class="checks">
             <label><input v-model="policy.calendar" type="checkbox" /> calendar.example</label>
             <label><input v-model="policy.shop" type="checkbox" /> shop.example</label>
+            <label><input v-model="policy.billing" type="checkbox" /> billing.example</label>
           </div>
           <div class="row3">
             <label class="field"><span>Risk up to</span>
@@ -536,11 +549,11 @@ textarea[aria-invalid="true"] { border-color: var(--state-red); }
 .policy { border-top: 1px solid var(--vp-c-divider); padding-top: 12px; margin-top: 4px; }
 .policy summary { font-family: var(--font-head); font-weight: 600; cursor: pointer; margin-bottom: 8px; }
 .policy > * + * { margin-top: 10px; }
-.checks { display: flex; gap: 16px; font-size: 0.85rem; color: var(--vp-c-text-2); }
+.checks { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 0.85rem; color: var(--vp-c-text-2); }
 .checks input { accent-color: var(--amber); }
 .row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .grant code { font-size: 0.72rem; color: var(--vp-c-text-3); word-break: break-all; }
-.grant pre { margin: 6px 0 0; font-family: var(--vp-font-family-mono); font-size: 0.74rem; line-height: 1.6; color: var(--vp-c-text-2); background: var(--vp-c-bg-soft); padding: 8px 10px; border-radius: 8px; overflow-x: auto; }
+.grant pre { margin: 6px 0 0; font-family: var(--vp-font-family-mono); font-size: 0.74rem; line-height: 1.6; color: var(--vp-c-text-2); background: var(--vp-c-bg-soft); padding: 8px 10px; border-radius: 8px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .out { padding: 0; overflow: hidden; }
 .out-head { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 14px 18px; border-bottom: 1px solid var(--vp-c-divider); }
