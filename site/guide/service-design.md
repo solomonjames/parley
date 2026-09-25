@@ -43,12 +43,12 @@ A customer writes to support: *"Please refund the rest of this month, I'm cancel
 
 ```http
 GET  /v1/customers/search?query=name:"Chen"
-GET  /v1/subscriptions?customer=cus_Nf3…
+GET  /v1/subscriptions?customer=cus_chen
      → period dates, to work out the unused part
-GET  /v1/charges?customer=cus_Nf3…&limit=5
+GET  /v1/charges?customer=cus_chen&limit=5
      → find the latest payment
 POST /v1/refunds
-     charge=ch_3P…  amount=2287
+     charge=ch_2  amount=2287
      reason=requested_by_customer
 ```
 
@@ -116,7 +116,7 @@ An ASK's `run()` makes whatever REST calls it needs, then returns only what the 
 
 ```json
 { "object": "search_result", "data": [{
-    "id": "cus_NffrFeUfNV2Hib",
+    "id": "cus_chen",
     "object": "customer",
     "address": null, "balance": 0,
     "created": 1680893993,
@@ -125,13 +125,13 @@ An ASK's `run()` makes whatever REST calls it needs, then returns only what the 
     "name": "Chen Wei", …
 }]}
 { "object": "list", "data": [{
-    "id": "sub_1MowQVLkdIwHu7ix",
+    "id": "sub_chen",
     "items": { "data": [{
-      "current_period_end": 1791849600,
+      "current_period_end": 1791504000,
       "price": { "id": "price_1Mo…", … }, …
 }]}
 { "object": "list", "data": [{
-    "id": "ch_3MmlLrLkdIwHu7ix0snN0B15",
+    "id": "ch_2",
     "amount": 4900, "amount_refunded": 0,
     "billing_details": { … },
     "outcome": { … },
@@ -156,6 +156,8 @@ payments[2]{id,date,amount,refunded,status}:
 
 </div>
 </div>
+
+Ids on this page come from the example's test data; real Stripe ids are longer, and the ASK passes them through unchanged.
 
 The ASK behind it, abridged (the [full code](#the-full-example) is below):
 
@@ -206,15 +208,18 @@ Each write becomes an intent whose `plan()` returns one or more **plans**. Every
 In code:
 
 ```ts
+// cur = ch.currency
 const refund = (amount: number, why: string): Plan => ({
-  summary: `Refund ${amt(amount, ch.currency)} of ${ch.id} to ${c.name} (${why})`,
+  summary: `Refund ${amt(amount, cur)} of ${ch.id} to ${c.name} (${why})`,
   effects: [
-    update(`charge/${ch.id}`, "amount_refunded", amt(ch.amount_refunded, ch.currency), amt(ch.amount_refunded + amount, ch.currency)),
+    update(`charge/${ch.id}`, "amount_refunded",
+      amt(ch.amount_refunded, cur), amt(ch.amount_refunded + amount, cur)),
     send(c.email, "refund receipt; back on the card in 5–10 days"),
   ],
-  cost: money(amount, ch.currency.toUpperCase()),
-  apply: () => stripe("POST", "/refunds", { charge: ch.id, amount: String(amount), reason: "requested_by_customer" }, idempotencyKey),
-  // No revert: Stripe can't reverse a refund, so Parley will never auto-commit it.
+  cost: money(amount, cur.toUpperCase()),
+  apply: () => stripe("POST", "/refunds",
+    { charge: ch.id, amount: String(amount), reason: "requested_by_customer" }, idempotencyKey),
+  // No revert: Stripe can't reverse a refund, so Parley never auto-commits it.
 });
 return [refund(left, "full"), refund(unused, `unused ${days} days`)];
 ```
@@ -257,10 +262,12 @@ You don't write idempotency handling (beyond the upstream key in `apply()`), pag
 
 ## The full example
 
-Three capabilities in front of the real Stripe API, under 200 lines. The tests run it against a fake of the Stripe endpoints it uses ([`ts/test/stripe-billing.test.ts`](../../ts/test/stripe-billing.test.ts)).
+Three capabilities in front of the real Stripe API, in about 260 lines. The tests run it against a fake of the Stripe endpoints it uses ([`ts/test/stripe-billing.test.ts`](../../ts/test/stripe-billing.test.ts)).
 
 ```sh
-STRIPE_SECRET_KEY=sk_test_… PARLEY_TRUST="$(parley whoami | awk '/principal/{print $2}')" node examples/stripe-billing.ts
+export STRIPE_SECRET_KEY=sk_test_…   # a test-mode key
+export PARLEY_TRUST="$(parley whoami | awk '/principal/{print $2}')"
+node examples/stripe-billing.ts
 parley add parley://127.0.0.1:7453   # now your AI tool can use it
 ```
 
