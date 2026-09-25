@@ -132,6 +132,7 @@ function sidebar() {
     {
       text: "Build",
       items: [
+        { text: "Designing a good service", link: "/guide/service-design" },
         { text: "Build a service", link: "/guide/build-a-service" },
         { text: "Wrap any REST API", link: "/guide/openapi" },
         { text: "Docker", link: "/guide/docker" },

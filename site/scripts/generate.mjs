@@ -31,6 +31,7 @@ const pages = [
   ["Grants and consent", "/guide/grants", "Signed delegation chains, caveats, proofs, and one-shot consent bound to a proposal hash"],
   ["Budgets and EXPAND", "/guide/budgets", "Token budgets, elision rules and the shared token estimate"],
   ["Lens", "/guide/lens", "The canonical text rendering models read"],
+  ["Designing a good service", "/guide/service-design", "Design principles, with a Stripe-style billing API redesigned for agents side by side"],
   ["Build a service", "/guide/build-a-service", "Capabilities, plans, the compact param schema and teaching errors"],
   ["Wrap any REST API", "/guide/openapi", "parley openapi: GETs become ASKs, writes become proposals"],
   ["Security model", "/guide/security", "Key isolation, what each mechanism stops, and known limits"],

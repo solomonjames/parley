@@ -85,3 +85,9 @@ h1, h2, h3, h4, .VPNavBarTitle .title, .vp-doc h1, .vp-doc h2, .vp-doc h3 {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
+
+/* Two columns for REST-vs-Parley comparisons; stacks on narrow screens. */
+.vp-doc .side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.vp-doc .side-by-side > div { min-width: 0; }
+.vp-doc .side-by-side p { font-size: 0.92rem; }
+@media (max-width: 860px) { .vp-doc .side-by-side { grid-template-columns: 1fr; } }

@@ -42,7 +42,7 @@ talk to a service  (url: parley://host:port · parleys://… · http(s)://…/pa
 try it
   parley test-drive [--model m] ["task"]  watch a real Claude model use Parley live (needs an Anthropic API key)
   parley demo                              narrated end-to-end demo (two services, consent, undo, sub-agents)
-  parley examples [--port 7447] [--host]            serve the example calendar (7447) and shop (7449), trusting your principal
+  parley examples [--port 7447] [--host]            serve the example calendar (7447), shop (7449) and billing (7451), trusting your principal
 
 bridges
   parley mcp <url> [<url> …]               run an MCP server (stdio) exposing Parley services
@@ -195,7 +195,7 @@ async function main() {
       process.exit(0);
     }
     case "examples": {
-      const { calendar, shop } = await import("./examples/index.js");
+      const { calendar, shop, billing } = await import("./examples/index.js");
       const { listen } = await import("./node.js");
       const trust = (process.env.PARLEY_TRUST ?? "").split(",").filter(Boolean);
       const p = await principalKey();
@@ -203,7 +203,8 @@ async function main() {
       const port = Number(o.port ?? 7447);
       await listen(calendar({ trust }), { port, host: o.host });
       await listen(shop({ trust }), { port: port + 2, host: o.host });
-      console.error(`✓ calendar parley://127.0.0.1:${port} · shop parley://127.0.0.1:${port + 2} · trusting ${trust.length} principal(s)${trust.length ? "" : " (run parley init first to commit anything)"}\n  try: parley do parley://127.0.0.1:${port} calendar.reschedule event=Ana`);
+      await listen(billing({ trust }), { port: port + 4, host: o.host });
+      console.error(`✓ calendar parley://127.0.0.1:${port} · shop parley://127.0.0.1:${port + 2} · billing parley://127.0.0.1:${port + 4} · trusting ${trust.length} principal(s)${trust.length ? "" : " (run parley init first to commit anything)"}\n  try: parley do parley://127.0.0.1:${port} calendar.reschedule event=Ana`);
       return;
     }
     case "openapi": {

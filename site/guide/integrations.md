@@ -169,7 +169,7 @@ Parley's MCP registry entry is `io.github.solomonjames/parley` ([`server.json`](
 ## Services to try
 
 ```sh
-parley examples               # the example calendar (7447) and shop (7449), trusting your principal
+parley examples               # the example calendar (7447), shop (7449) and billing (7451)
 parley add parley://127.0.0.1:7447
 parley add parley://127.0.0.1:7449
 ```

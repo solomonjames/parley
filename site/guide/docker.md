@@ -38,7 +38,7 @@ Then point your AI tool at it: `parley add parley://127.0.0.1:7447`.
 ## The example services
 
 ```sh
-docker run --rm -p 7447:7447 -p 7449:7449 -e PARLEY_TRUST=… ghcr.io/solomonjames/parley examples --host 0.0.0.0
+docker run --rm -p 7447:7447 -p 7449:7449 -p 7451:7451 -e PARLEY_TRUST=… ghcr.io/solomonjames/parley examples --host 0.0.0.0
 ```
 
 ## Verify the image

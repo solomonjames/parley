@@ -55,7 +55,7 @@ agent ──UNDO r1 (the human changed their mind)──────────
 |---|---|
 | **See it work with a real model** (30 s) | `npx parley-protocol test-drive` runs Claude through a booking and a purchase that needs *your* approval. Needs an Anthropic API key. No key? Use `npx parley-protocol demo` or the [browser playground](https://solomonjames.github.io/parley/playground) |
 | **Give my AI tool safe actions** | In Claude Code: `/plugin marketplace add solomonjames/parley` then `/plugin install parley@parley`. Anywhere else: `npx parley-protocol install` (auto-detects Claude Code, Cursor, Codex, Gemini, VS Code, Windsurf and Claude Desktop). Then [add services](#use-it-from-claude-code-today) or [wrap an API](#wrap-any-rest-api-in-one-command): `parley openapi --preset github` |
-| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec |
+| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec. [Designing a good service](https://solomonjames.github.io/parley/guide/service-design) shows a Stripe-style API redesigned for agents, side by side |
 | **Implement the protocol** | Read the [spec](SPEC.md) and pass the [conformance vectors](conformance). Go and Rust ports are welcome |
 
 ## What changes
@@ -296,6 +296,9 @@ Params are validated against the compact schema automatically, and typos get fix
 ``rename `dya` to `day` ``. Budgets, `EXPAND`, idempotent commits, replay protection,
 grant verification, spend accounting and consent are all handled for you.
 
+What makes a service *good* for agents? [Designing a good service](https://solomonjames.github.io/parley/guide/service-design) redesigns a
+Stripe-style billing API as Parley intents, side by side with the REST calls it replaces.
+
 ### Act as an agent
 
 ```ts
@@ -339,7 +342,8 @@ environment, never showing them to the model. `github` and `petstore` ship today
 anything else, point `parley openapi` at an OpenAPI spec: GET endpoints become `ASK`s, and writes become `INTENT`s whose proposal shows the
 exact HTTP request. The upstream call happens only on `COMMIT`, under your grant and with
 consent when your policy requires it. Upstream credentials (`--header`) are never shown
-to the model.
+to the model. Wrapping gives you the safety; to also cut the agent's turns, [design native
+intents](https://solomonjames.github.io/parley/guide/service-design) for your top jobs.
 
 ```sh
 parley openapi https://petstore3.swagger.io/api/v3/openapi.json --base https://petstore3.swagger.io/api/v3
