@@ -141,7 +141,23 @@ An ASK's `run()` makes whatever REST calls it needs, then returns only what the 
 </div>
 <div>
 
-**Parley: one ASK** (abridged; the [full code](#the-full-example) is below)
+**Parley: what the agent reads**
+
+```text
+id: cus_chen
+name: Chen Wei
+email: chen@wei.studio
+plan: pro
+renews: 2026-10-09
+payments[2]{id,date,amount,refunded,status}:
+  ch_2,2026-09-09,49.00 USD,0.00 USD,succeeded
+  ch_1,2026-08-10,49.00 USD,0.00 USD,succeeded
+```
+
+</div>
+</div>
+
+The ASK behind it, abridged (the [full code](#the-full-example) is below):
 
 ```ts
 .ask("billing.customer", {
@@ -164,20 +180,6 @@ An ASK's `run()` makes whatever REST calls it needs, then returns only what the 
   },
 })
 ```
-
-```text
-id: cus_chen
-name: Chen Wei
-email: chen@wei.studio
-plan: pro
-renews: 2026-10-09
-payments[2]{id,date,amount,refunded,status}:
-  ch_2,2026-09-09,49.00 USD,0.00 USD,succeeded
-  ch_1,2026-08-10,49.00 USD,0.00 USD,succeeded
-```
-
-</div>
-</div>
 
 Rules for reads:
 
