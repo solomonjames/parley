@@ -217,9 +217,18 @@ const refund = (amount: number, why: string): Plan => ({
     send(c.email, "refund receipt; back on the card in 5–10 days"),
   ],
   cost: money(amount, cur.toUpperCase()),
-  apply: () => stripe("POST", "/refunds",
-    { charge: ch.id, amount: String(amount), reason: "requested_by_customer" }, idempotencyKey),
-  // No revert: Stripe can't reverse a refund, so Parley never auto-commits it.
+  apply: () =>
+    stripe(
+      "POST",
+      "/refunds",
+      {
+        charge: ch.id,
+        amount: String(amount),
+        reason: "requested_by_customer",
+      },
+      idempotencyKey,
+    ),
+  // No revert: Stripe can't reverse a refund, so it's never auto-committed.
 });
 return [refund(left, "full"), refund(unused, `unused ${days} days`)];
 ```
@@ -229,8 +238,11 @@ Where an inverse call exists, `revert()` makes it, and the plan becomes undoable
 ```ts
 {
   summary: `Cancel ${c.name} on ${day(end)}; access until then`,
-  effects: [update(`subscription/${sub.id}`, "cancel_at_period_end", false, true)],
-  undoWindow: roundDown(end - now),   // "undo: 13d"; never outlives the period
+  effects: [
+    update(`subscription/${sub.id}`, "cancel_at_period_end", false, true),
+  ],
+  // "undo: 13d": rounded down, so it never outlives the period
+  undoWindow: roundDown(end - now),
   apply: () => stripe("POST", path, { cancel_at_period_end: "true" }),
   revert: () => stripe("POST", path, { cancel_at_period_end: "false" }),
 }
