@@ -7,7 +7,7 @@ import { fetchHandler, type Service } from '@yea-protocol/sdk';
 import { calendar, shop } from '@yea-protocol/sdk/examples';
 
 interface Env {
-  DEMO: DurableObjectNamespace<ParleyDemo>;
+  DEMO: DurableObjectNamespace<YeaDemo>;
 }
 
 const SERVICES = {
@@ -19,7 +19,7 @@ type Name = keyof typeof SERVICES;
 
 const MAX_FRAME = 1 << 20;
 
-export class ParleyDemo extends DurableObject<Env> {
+export class YeaDemo extends DurableObject<Env> {
   private handlers = new Map<Name, (r: Request) => Promise<Response>>();
   async fetch(req: Request): Promise<Response> {
     const name = new URL(req.url).pathname.split('/')[1] as Name;
