@@ -257,8 +257,7 @@ npm install parley-protocol        # TypeScript/JavaScript: Node ≥ 20, Bun, De
 pip install parley-protocol        # Python ≥ 3.10
 ```
 
-> Packages aren't published yet. Until they are: `git clone`, then `npm install && npm run build && npm link -w parley-protocol`
-> for the `parley` CLI, and `pip install ./python`.
+> The Python package isn't on PyPI yet. Until it is: `git clone`, then `pip install ./python`.
 
 ### Build a service
 
@@ -387,8 +386,6 @@ claude mcp add my-api -- npx parley-protocol mcp parley://127.0.0.1:7447
 <!-- #region claude-code -->
 The bridge exposes Parley services as an MCP server, so every MCP client can use them now.
 Tool results are Lens.
-
-> **v0.1.0 is being published to npm/PyPI.** Until then, the plugin and `npx parley-protocol` commands below need the from-source install in [Quickstart](#quickstart).
 
 **Claude Code plugin** (bundles the MCP server and a skill that teaches consent etiquette):
 
