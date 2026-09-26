@@ -1,13 +1,15 @@
 # Verified releases
 
-YEA is software that holds authority over your money and calendar, so you should be able to check that what you install is what this repository built. Every release is built and published by GitHub Actions ([`release.yml`](https://github.com/yea-protocol/yea/blob/main/.github/workflows/release.yml), [`docker.yml`](https://github.com/yea-protocol/yea/blob/main/.github/workflows/docker.yml)) from a tagged commit, with no long-lived publish tokens:
+YEA is software that holds authority over your money and calendar, so you should be able to check that what you install is what this repository built. Every release is built and published by GitHub Actions ([`release.yml`](https://github.com/yea-protocol/yea/blob/main/.github/workflows/release.yml), [`docker.yml`](https://github.com/yea-protocol/yea/blob/main/.github/workflows/docker.yml)) from a tagged commit:
 
 | Artifact | How it's published | Provenance |
 |---|---|---|
-| npm `@yea-protocol/sdk` and `@yea-protocol/cli` | npm trusted publishing, `--provenance` | npm provenance plus a GitHub build attestation of each `.tgz` |
-| PyPI `yea-sdk` | PyPI trusted publishing | GitHub build attestations of the wheel and sdist |
+| npm `@yea-protocol/sdk` and `@yea-protocol/cli` | npm trusted publishing (OIDC), except the first release; see below | npm provenance (`--provenance`) plus a GitHub build attestation of each `.tgz` |
+| PyPI `yea-sdk` | PyPI trusted publishing, from the first release | GitHub build attestations of the wheel and sdist |
 | `ghcr.io/yea-protocol/yea` | Docker build on release tags | GitHub build attestation of the image |
 | GitHub release | The npm and PyPI artifacts, plus `SHA256SUMS` | |
+
+**The first npm release uses a token.** npm only lets a trusted publisher be added to a package that already exists, so v0.1.0 of the two npm packages is published with a scoped automation token stored as a repository secret. Once both packages exist, trusted publishing takes over and the token is revoked ([#31](https://github.com/yea-protocol/yea/issues/31)). Provenance and build attestations apply to every release either way, so the checks below work for v0.1.0 too.
 
 ## Verify
 
