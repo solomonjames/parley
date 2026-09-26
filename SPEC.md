@@ -14,7 +14,7 @@ that wants an outcome has to break it into many CRUD calls. It reads bulky JSON 
 pays for per token, guesses which calls are safe, and holds credentials that can do
 anything the human can.
 
-YEA (*Your Explicit Approval*, pronounced "yay") is an application-layer protocol for the case where the client is a
+YEA (*Your Explicit Approval*) is an application-layer protocol for the case where the client is a
 **model acting for a person**. It is a peer of HTTP rather than a layer on it: it has
 its own framing, verbs, reply kinds, error model and authorization model. Its design
 goals:
