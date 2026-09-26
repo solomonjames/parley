@@ -42,3 +42,15 @@ jobs:
         working-directory: python
         env:
           PARLEY_REQUIRE_INTEROP: "1"   # fail instead of skipping if node/ts/dist is missing
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # lastUpdated timestamps come from git history
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run site   # the same build pages.yml deploys, so a PR can't break it unseen
