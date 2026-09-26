@@ -212,7 +212,7 @@ export class Service {
 
   brief(budget = this.opts.defaultBudget ?? 2000, re = 'discover'): Brief {
     const r: Brief = {
-      parley: 1,
+      yea: 1,
       id: randomId('s', 6),
       re,
       kind: 'BRIEF',
@@ -240,7 +240,7 @@ export class Service {
       if (!isRequestFrame(frame)) {
         throw new ParleyError(
           'bad_frame',
-          'frames need "parley": 1 and a string "id"',
+          'frames need "yea": 1 and a string "id"',
         );
       }
 
@@ -271,7 +271,7 @@ export class Service {
   private errorReply(re: string, e: unknown): ErrorReply {
     if (e instanceof ParleyError) {
       return {
-        parley: 1,
+        yea: 1,
         id: randomId('s', 6),
         re,
         kind: 'ERROR',
@@ -284,7 +284,7 @@ export class Service {
     this.opts.onError?.(e);
 
     return {
-      parley: 1,
+      yea: 1,
       id: randomId('s', 6),
       re,
       kind: 'ERROR',
@@ -499,7 +499,7 @@ export class Service {
 
     return fit(
       {
-        parley: 1,
+        yea: 1,
         id: randomId('s', 6),
         re: req.id,
         kind: 'ANSWER',
@@ -617,7 +617,7 @@ export class Service {
 
     if (out && 'clarify' in out) {
       return {
-        parley: 1,
+        yea: 1,
         id: randomId('s', 6),
         re: req.id,
         kind: 'CLARIFY',
@@ -660,7 +660,7 @@ export class Service {
 
     return fit(
       {
-        parley: 1,
+        yea: 1,
         id: randomId('s', 6),
         re: req.id,
         kind: 'PROPOSALS',
@@ -917,7 +917,7 @@ export class Service {
       });
 
       return {
-        parley: 1,
+        yea: 1,
         id: randomId('s', 6),
         re: reqId,
         kind: 'RECEIPT',
@@ -1015,7 +1015,7 @@ export class Service {
       };
 
       return {
-        parley: 1,
+        yea: 1,
         id: randomId('s', 6),
         re: reqId,
         kind: 'RECEIPT',
@@ -1072,7 +1072,7 @@ export class Service {
       parked.kind === 'array' ? { items: parked.items } : { text: parked.text };
 
     return fit(
-      { parley: 1, id: randomId('s', 6), re: req.id, kind: 'ANSWER', data },
+      { yea: 1, id: randomId('s', 6), re: req.id, kind: 'ANSWER', data },
       budget,
       this.handles,
       parked.owner ?? null,
@@ -1101,8 +1101,8 @@ function isRequestFrame(frame: unknown): frame is Request {
   return (
     typeof frame === 'object' &&
     frame !== null &&
-    'parley' in frame &&
-    frame.parley === 1 &&
+    'yea' in frame &&
+    frame.yea === 1 &&
     'id' in frame &&
     typeof frame.id === 'string'
   );
@@ -1181,7 +1181,7 @@ const eventFrame = (
   progress?: number,
   data?: unknown,
 ): Event => ({
-  parley: 1,
+  yea: 1,
   id: randomId('s', 6),
   re,
   kind: 'EVENT',

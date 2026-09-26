@@ -36,7 +36,7 @@ The spec requires this of tooling: implementations must not let an agent trigger
 - **Services are trusted to describe their own effects.** Parley makes the description explicit and binds commits to it, but a malicious service can still lie. Signed receipts are on the roadmap.
 - **No revocation.** Keep grants short-lived with `exp`.
 - **`spend` is counted per service.** Scope money grants with `svc`.
-- **`auto` proofs bind the frame id, not the params,** because floats have no canonical form. Run Parley over TLS (`parleys://`, `https://`) so frames can't be rewritten in transit.
+- **`auto` proofs bind the frame id, not the params,** because floats have no canonical form. Run Parley over TLS (`yeas://`, `https://`) so frames can't be rewritten in transit.
 - **The reference services keep state in memory.**
 
 The TypeScript implementation had an adversarial security audit, and all 15 findings are fixed with regression tests. See the [design notes](/reference/design) for the details and the reasoning behind each choice.

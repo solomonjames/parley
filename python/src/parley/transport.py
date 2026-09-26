@@ -29,7 +29,7 @@ def _parse(line: bytes) -> Any:
 
 
 def _error(re: str, code: str, message: str) -> dict:
-    return {"parley": 1, "id": "s_" + code, "re": re, "kind": "ERROR", "code": code, "message": message}
+    return {"yea": 1, "id": "s_" + code, "re": re, "kind": "ERROR", "code": code, "message": message}
 
 
 async def _lines(reader: asyncio.StreamReader):
@@ -100,7 +100,7 @@ async def serve_stream(service: Service, reader: asyncio.StreamReader, writer: A
 async def serve_tcp(
     service: Service, host: str = "127.0.0.1", port: int | None = None, *, ssl: ssl_module.SSLContext | None = None
 ) -> asyncio.base_events.Server:
-    """Start a ``parley://`` server (or ``parleys://`` when ``ssl`` is given) and return it, listening."""
+    """Start a ``yea://`` server (or ``yeas://`` when ``ssl`` is given) and return it, listening."""
     port = (TLS_PORT if ssl else DEFAULT_PORT) if port is None else port
     return await asyncio.start_server(lambda r, w: serve_stream(service, r, w), host, port, limit=MAX_FRAME + 2, ssl=ssl)
 
@@ -141,7 +141,7 @@ async def _http_conn(service: Service, path: str, reader: asyncio.StreamReader, 
         method, target, *_ = request_line.split(" ") + ["", ""]
         target, _, query = target.partition("?")
 
-        if method == "GET" and target in (path, "/.well-known/parley"):
+        if method == "GET" and target in (path, "/.well-known/yea"):
             budget = parse_qs(query).get("budget", [""])[0]
             brief = service.brief(int(budget) if budget.isdigit() and int(budget) > 0 else None)
             await respond(200, "application/json", dumps({**brief, "endpoint": path}).encode("utf-8"))
@@ -169,7 +169,7 @@ async def _http_conn(service: Service, path: str, reader: asyncio.StreamReader, 
             writer.write(b"0\r\n\r\n")
             await writer.drain()
         else:
-            await respond(404, "text/plain", b"not a parley endpoint\n")
+            await respond(404, "text/plain", b"not a yea endpoint\n")
     except (ConnectionError, asyncio.IncompleteReadError, ValueError):
         pass
     finally:
@@ -177,8 +177,8 @@ async def _http_conn(service: Service, path: str, reader: asyncio.StreamReader, 
 
 
 async def serve_http(
-    service: Service, host: str = "127.0.0.1", port: int = 8080, path: str = "/parley"
+    service: Service, host: str = "127.0.0.1", port: int = 8080, path: str = "/yea"
 ) -> asyncio.base_events.Server:
     """Start the HTTP bridge: ``POST path`` takes one frame and streams NDJSON back;
-    ``GET path`` or ``GET /.well-known/parley`` returns the BRIEF (plus ``endpoint``)."""
+    ``GET path`` or ``GET /.well-known/yea`` returns the BRIEF (plus ``endpoint``)."""
     return await asyncio.start_server(lambda r, w: _http_conn(service, path, r, w), host, port, limit=MAX_FRAME + 2)

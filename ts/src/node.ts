@@ -1,4 +1,4 @@
-/** Node transports: TCP (parley://), TLS (parleys://), stdio, and an HTTP bridge server. */
+/** Node transports: TCP (yea://), TLS (yeas://), stdio, and an HTTP bridge server. */
 import { spawn } from 'node:child_process';
 import {
   createServer as createHttpServer,
@@ -35,7 +35,7 @@ interface ErrorFields {
 
 /** One NDJSON ERROR reply line. */
 const errorLine = ({ id, re, code, message, retry }: ErrorFields) =>
-  `${JSON.stringify({ parley: 1, id, re, kind: 'ERROR', code, message, retry })}\n`;
+  `${JSON.stringify({ yea: 1, id, re, kind: 'ERROR', code, message, retry })}\n`;
 
 const errFrame = (message: string, code = 'bad_frame') =>
   errorLine({ id: 's_err', re: '?', code, message });
@@ -163,7 +163,7 @@ export function serveStream(
   );
 }
 
-/** Listen for parley:// (TCP) or, with `tls` options, parleys:// connections. */
+/** Listen for yea:// (TCP) or, with `tls` options, yeas:// connections. */
 export function listen(
   svc: Service,
   o: { port?: number; host?: string; tls?: tls.TlsOptions } = {},
@@ -283,7 +283,7 @@ function socketTransport(sock: net.Socket): Transport {
   return t;
 }
 
-/** Open a transport from a URL: parley://, parleys://, http(s)://, or stdio:<command>. */
+/** Open a transport from a URL: yea://, yeas://, http(s)://, or stdio:<command>. */
 export async function transport(
   url: string,
   o: { tls?: tls.ConnectionOptions } = {},
@@ -312,9 +312,9 @@ export async function transport(
   }
 
   const u = new URL(url);
-  const secure = u.protocol === 'parleys:';
+  const secure = u.protocol === 'yeas:';
 
-  if (!secure && u.protocol !== 'parley:') {
+  if (!secure && u.protocol !== 'yea:') {
     throw new Error(`unsupported URL ${url}`);
   }
 

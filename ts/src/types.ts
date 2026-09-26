@@ -119,7 +119,7 @@ export interface ConsentRequest {
 }
 
 interface FrameBase {
-  parley: 1;
+  yea: 1;
   id: string;
 }
 

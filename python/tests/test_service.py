@@ -77,22 +77,22 @@ def shop():
 def test_bad_frames():
     svc = shop()
     for frame, code in [
-        (None, "bad_frame"), ({"id": "1", "verb": "HELLO"}, "bad_frame"), ({"parley": 1, "id": "1", "verb": "GET"}, "bad_frame"),
-        ({"parley": 1, "id": "1", "verb": "ASK", "capability": "shop.catalgo"}, "unknown_capability"),
-        ({"parley": 1, "id": "1", "verb": "INTENT", "capability": "shop.order", "params": {"sku": 1}}, "invalid_params"),
-        ({"parley": 1, "id": "1", "verb": "COMMIT", "proposal": "p_x", "hash": "h"}, "not_found"),
-        ({"parley": 1, "id": "1", "verb": "EXPAND", "handle": "h_x"}, "expired"),
+        (None, "bad_frame"), ({"id": "1", "verb": "HELLO"}, "bad_frame"), ({"yea": 1, "id": "1", "verb": "GET"}, "bad_frame"),
+        ({"yea": 1, "id": "1", "verb": "ASK", "capability": "shop.catalgo"}, "unknown_capability"),
+        ({"yea": 1, "id": "1", "verb": "INTENT", "capability": "shop.order", "params": {"sku": 1}}, "invalid_params"),
+        ({"yea": 1, "id": "1", "verb": "COMMIT", "proposal": "p_x", "hash": "h"}, "not_found"),
+        ({"yea": 1, "id": "1", "verb": "EXPAND", "handle": "h_x"}, "expired"),
     ]:
         r = run(svc.handle(frame))
         assert r["kind"] == "ERROR" and r["code"] == code, r
-    r = run(svc.handle({"parley": 1, "id": "1", "verb": "ASK", "capability": "shop.catalgo"}))
+    r = run(svc.handle({"yea": 1, "id": "1", "verb": "ASK", "capability": "shop.catalgo"}))
     assert r["fix"] == [{"say": "did you mean shop.catalog?"}]
 
 
 def test_intent_validation_paths():
     svc = Service("s", "S", trust=[PRINCIPAL.public])
     svc.intent("x.order", "o", {"items?": [{"sku": "string", "qty": "int"}]})(lambda ctx: [])
-    r = run(svc.handle({"parley": 1, "id": "1", "verb": "INTENT", "capability": "x.order", "params": {"items": [{"sku": "a", "qty": "2"}]}}))
+    r = run(svc.handle({"yea": 1, "id": "1", "verb": "INTENT", "capability": "x.order", "params": {"items": [{"sku": "a", "qty": "2"}]}}))
     assert r["code"] == "invalid_params" and "`items.0.qty` must be an integer" in r["message"]
 
 
@@ -364,11 +364,11 @@ def _flow_against(url_of):
 
 
 def test_tcp_flow():
-    _flow_against(lambda t, h: f"parley://127.0.0.1:{t}")
+    _flow_against(lambda t, h: f"yea://127.0.0.1:{t}")
 
 
 def test_http_flow():
-    _flow_against(lambda t, h: f"http://127.0.0.1:{h}/parley")
+    _flow_against(lambda t, h: f"http://127.0.0.1:{h}/yea")
 
 
 def test_http_discovery_and_raw_bad_frames():
@@ -379,8 +379,8 @@ def test_http_discovery_and_raw_bad_frames():
                 with urllib.request.urlopen(f"http://127.0.0.1:{hport}{path}") as r:
                     return r.headers["Content-Type"], json.loads(r.read())
 
-            ctype, brief = await asyncio.to_thread(get, "/.well-known/parley")
-            assert ctype == "application/json" and brief["kind"] == "BRIEF" and brief["endpoint"] == "/parley"
+            ctype, brief = await asyncio.to_thread(get, "/.well-known/yea")
+            assert ctype == "application/json" and brief["kind"] == "BRIEF" and brief["endpoint"] == "/yea"
             reader, writer = await asyncio.open_connection("127.0.0.1", tport)
             writer.write(b"not json\n{\"parley\":1,\"id\":\"x\",\"verb\":\"NOPE\"}\n")
             await writer.drain()
@@ -490,7 +490,7 @@ def test_tls_flow(tmp_path):
         srv = await serve_tcp(calendar([PRINCIPAL.public]), "127.0.0.1", 0, ssl=server_ctx)
         port = srv.sockets[0].getsockname()[1]
         try:
-            async with await connect(f"parleys://localhost:{port}", ssl_context=client_ctx) as c:
+            async with await connect(f"yeas://localhost:{port}", ssl_context=client_ctx) as c:
                 assert (await c.hello()).frame["service"]["id"] == "calendar.example"
         finally:
             srv.close()
@@ -582,7 +582,7 @@ def test_concurrent_failing_undos_each_get_their_own_re():
         svc.intent("x.do", "d")(lambda ctx: Plan("do", [], lambda c: None, revert=revert))
         c = Client(local(svc), key=AGENT, grants=[grant()])
         rc = await c.commit((await c.intent("x.do")).proposals[0])
-        frames = [{"parley": 1, "id": f"u{i}", "verb": "UNDO", "receipt": rc.receipt["id"], "grants": c.grants,
+        frames = [{"yea": 1, "id": f"u{i}", "verb": "UNDO", "receipt": rc.receipt["id"], "grants": c.grants,
                    "proof": sign_proof(AGENT, "s", "UNDO", rc.receipt["id"], int(time.time()))} for i in range(3)]
         tasks = [asyncio.create_task(svc.handle(f)) for f in frames]
         await asyncio.sleep(0)
@@ -598,7 +598,7 @@ def test_auto_dedupe_outlives_the_proof():
         clock = [1_790_000_000]
         svc = Service("s", "S", trust=[PRINCIPAL.public], now=lambda: clock[0])
         svc.intent("x.do", "d")(lambda ctx: Plan("do", [], lambda c: None, revert=lambda c: None))
-        frame = {"parley": 1, "id": "c_fixed", "verb": "INTENT", "capability": "x.do", "auto": True,
+        frame = {"yea": 1, "id": "c_fixed", "verb": "INTENT", "capability": "x.do", "auto": True,
                  "grants": [str(grant())], "proof": sign_proof(AGENT, "s", "INTENT", "auto:x.do:c_fixed", clock[0] + 300)}
         first = await svc.handle(frame)
         assert first["kind"] == "RECEIPT"
@@ -624,12 +624,12 @@ def test_oversized_frames_and_inflight_cap_over_tcp():
         try:
             reader, writer = await asyncio.open_connection("127.0.0.1", port)
             writer.write(b'{"pad":"' + b"x" * (1 << 20) + b'"}\n')
-            writer.write(b'{"parley":1,"id":"after","verb":"HELLO"}\n')
+            writer.write(b'{"yea":1,"id":"after","verb":"HELLO"}\n')
             await writer.drain()
             r1, r2 = [json.loads(await reader.readline()) for _ in range(2)]
             assert r1["code"] == "bad_frame" and r2["re"] == "after" and r2["kind"] == "BRIEF"  # still usable
             for i in range(65):
-                writer.write(json.dumps({"parley": 1, "id": f"q{i}", "verb": "ASK", "capability": "x.slow"}).encode() + b"\n")
+                writer.write(json.dumps({"yea": 1, "id": f"q{i}", "verb": "ASK", "capability": "x.slow"}).encode() + b"\n")
             await writer.drain()
             over = json.loads(await reader.readline())
             assert over["re"] == "q64" and over["code"] == "limit"
@@ -639,7 +639,7 @@ def test_oversized_frames_and_inflight_cap_over_tcp():
             writer.close()
 
             def post_big():
-                req = urllib.request.Request(f"http://127.0.0.1:{hport}/parley", data=b"x" * ((1 << 20) + 1), method="POST")
+                req = urllib.request.Request(f"http://127.0.0.1:{hport}/yea", data=b"x" * ((1 << 20) + 1), method="POST")
                 try:
                     urllib.request.urlopen(req)
                 except urllib.error.HTTPError as e:

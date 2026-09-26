@@ -454,5 +454,5 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const trust = (process.env.PARLEY_TRUST ?? '').split(',').filter(Boolean);
 
   await listen(stripeBilling({ key, trust }), { port: 7453 });
-  console.error('billing (Stripe) on parley://127.0.0.1:7453');
+  console.error('billing (Stripe) on yea://127.0.0.1:7453');
 }

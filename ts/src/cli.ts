@@ -45,7 +45,7 @@ identity
   parley inspect <token>                   decode a grant chain
   parley approve <pc1.code>                review and sign a one-time consent for one proposal
 
-talk to a service  (url: parley://host:port · parleys://… · http(s)://…/parley · "stdio:cmd args")
+talk to a service  (url: yea://host:port · yeas://… · http(s)://…/yea · "stdio:cmd args")
   parley hello  <url>
   parley ask    <url> <capability> [key=value …]
   parley intent <url> <capability> [key=value …] [--goal "…"]
@@ -296,7 +296,7 @@ async function trustedPrincipals(): Promise<string[]> {
 
 /** A proposal's Lens without the header line. */
 const proposalLens = (d: Proposal) =>
-  lens({ parley: 1, id: '-', re: '-', kind: 'PROPOSALS', proposals: [d] })
+  lens({ yea: 1, id: '-', re: '-', kind: 'PROPOSALS', proposals: [d] })
     .split('\n')
     .slice(1)
     .join('\n');
@@ -498,7 +498,7 @@ async function cmdExamples() {
   await listen(shop({ trust }), { port: port + 2, host: o.host });
   await listen(billing({ trust }), { port: port + 4, host: o.host });
   console.error(
-    `✓ calendar parley://127.0.0.1:${port} · shop parley://127.0.0.1:${port + 2} · billing parley://127.0.0.1:${port + 4} · trusting ${trust.length} principal(s)${trust.length ? '' : ' (run parley init first to commit anything)'}\n  try: parley do parley://127.0.0.1:${port} calendar.reschedule event=Ana`,
+    `✓ calendar yea://127.0.0.1:${port} · shop yea://127.0.0.1:${port + 2} · billing yea://127.0.0.1:${port + 4} · trusting ${trust.length} principal(s)${trust.length ? '' : ' (run parley init first to commit anything)'}\n  try: parley do yea://127.0.0.1:${port} calendar.reschedule event=Ana`,
   );
 }
 
@@ -557,7 +557,7 @@ async function cmdOpenapi(rest: string[]) {
     svc.capabilities.filter((c) => c.kind === kind).length;
 
   console.error(
-    `✓ ${svc.id}: ${svc.capabilities.length} capabilities (${count('ask')} ask, ${count('intent')} intent)\n  parley://127.0.0.1:${port}${o.http ? `  ·  http://127.0.0.1:${o.http}/parley` : ''}\n  trusting ${trust.length} principal(s) for writes\n  try: parley hello parley://127.0.0.1:${port}`,
+    `✓ ${svc.id}: ${svc.capabilities.length} capabilities (${count('ask')} ask, ${count('intent')} intent)\n  yea://127.0.0.1:${port}${o.http ? `  ·  http://127.0.0.1:${o.http}/yea` : ''}\n  trusting ${trust.length} principal(s) for writes\n  try: parley hello yea://127.0.0.1:${port}`,
   );
 }
 
@@ -662,7 +662,7 @@ async function cmdInstall() {
   console.log(
     s.length
       ? `\nservices    ${s.join(', ')}`
-      : '\nnext: add a service with `parley add <url>`, or try the examples: `parley examples`, then `parley add parley://127.0.0.1:7447`',
+      : '\nnext: add a service with `parley add <url>`, or try the examples: `parley examples`, then `parley add yea://127.0.0.1:7447`',
   );
   console.log(
     'restart your AI tool, then ask it to do something. Check anything with: parley doctor',

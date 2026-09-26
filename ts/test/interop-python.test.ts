@@ -34,9 +34,7 @@ describe.skipIf(!ready)('interop: TS client → Python service', async () => {
 
     for (let i = 0; i < 100; i++) {
       try {
-        await (
-          await fetch(`http://127.0.0.1:${HTTP}/.well-known/parley`)
-        ).json();
+        await (await fetch(`http://127.0.0.1:${HTTP}/.well-known/yea`)).json();
 
         return;
       } catch {
@@ -49,8 +47,8 @@ describe.skipIf(!ready)('interop: TS client → Python service', async () => {
   afterAll(() => proc?.kill());
 
   for (const url of [
-    `parley://127.0.0.1:${TCP}`,
-    `http://127.0.0.1:${HTTP}/parley`,
+    `yea://127.0.0.1:${TCP}`,
+    `http://127.0.0.1:${HTTP}/yea`,
   ]) {
     it(`full flow over ${url.split(':')[0]}`, async () => {
       const grant = await P.issueGrant({

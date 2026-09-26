@@ -45,7 +45,7 @@ function ndjsonReply(svc: Service, frame: unknown): Response {
         ctrl.enqueue(
           enc.encode(
             `${JSON.stringify({
-              parley: 1,
+              yea: 1,
               id: 's_err',
               re,
               kind: 'ERROR',
@@ -71,11 +71,11 @@ function ndjsonReply(svc: Service, frame: unknown): Response {
 export function fetchHandler(svc: Service, o: { path?: string } = {}) {
   return async (req: Request): Promise<Response> => {
     const url = new URL(req.url);
-    const endpoint = o.path ?? '/parley';
+    const endpoint = o.path ?? '/yea';
 
     if (
       req.method === 'GET' &&
-      (url.pathname === '/.well-known/parley' || url.pathname === endpoint)
+      (url.pathname === '/.well-known/yea' || url.pathname === endpoint)
     ) {
       const budget = Number(url.searchParams.get('budget')) || undefined;
 
@@ -83,7 +83,7 @@ export function fetchHandler(svc: Service, o: { path?: string } = {}) {
     }
 
     if (req.method !== 'POST' || url.pathname !== endpoint) {
-      return new Response('not a parley endpoint', { status: 404 });
+      return new Response('not a yea endpoint', { status: 404 });
     }
 
     if (Number(req.headers.get('content-length') ?? 0) > MAX_FRAME) {

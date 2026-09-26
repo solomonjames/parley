@@ -40,7 +40,7 @@ export interface ClientOptions {
   budget?: number;
 }
 
-type Dist<T> = T extends unknown ? Omit<T, 'parley' | 'id'> : never;
+type Dist<T> = T extends unknown ? Omit<T, 'yea' | 'id'> : never;
 
 const hasSvc = (c: Caveat): c is { svc: string[] } =>
   Boolean((c as { svc?: unknown }).svc);
@@ -81,7 +81,7 @@ export class Client {
     body: Dist<Request>,
     onEvent?: (e: WithLens<Event>) => void,
   ): Promise<WithLens<T>> {
-    const frame = { parley: 1, id: randomId('c', 6), ...body } as Request;
+    const frame = { yea: 1, id: randomId('c', 6), ...body } as Request;
     const reply = await this.transport.request(
       frame,
       onEvent && ((e) => onEvent({ ...e, lens: e.lens ?? lens(e) })),

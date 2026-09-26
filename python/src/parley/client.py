@@ -221,7 +221,7 @@ class Client:
 
     async def send(self, body: dict, on_event: OnEvent | None = None) -> Reply:
         """Send a request body (``parley`` and ``id`` are filled in)."""
-        return await self._t.request({"parley": 1, "id": _request_id(), **body}, on_event)
+        return await self._t.request({"yea": 1, "id": _request_id(), **body}, on_event)
 
     async def audience(self) -> str:
         """The service's id (learned from HELLO), which proofs are bound to."""
@@ -270,7 +270,7 @@ class Client:
         """Express an intent. With ``auto``, the service commits the first proposal in the same
         round trip when your grants already allow it and it is undoable; you get a RECEIPT back."""
         rid = _request_id()
-        body: dict[str, Any] = {"parley": 1, "id": rid, "verb": "INTENT", "capability": capability, "params": params or {}}
+        body: dict[str, Any] = {"yea": 1, "id": rid, "verb": "INTENT", "capability": capability, "params": params or {}}
         if goal:
             body["goal"] = goal
         if auto:
@@ -314,7 +314,7 @@ async def connect(
     budget: int | None = None,
     ssl_context: ssl.SSLContext | None = None,
 ) -> Client:
-    """Connect to ``parley://host[:port]``, ``parleys://…``, ``http(s)://…``, or
+    """Connect to ``yea://host[:port]``, ``yeas://…``, ``http(s)://…``, or
     ``stdio:<command>`` (spawns the command and speaks NDJSON over its stdin/stdout)."""
     if url.startswith("stdio:"):
         argv = shlex.split(url[len("stdio:"):])
@@ -328,9 +328,9 @@ async def connect(
         transport = _HttpTransport(url)
     else:
         u = urlsplit(url)
-        if u.scheme not in ("parley", "parleys"):
+        if u.scheme not in ("yea", "yeas"):
             raise ValueError(f"unsupported URL {url}")
-        tls = u.scheme == "parleys"
+        tls = u.scheme == "yeas"
         port = u.port or (TLS_PORT if tls else DEFAULT_PORT)
         ctx = (ssl_context or ssl.create_default_context()) if tls else None
         reader, writer = await asyncio.open_connection(u.hostname or "127.0.0.1", port, ssl=ctx, limit=MAX_FRAME + 2)

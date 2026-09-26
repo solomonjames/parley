@@ -232,7 +232,7 @@ const compare = [
 parley grant --svc cal.example.com --risk low \
   --per 25USD --spend 100USD --exp 24h
 claude mcp add parley -- npx parley-protocol mcp \
-  parley://127.0.0.1:7447</code></pre>
+  yea://127.0.0.1:7447</code></pre>
         <p class="warn">
           Keep the principal key where the agent can't reach it. An agent with shell access that can read it can sign
           its own consent.

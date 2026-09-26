@@ -1,6 +1,6 @@
-# Parley Protocol — Specification v1
+# YEA Protocol — Specification v1
 
-**Status:** Draft 1 · **Version on the wire:** `"parley": 1`
+**Status:** Draft 1 · **Version on the wire:** `"yea": 1`
 
 The key words MUST, MUST NOT, SHOULD, SHOULD NOT and MAY are to be read as in RFC 2119.
 
@@ -14,7 +14,7 @@ that wants an outcome has to break it into many CRUD calls. It reads bulky JSON 
 pays for per token, guesses which calls are safe, and holds credentials that can do
 anything the human can.
 
-Parley is an application-layer protocol for the case where the client is a
+YEA (*Your Explicit Approval*, pronounced "yay") is an application-layer protocol for the case where the client is a
 **model acting for a person**. It is a peer of HTTP rather than a layer on it: it has
 its own framing, verbs, reply kinds, error model and authorization model. Its design
 goals:
@@ -50,7 +50,7 @@ goals:
 
 A **frame** is a single JSON object (RFC 8259), UTF-8 encoded.
 
-Every frame MUST contain `"parley": 1` and an `"id"` string that is unique among the
+Every frame MUST contain `"yea": 1` and an `"id"` string that is unique among the
 sender's frames on that connection.
 
 - A **request** frame has a `"verb"`.
@@ -71,26 +71,26 @@ correlated by `re`.
 
 ### 2.3 Transports
 
-Parley runs over any reliable, ordered byte stream. Frames are newline-delimited
+YEA runs over any reliable, ordered byte stream. Frames are newline-delimited
 (NDJSON): each frame is serialized without literal newlines and terminated by `\n`.
 
 | URL form | Transport |
 |---|---|
-| `parley://host[:port]` | TCP. The default port is **7447**. |
-| `parleys://host[:port]` | TLS over TCP. The default port is **7448**. |
+| `yea://host[:port]` | TCP. The default port is **7447**. |
+| `yeas://host[:port]` | TLS over TCP. The default port is **7448**. |
 | `stdio:` | stdin/stdout of a child process (local services) |
 | `http://…`, `https://…` | HTTP bridge (§2.4) |
 
 ### 2.4 HTTP bridge
 
-The bridge lets Parley services run on serverless platforms and pass through existing
-infrastructure. It is a *transport*: Parley semantics are unchanged.
+The bridge lets YEA services run on serverless platforms and pass through existing
+infrastructure. It is a *transport*: YEA semantics are unchanged.
 
 - `POST <endpoint>` with body = one request frame (`Content-Type: application/json`).
   The response is `200` with `Content-Type: application/x-ndjson`, containing zero or
-  more `EVENT` frames followed by exactly one final reply frame. Parley errors are still
-  returned with HTTP status `200`, because status codes belong to HTTP, not Parley.
-- `GET <endpoint>` or `GET /.well-known/parley` MUST return the `BRIEF` reply to a
+  more `EVENT` frames followed by exactly one final reply frame. YEA errors are still
+  returned with HTTP status `200`, because status codes belong to HTTP, not YEA.
+- `GET <endpoint>` or `GET /.well-known/yea` MUST return the `BRIEF` reply to a
   default `HELLO`, as a single JSON object. This is how services are discovered.
 
 ---
@@ -110,13 +110,13 @@ infrastructure. It is a *transport*: Parley semantics are unchanged.
 ### 4.1 `HELLO` — discover what the service can do
 
 ```json
-{"parley":1,"id":"1","verb":"HELLO","agent":{"name":"claude","key":"ed25519:…"},"budget":800}
+{"yea":1,"id":"1","verb":"HELLO","agent":{"name":"claude","key":"ed25519:…"},"budget":800}
 ```
 
 Reply: `BRIEF`
 
 ```json
-{"parley":1,"id":"s1","re":"1","kind":"BRIEF",
+{"yea":1,"id":"s1","re":"1","kind":"BRIEF",
  "service":{"id":"cal.example.com","name":"Example Calendar","summary":"Your calendar. Find time, book, move and cancel meetings."},
  "capabilities":[
    {"name":"calendar.find","kind":"ask","summary":"Search events","params":{"query?":"string","day?":"date"}},
@@ -147,7 +147,7 @@ validators.
 ### 4.2 `ASK` — read without side effects
 
 ```json
-{"parley":1,"id":"2","verb":"ASK","capability":"calendar.find","params":{"day":"2026-09-24"},"budget":600}
+{"yea":1,"id":"2","verb":"ASK","capability":"calendar.find","params":{"day":"2026-09-24"},"budget":600}
 ```
 
 Reply: `ANSWER` `{ "data": any, "more"?: More[] }`
@@ -157,7 +157,7 @@ Reply: `ANSWER` `{ "data": any, "more"?: More[] }`
 ### 4.3 `INTENT` — say what you want, get proposals back
 
 ```json
-{"parley":1,"id":"3","verb":"INTENT","capability":"calendar.reschedule",
+{"yea":1,"id":"3","verb":"INTENT","capability":"calendar.reschedule",
  "goal":"push my 1:1 with Ana to later this week",
  "params":{"event":"1:1 with Ana","to":"2026-09-24T15:00:00Z"},"budget":900}
 ```
@@ -199,7 +199,7 @@ answer a repeat with the original reply (`"replay": true` on receipts), never co
 ### 4.4 `COMMIT` — make it happen
 
 ```json
-{"parley":1,"id":"4","verb":"COMMIT","proposal":"p_7Hc2","hash":"Qm9…",
+{"yea":1,"id":"4","verb":"COMMIT","proposal":"p_7Hc2","hash":"Qm9…",
  "grants":["pg1.…"],"proof":{"key":"ed25519:…","ts":1790000000,"sig":"…"}}
 ```
 
@@ -224,7 +224,7 @@ never turns into a consent prompt, and other principals can't read the receipt.
 ### 4.5 `UNDO` — reverse a receipt within its window
 
 ```json
-{"parley":1,"id":"5","verb":"UNDO","receipt":"r_91","grants":["pg1.…"],"proof":{…}}
+{"yea":1,"id":"5","verb":"UNDO","receipt":"r_91","grants":["pg1.…"],"proof":{…}}
 ```
 
 Reply: `RECEIPT` describing the reversal (`"undoes": "r_91"`), or `ERROR` `expired` if
@@ -235,7 +235,7 @@ receipt with `"replay": true`.
 ### 4.6 `EXPAND` — get the rest
 
 ```json
-{"parley":1,"id":"6","verb":"EXPAND","handle":"h_3kd","budget":1500}
+{"yea":1,"id":"6","verb":"EXPAND","handle":"h_3kd","budget":1500}
 ```
 
 Reply: `ANSWER` containing the next slice of the elided value, possibly with further
@@ -425,7 +425,7 @@ principal key out of the agent's reach, for example on another OS user or device
 ## 7. Errors
 
 ```json
-{"parley":1,"id":"s9","re":"3","kind":"ERROR","code":"invalid_params",
+{"yea":1,"id":"s9","re":"3","kind":"ERROR","code":"invalid_params",
  "message":"`to` must be in the future (got 2025-09-24T15:00:00Z)",
  "fix":[{"say":"use next year","params":{"to":"2026-09-24T15:00:00Z"}}],
  "retry": null}
@@ -491,7 +491,7 @@ returns `{"data": {"text": "..."}}`. Both may carry a further `more`.
 ## 9. Lens — the model's view
 
 Models read text. Lens is a **canonical, deterministic, compact text rendering** of
-Parley replies and of arbitrary JSON values. Clients SHOULD show models the Lens
+YEA replies and of arbitrary JSON values. Clients SHOULD show models the Lens
 rather than raw JSON. Two conforming implementations MUST produce byte-identical Lens
 for the same input (see `conformance/lens.json`).
 
@@ -612,6 +612,6 @@ them in the proposal. For an undo receipt, the first line is
 - `ASK` and `INTENT` are side-effect free, so agents can explore freely and safely.
 - Replay protection: proofs are time-bound and `COMMIT` is idempotent.
 - `auto` proofs bind the frame id, not the params (floats have no canonical form), so an
-  on-path attacker who can rewrite frames could change auto params. Run Parley over TLS
-  (`parleys://`, `https://`) or another authenticated transport.
+  on-path attacker who can rewrite frames could change auto params. Run YEA over TLS
+  (`yeas://`, `https://`) or another authenticated transport.
 - v1 does not define revocation. Keep grant lifetimes short (`exp`). Revocation lists are planned for v2.

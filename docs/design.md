@@ -243,7 +243,7 @@ It confirmed 15 findings, and every one now has a regression test in
 - **`HOLD`: multi-party atomic commits.** Collect proposals from an airline and a hotel,
   hold both, then commit both or neither.
 - **Signed receipts** for non-repudiation and audit logs a principal can verify.
-- **Discovery by DNS** (`_parley` TXT → endpoint), alongside `/.well-known/parley`.
+- **Discovery by DNS** (`_parley` TXT → endpoint), alongside `/.well-known/yea`.
 - **QUIC / WebTransport** transport.
 - **More implementations.** Go and Rust ports are welcome, and `conformance/` is the
   contract.

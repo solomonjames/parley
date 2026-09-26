@@ -170,8 +170,8 @@ Parley's MCP registry entry is `io.github.yea-protocol/yea` ([`server.json`](htt
 
 ```sh
 parley examples               # the example calendar (7447), shop (7449) and billing (7451)
-parley add parley://127.0.0.1:7447
-parley add parley://127.0.0.1:7449
+parley add yea://127.0.0.1:7447
+parley add yea://127.0.0.1:7449
 ```
 
 Or wrap an API you already use: [Wrap any REST API](/guide/openapi). Then restart your AI tool and ask it to do something.

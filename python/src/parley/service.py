@@ -243,7 +243,7 @@ class Service:
     # ------------------------------------------------------------ dispatch
 
     def _frame(self, re: str, kind: str, body: dict) -> dict:
-        return {"parley": 1, "id": random_id("s"), "re": re, "kind": kind, **body}
+        return {"yea": 1, "id": random_id("s"), "re": re, "kind": kind, **body}
 
     def brief(self, budget: int | None = None, re: str = "discover") -> dict:
         r = self._frame(re, "BRIEF", {"service": {"id": self.id, "name": self.name, "summary": self.summary}, "capabilities": self.capabilities})
@@ -254,8 +254,8 @@ class Service:
         emit = emit or (lambda _e: None)
         re = frame["id"] if isinstance(frame, dict) and isinstance(frame.get("id"), str) else "?"
         try:
-            if not isinstance(frame, dict) or frame.get("parley") != 1 or not isinstance(frame.get("id"), str):
-                raise ParleyError("bad_frame", 'frames need "parley": 1 and a string "id"')
+            if not isinstance(frame, dict) or frame.get("yea") != 1 or not isinstance(frame.get("id"), str):
+                raise ParleyError("bad_frame", 'frames need "yea": 1 and a string "id"')
             b = frame.get("budget")
             budget = b if type(b) is int and b > 0 else self.default_budget
             verb = frame.get("verb")

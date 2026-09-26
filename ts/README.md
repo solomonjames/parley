@@ -215,9 +215,9 @@ Then it handed the human the approval command. (It ran without shell access. See
 
 **Replies:** `BRIEF` · `ANSWER` · `PROPOSALS` · `CLARIFY` · `RECEIPT` · `ERROR` · `EVENT` (progress, non-final)
 
-**Wire:** NDJSON frames over TCP (`parley://`, port 7447), TLS (`parleys://`), stdio, or
+**Wire:** NDJSON frames over TCP (`yea://`, port 7447), TLS (`yeas://`), stdio, or
 an HTTP bridge (`POST /parley` with an NDJSON response, plus discovery at
-`/.well-known/parley`) for serverless and existing infrastructure.
+`/.well-known/yea`) for serverless and existing infrastructure.
 
 ```mermaid
 sequenceDiagram
@@ -288,7 +288,7 @@ const cal = service({ id: "cal.example.com", name: "Calendar", summary: "Move me
     },
   });
 
-await listen(cal); // parley://127.0.0.1:7447, or serveHttp(cal) / fetchHandler(cal) for Workers, Bun and Deno
+await listen(cal); // yea://127.0.0.1:7447, or serveHttp(cal) / fetchHandler(cal) for Workers, Bun and Deno
 ```
 
 Params are validated against the compact schema automatically, and typos get fixes like
@@ -303,7 +303,7 @@ to Parley and translates a Stripe-backed billing API step by step, with the full
 ```ts
 import { connect } from "parley-protocol/node";
 
-const cal = await connect("parley://cal.example.com", { key: AGENT_SEED, grants: [GRANT] });
+const cal = await connect("yea://cal.example.com", { key: AGENT_SEED, grants: [GRANT] });
 const r = await cal.intent("calendar.reschedule", { event: "Ana", to: "2026-09-24T15:00:00Z" }, { auto: true });
 console.log(r.lens); // ← give this to your model
 if (r.kind === "PROPOSALS") await cal.commit(r.proposals[0]);
@@ -321,7 +321,7 @@ parley inspect <token>                                   # read any grant chain
 parley delegate <token> --to <sub-agent key> --verbs ASK,INTENT   # narrower authority for a sub-agent
 parley approve <pc1.code>                               # review and sign a one-time consent for one proposal
 parley examples                                          # serve the example calendar + shop locally
-parley do parley://127.0.0.1:7447 calendar.reschedule event=Ana   # interactive: intent → pick → commit
+parley do yea://127.0.0.1:7447 calendar.reschedule event=Ana   # interactive: intent → pick → commit
 ```
 <!-- #endregion quickstart -->
 
@@ -376,7 +376,7 @@ Claude Code:
 
 ```sh
 parley openapi ./openapi.json --header "Authorization: Bearer $API_TOKEN" --port 7447 &
-claude mcp add my-api -- npx parley-protocol mcp parley://127.0.0.1:7447
+claude mcp add my-api -- npx parley-protocol mcp yea://127.0.0.1:7447
 ```
 <!-- #endregion openapi -->
 

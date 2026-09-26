@@ -174,7 +174,7 @@ Idempotency, pagination, confirmation screens and permission checks are part of 
 export STRIPE_SECRET_KEY=sk_test_…
 export PARLEY_TRUST="$(parley whoami | awk '/principal/{print $2}')"
 node examples/stripe-billing.ts
-parley add parley://127.0.0.1:7453   # now your AI tool can use it
+parley add yea://127.0.0.1:7453   # now your AI tool can use it
 ```
 
 The [playground](/playground) runs the same design with made-up data, no key needed.
