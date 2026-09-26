@@ -1,6 +1,7 @@
 name: Bug
 description: Something in the TypeScript or Python implementation, CLI, or MCP bridge misbehaves
-labels: [bug]
+type: Bug
+labels: [status/triage]
 body:
   - type: dropdown
     id: where

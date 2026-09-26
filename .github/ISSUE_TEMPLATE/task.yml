@@ -1,0 +1,43 @@
+name: Task
+description: Planned work with a clear outcome (maintainers and agents use this for tracked work)
+type: Task
+labels: [status/triage]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What is true when this is done, in one or two sentences.
+    validations: { required: true }
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What's in, and what's explicitly out.
+      value: |
+        In:
+        -
+
+        Out:
+        -
+    validations: { required: true }
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Checkable acceptance criteria. Include the commands that prove it.
+      value: |
+        - [ ]
+        - [ ] `npm run lint && npm run lint:style && npm test` pass
+    validations: { required: true }
+  - type: dropdown
+    id: spec
+    attributes:
+      label: Does this change bytes on the wire or Lens output?
+      options: ["No", "Yes: SPEC.md, vectors, TypeScript and Python all change"]
+    validations: { required: true }
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Links, depends-on (#123), open questions.

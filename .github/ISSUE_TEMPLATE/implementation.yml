@@ -1,6 +1,6 @@
 name: New implementation or service
 description: Tell us about a Parley implementation (Go, Rust, …) or a service you built
-labels: [ecosystem]
+labels: [ecosystem, status/triage]
 body:
   - type: input
     id: link
