@@ -16,12 +16,12 @@ from typing import Any
 
 from ._json import b64url_encode, compact, proposal_hash
 from .budget import HandleStore, MemoryHandleStore, fit
-from .errors import ParleyError, fix
+from .errors import YeaError, fix
 from .grants import GrantContext, Trusted, Verification, verify_grant
 from .keys import verify_proof
 from .validate import closest, validate_params
 
-log = logging.getLogger("parley")
+log = logging.getLogger("yea")
 
 DAY = 86400
 AUTO_MEMORY = 900  # seconds past max(arrival, proof.ts) a (key, frame id) auto INTENT is remembered (§4.3.1)
@@ -173,7 +173,7 @@ def _inverse(e: dict) -> dict:
 
 
 class Service:
-    """A Parley service. Register capabilities with the :meth:`ask` and :meth:`intent` decorators."""
+    """A YEA service. Register capabilities with the :meth:`ask` and :meth:`intent` decorators."""
 
     def __init__(
         self,
@@ -255,7 +255,7 @@ class Service:
         re = frame["id"] if isinstance(frame, dict) and isinstance(frame.get("id"), str) else "?"
         try:
             if not isinstance(frame, dict) or frame.get("yea") != 1 or not isinstance(frame.get("id"), str):
-                raise ParleyError("bad_frame", 'frames need "yea": 1 and a string "id"')
+                raise YeaError("bad_frame", 'frames need "yea": 1 and a string "id"')
             b = frame.get("budget")
             budget = b if type(b) is int and b > 0 else self.default_budget
             verb = frame.get("verb")
@@ -271,26 +271,26 @@ class Service:
                 return await self._on_undo(frame, budget, emit)
             if verb == "EXPAND":
                 return self._on_expand(frame, budget)
-            raise ParleyError("bad_frame", f"unknown verb {_json_str(verb)}", fix=[fix("use one of " + ", ".join(VERBS))])
+            raise YeaError("bad_frame", f"unknown verb {_json_str(verb)}", fix=[fix("use one of " + ", ".join(VERBS))])
         except Exception as e:  # noqa: BLE001 — every failure becomes an ERROR reply
             return self._error_reply(re, e)
 
     def _error_reply(self, re: str, e: BaseException) -> dict:
-        if isinstance(e, ParleyError):
+        if isinstance(e, YeaError):
             return self._frame(re, "ERROR", e.body())
         log.exception("handler failed", exc_info=e)
         return self._frame(re, "ERROR", {"code": "internal", "message": "the service failed unexpectedly", "retry": 5})
 
-    def _unknown_capability(self, name: Any, kind: str) -> ParleyError:
+    def _unknown_capability(self, name: Any, kind: str) -> YeaError:
         other = self._intents if kind == "ask" else self._asks
         if isinstance(name, str) and name in other:
             verb = "INTENT" if kind == "ask" else "ASK"
-            return ParleyError(
+            return YeaError(
                 "unknown_capability", f"{name} is {'an intent' if kind == 'ask' else 'an ask'} capability", fix=[fix(f"send it with {verb}")]
             )
         everything = [*self._asks, *self._intents]
         near = closest(str(name), everything)
-        return ParleyError(
+        return YeaError(
             "unknown_capability",
             f"no capability named {_json_str(name)}",
             fix=[fix(f"did you mean {near}?")] if near else [fix(f"send HELLO to list capabilities ({len(everything)} available)")],
@@ -302,7 +302,7 @@ class Service:
         if params is None:
             return {}
         if not isinstance(params, dict):
-            raise ParleyError("invalid_params", "`params` must be an object")
+            raise YeaError("invalid_params", "`params` must be an object")
         return params
 
     @staticmethod
@@ -329,18 +329,18 @@ class Service:
         required = verb in ("COMMIT", "UNDO") or self.require_grants
         if not grants:
             if required:
-                raise ParleyError(
+                raise YeaError(
                     "unauthorized",
                     f"{verb} needs a grant from your principal",
                     fix=[fix("ask your principal to issue a grant and send it in `grants` with a `proof`")],
                 )
             return None
         if not isinstance(grants, list) or not all(isinstance(g, str) for g in grants):
-            raise ParleyError("bad_frame", "`grants` must be a list of strings")
+            raise YeaError("bad_frame", "`grants` must be a list of strings")
         now = self.now()
         err = verify_proof(frame.get("proof"), self.id, verb, target, now)
         if err:
-            raise ParleyError(
+            raise YeaError(
                 "unauthorized", err, fix=[fix(f'sign {{aud:"{self.id}",verb:"{verb}",target,ts}} with the grant holder key')]
             )
         ctx = GrantContext(
@@ -363,15 +363,15 @@ class Service:
             return None  # a grant that doesn't apply to ASK/INTENT just means "anonymous"
         consent = next((c for c in checks if c.code == "consent_required"), None)
         if consent and proposal:
-            raise ParleyError(
+            raise YeaError(
                 "consent_required",
                 f"{consent.message}; your principal must approve this exact proposal",
                 consent=self._consent(proposal, consent.principal),
             )
         forbidden = next((c for c in checks if c.code == "forbidden"), None)
         if forbidden:
-            raise ParleyError("forbidden", forbidden.message, need=forbidden.need)
-        raise ParleyError("unauthorized", checks[0].message)
+            raise YeaError("forbidden", forbidden.message, need=forbidden.need)
+        raise YeaError("unauthorized", checks[0].message)
 
     # ------------------------------------------------------------ verbs
 
@@ -425,7 +425,7 @@ class Service:
                 return self._frame(frame["id"], "CLARIFY", {"question": out.question, "options": out.options})
             plans = list(out) if isinstance(out, (list, tuple)) else [out]
             if not plans:
-                raise ParleyError("not_found", "no way to satisfy this intent", fix=[fix("relax the constraints and try again")])
+                raise YeaError("not_found", "no way to satisfy this intent", fix=[fix("relax the constraints and try again")])
             now = self.now()
             proposals = []
             for plan in plans:
@@ -475,21 +475,21 @@ class Service:
     def _check_requester(stored: _StoredProposal, frame: dict) -> None:
         """Only the agent that asked for a proposal (with a verified proof) may commit it (§4.4)."""
         if stored.requester is None:
-            raise ParleyError("forbidden", "this proposal came from an anonymous INTENT and can't be committed",
+            raise YeaError("forbidden", "this proposal came from an anonymous INTENT and can't be committed",
                               fix=[fix("send INTENT again with your grant, then commit that proposal")])
         if stored.requester != frame["proof"]["key"]:
-            raise ParleyError("forbidden", "only the agent that requested this proposal can commit it",
+            raise YeaError("forbidden", "only the agent that requested this proposal can commit it",
                               fix=[fix("send INTENT yourself, then commit your own proposal")])
 
     async def _on_commit(self, frame: dict, budget: int, emit: Emit) -> dict:
         pid = frame.get("proposal")
         stored = self._proposals.get(pid) if isinstance(pid, str) else None
         if stored is None:
-            raise ParleyError("not_found", f"no proposal {_json_str(pid)}", fix=[fix("send INTENT again to get fresh proposals")])
+            raise YeaError("not_found", f"no proposal {_json_str(pid)}", fix=[fix("send INTENT again to get fresh proposals")])
         proposal = stored.proposal
         if frame.get("hash") != proposal["hash"]:
             # Never reveal the right hash: the agent must commit what it actually read.
-            raise ParleyError(
+            raise YeaError(
                 "conflict",
                 "hash does not match the proposal; you would commit something other than what you saw",
                 fix=[fix("re-read the proposal, or send INTENT again")],
@@ -502,14 +502,14 @@ class Service:
             self._check_requester(stored, frame)
             prior = await asyncio.shield(existing)
             if prior["kind"] == "RECEIPT" and self._receipts[prior["receipt"]["id"]].principal != auth.principal:
-                raise ParleyError("forbidden", "this proposal was committed by a different principal")
+                raise YeaError("forbidden", "this proposal was committed by a different principal")
             return {**prior, "id": random_id("s"), "re": frame["id"], **({"replay": True} if prior["kind"] == "RECEIPT" else {})}
         auth = await self._authorize(frame, "COMMIT", proposal["capability"], proposal["hash"], proposal,
                                      principal=stored.principal)
         assert auth is not None
         self._check_requester(stored, frame)
         if self.now() >= proposal["expires"]:
-            raise ParleyError("expired", "this proposal has expired", fix=[fix("send INTENT again to get a fresh proposal")])
+            raise YeaError("expired", "this proposal has expired", fix=[fix("send INTENT again to get a fresh proposal")])
         out = await self._execute(pid, auth, frame["id"], emit)
         return fit(out, budget, self.handles, frame["proof"]["key"]) if out["kind"] == "RECEIPT" else out
 
@@ -521,7 +521,7 @@ class Service:
         cost = proposal["cost"]["amount"] if proposal["cost"] else 0
         blocks = [bid for bid, _ in auth.spend_blocks()] if cost else []
         if any(self._spent.get(bid, 0) + cost > cav["max"] for bid, cav in auth.spend_blocks()) and cost:
-            return self._error_reply(re, ParleyError(
+            return self._error_reply(re, YeaError(
                 "consent_required",
                 "would exceed the spend limit (other commits are in flight); your principal must approve this exact proposal",
                 consent=self._consent(proposal, auth.principal),
@@ -564,20 +564,20 @@ class Service:
         rid = frame.get("receipt")
         stored = self._receipts.get(rid) if isinstance(rid, str) else None
         if stored is None or stored.receipt.get("undoes"):
-            raise ParleyError("not_found", f"no undoable receipt {_json_str(rid)}")
+            raise YeaError("not_found", f"no undoable receipt {_json_str(rid)}")
         auth = await self._authorize(frame, "UNDO", stored.receipt["capability"], rid)
         assert auth is not None
         if auth.principal != stored.principal:
-            raise ParleyError("forbidden", "only the principal who committed this can undo it")
+            raise YeaError("forbidden", "only the principal who committed this can undo it")
         if stored.undone is not None:
             prior = await asyncio.shield(stored.undone)
             # Every waiter gets its own `re`, whether the shared attempt succeeded or failed.
             return {**prior, "id": random_id("s"), "re": frame["id"], **({"replay": True} if prior["kind"] == "RECEIPT" else {})}
         receipt, plan = stored.receipt, stored.plan
         if not receipt["undo"] or plan.revert is None:
-            raise ParleyError("forbidden", "this action is irreversible")
+            raise YeaError("forbidden", "this action is irreversible")
         if self.now() > receipt["undo"]["until"]:
-            raise ParleyError("expired", f"the undo window closed at {_iso(receipt['undo']['until'])}")
+            raise YeaError("expired", f"the undo window closed at {_iso(receipt['undo']['until'])}")
         re = frame["id"]
 
         def progress(message: str, pct: float | None, _data: Any) -> None:
@@ -604,15 +604,15 @@ class Service:
         h = frame.get("handle")
         parked = self.handles.get(h) if isinstance(h, str) else None
         if parked is None:
-            raise ParleyError("expired", f"handle {_json_str(h)} is unknown or expired", fix=[fix("repeat the original request")])
+            raise YeaError("expired", f"handle {_json_str(h)} is unknown or expired", fix=[fix("repeat the original request")])
         value, owner = parked
         if owner:  # handles from authenticated replies expand only for the same holder key (§4.6)
             proof = frame.get("proof")
             if verify_proof(proof, self.id, "EXPAND", h, self.now()) or proof["key"] != owner:
-                raise ParleyError("unauthorized", "this handle belongs to another agent",
+                raise YeaError("unauthorized", "this handle belongs to another agent",
                                   fix=[fix("expand it with the same key that made the original request")])
         elif self.require_grants:
-            raise ParleyError("unauthorized", "EXPAND needs a grant from your principal")
+            raise YeaError("unauthorized", "EXPAND needs a grant from your principal")
         data = {"items": value} if isinstance(value, list) else {"text": value}
         return fit(self._frame(frame["id"], "ANSWER", {"data": data}), budget, self.handles, owner)
 

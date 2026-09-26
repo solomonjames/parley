@@ -14,7 +14,7 @@ from datetime import date, timedelta
 import pytest
 from conftest import ROOT
 
-from parley import connect, consent_code, consent_grant, issue_grant, key_from_seed, lens
+from yea import connect, consent_code, consent_grant, issue_grant, key_from_seed, lens
 
 REPO = ROOT.parent
 SEEDS = json.loads((REPO / "conformance" / "grants.json").read_text())["seeds"]
@@ -32,8 +32,8 @@ def _node_ok() -> bool:
 
 
 NODE_OK = _node_ok()
-if not NODE_OK and os.environ.get("PARLEY_REQUIRE_INTEROP"):
-    raise RuntimeError("PARLEY_REQUIRE_INTEROP is set but node >= 22.18 or ts/dist is missing")
+if not NODE_OK and os.environ.get("YEA_REQUIRE_INTEROP"):
+    raise RuntimeError("YEA_REQUIRE_INTEROP is set but node >= 22.18 or ts/dist is missing")
 pytestmark = pytest.mark.skipif(not NODE_OK, reason="needs node >= 22.18 and a built ts/dist")
 
 

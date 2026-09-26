@@ -9,9 +9,9 @@ import pytest
 from calendar_example import calendar
 from conftest import ROOT
 
-from parley import (
+from yea import (
     Client,
-    ParleyError,
+    YeaError,
     Plan,
     Service,
     charge,
@@ -49,7 +49,7 @@ def shop():
     def order(ctx):
         qty = ctx.params["qty"]
         if qty > 100:
-            raise ParleyError("limit", "at most 100 per order", fix=[{"say": "order 100", "params": {"qty": 100}}])
+            raise YeaError("limit", "at most 100 per order", fix=[{"say": "order 100", "params": {"qty": 100}}])
 
         def apply(c):
             c.progress("charging card", 0.5)
@@ -382,7 +382,7 @@ def test_http_discovery_and_raw_bad_frames():
             ctype, brief = await asyncio.to_thread(get, "/.well-known/yea")
             assert ctype == "application/json" and brief["kind"] == "BRIEF" and brief["endpoint"] == "/yea"
             reader, writer = await asyncio.open_connection("127.0.0.1", tport)
-            writer.write(b"not json\n{\"parley\":1,\"id\":\"x\",\"verb\":\"NOPE\"}\n")
+            writer.write(b"not json\n{\"yea\":1,\"id\":\"x\",\"verb\":\"NOPE\"}\n")
             await writer.drain()
             replies = [json.loads(await reader.readline()) for _ in range(2)]
             assert sorted(r["re"] for r in replies) == ["?", "x"]

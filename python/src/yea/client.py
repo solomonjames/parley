@@ -1,4 +1,4 @@
-"""The agent side: connect to a service and speak Parley."""
+"""The agent side: connect to a service and speak YEA."""
 
 from __future__ import annotations
 
@@ -220,7 +220,7 @@ class Client:
         self.grants.append(str(token))
 
     async def send(self, body: dict, on_event: OnEvent | None = None) -> Reply:
-        """Send a request body (``parley`` and ``id`` are filled in)."""
+        """Send a request body (``yea`` and ``id`` are filled in)."""
         return await self._t.request({"yea": 1, "id": _request_id(), **body}, on_event)
 
     async def audience(self) -> str:

@@ -1,9 +1,9 @@
-<img alt="parley" src="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/brand/logo-light.svg" height="48">
+<img alt="YEA" src="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/brand/logo-light.svg" height="48">
 
-# parley-protocol (Python)
+# yea-sdk (Python)
 
-**[Parley](https://github.com/yea-protocol/yea) is the open protocol for AI agents acting on
-behalf of people.** Agents state an intent, services reply with proposals whose effects are
+**[YEA](https://github.com/yea-protocol/yea) (Your Explicit Approval) is the open protocol for AI
+agents acting on behalf of people.** Agents state an intent, services reply with proposals whose effects are
 listed up front, the human's signed policy decides what can go ahead without asking, and
 reversible commits come with an undo window.
 
@@ -13,14 +13,14 @@ and tested for interop, in both directions, against the TypeScript reference. Py
 dependency is `cryptography`.
 
 ```sh
-uv add parley-protocol       # or: pip install parley-protocol; imports as `parley`
+uv add yea-sdk               # or: pip install yea-sdk; imports as `yea`
 cd python && uv run pytest   # from a checkout: conformance + TS interop (node ≥ 22.18)
 ```
 
 ## Quickstart
 
 ```python
-from parley import Plan, Service, send, serve_tcp, update
+from yea import Plan, Service, send, serve_tcp, update
 
 svc = Service("cal.example", "Calendar", "Move meetings.", trust=["ed25519:…principal…"])
 
@@ -30,11 +30,11 @@ def move(ctx):
     return Plan(f"Move {e} to {to}", [update(f"event/{e}", "start", "…", to), send("ana@x.co", "invite")],
                 apply=lambda c: {"moved": e}, revert=lambda c: None, undo_window=3600)
 
-# await serve_tcp(svc, port=7447)   (or serve_http(svc, port=8080) for POST /parley)
+# await serve_tcp(svc, port=7447)   (or serve_http(svc, port=8080) for POST /yea)
 ```
 
 ```python
-from parley import connect, consent_grant, generate_key, issue_grant
+from yea import connect, consent_grant, generate_key, issue_grant
 
 principal, agent = generate_key(), generate_key()   # normally: the human's key, and the agent's
 g = issue_grant(principal, agent.public, [{"svc": ["cal.example"]}, {"per": {"max": 5000, "currency": "USD"}}])
@@ -56,7 +56,7 @@ API names mirror `ts/src` in snake_case (`issue_grant`, `verify_grant`, `consent
 `lean`, `lens`, `fit`, `Plan.expires_in`/`undo_window`). `examples/serve.py` runs the shared
 example calendar on `yea://127.0.0.1:7457` and `http://127.0.0.1:8457/yea`.
 
-The CLI (`parley`), the MCP bridge for Claude Code, and the OpenAPI adapter ship with the
-TypeScript package: `npx parley-protocol --help`. See the
+The CLI (`yea`), the MCP bridge for Claude Code, and the OpenAPI adapter ship with the
+TypeScript packages: `npx @yea-protocol/cli --help`. See the
 [main README](https://github.com/yea-protocol/yea#readme) and the
 [docs](https://yea-protocol.github.io/yea/).

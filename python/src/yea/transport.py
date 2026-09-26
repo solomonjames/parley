@@ -12,7 +12,7 @@ from urllib.parse import parse_qs
 from ._json import dumps, loads
 from .service import Service
 
-log = logging.getLogger("parley")
+log = logging.getLogger("yea")
 
 MAX_FRAME = 1 << 20  # 1 MiB (SPEC §2.1)
 MAX_INFLIGHT = 64  # concurrent requests per stream connection

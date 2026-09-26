@@ -1,4 +1,4 @@
-"""A calendar that speaks Parley: a line-for-line port of ../../examples/calendar.ts.
+"""A calendar that speaks YEA: a line-for-line port of ../../examples/calendar.ts.
 
 Agents say what they want ("move my 1:1 with Ana to Thursday"); the calendar answers with
 proposals whose effects, risk and undo window are explicit. Nothing changes until COMMIT,
@@ -11,7 +11,7 @@ import re
 import time
 from datetime import datetime, timedelta, timezone
 
-from parley import ParleyError, Plan, Service, clarify, compact, create, fix, remove, send, update
+from yea import YeaError, Plan, Service, clarify, compact, create, fix, remove, send, update
 
 HOUR = 3600_000
 DAY = 86400_000
@@ -28,7 +28,7 @@ def parse(s: str) -> int:
     """Date.parse for the ISO forms the schema accepts; returns epoch milliseconds."""
     m = _ISO.fullmatch(s)
     if not m:
-        raise ParleyError("invalid_params", f"cannot parse time {compact(s)}")
+        raise YeaError("invalid_params", f"cannot parse time {compact(s)}")
     y, mo, d, h, mi, sec, frac, tz = m.groups()
     dt = datetime(int(y), int(mo), int(d), int(h or 0), int(mi or 0), int(sec or 0), tzinfo=timezone.utc)
     if tz and tz != "Z":
@@ -80,7 +80,7 @@ def calendar(trust: list[str], id: str = "calendar.example") -> Service:
         if len(m) == 1:
             return then(m[0])
         if not m:
-            raise ParleyError("not_found", f"no event matches {compact(q)}", fix=[fix("ASK calendar.agenda to see events, then use an event id")])
+            raise YeaError("not_found", f"no event matches {compact(q)}", fix=[fix("ASK calendar.agenda to see events, then use an event id")])
         return clarify(
             f'{len(m)} events match "{q}". Which one?',
             [{"label": f"{e['title']} · {e['start']} · {', '.join(e['with'])}", "params": {"event": e["id"]}} for e in m],
@@ -134,16 +134,16 @@ def calendar(trust: list[str], id: str = "calendar.example") -> Service:
             if p.get("to"):
                 s = parse(p["to"])
                 if s < time.time() * 1000:
-                    raise ParleyError("invalid_params", f"`to` is in the past ({p['to']})", fix=[fix("use a future time", {"to": iso(s + 365 * DAY)})])
+                    raise YeaError("invalid_params", f"`to` is in the past ({p['to']})", fix=[fix("use a future time", {"to": iso(s + 365 * DAY)})])
                 clash = overlaps(s, s + dur, e["id"])
                 if clash:
                     alts = free_slots(p["to"][:10], dur // 60_000, e["id"])[:3]
-                    raise ParleyError("conflict", f'{p["to"]} overlaps "{clash["title"]}"', fix=[fix(f"use free slot {t}", {"to": t}) for t in alts])
+                    raise YeaError("conflict", f'{p["to"]} overlaps "{clash["title"]}"', fix=[fix(f"use free slot {t}", {"to": t}) for t in alts])
                 return move_plan(e, s)
             day = p.get("day") or e["start"][:10]
             slots = free_slots(day, dur // 60_000, e["id"])[:3]
             if not slots:
-                raise ParleyError("not_found", f"no free slot on {day}", fix=[fix("try another day", {"day": iso(parse(day) + DAY)[:10]})])
+                raise YeaError("not_found", f"no free slot on {day}", fix=[fix("try another day", {"day": iso(parse(day) + DAY)[:10]})])
             return [move_plan(e, parse(t)) for t in slots]
 
         return pick(p["event"], then)

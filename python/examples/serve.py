@@ -1,9 +1,9 @@
 """Serve the Python example calendar (the same service as ../../examples/calendar.ts).
 
-    PARLEY_TRUST=ed25519:... uv run python examples/serve.py
+    YEA_TRUST=ed25519:... uv run python examples/serve.py
     calendar → yea://127.0.0.1:7457  and  http://127.0.0.1:8457/yea
 
-PARLEY_TRUST is a comma-separated list of trusted principal keys. --stdio serves NDJSON on
+YEA_TRUST is a comma-separated list of trusted principal keys. --stdio serves NDJSON on
 stdin/stdout instead (for ``stdio:`` URLs).
 """
 
@@ -15,7 +15,7 @@ import sys
 
 from calendar_example import calendar
 
-from parley import serve_http, serve_stdio, serve_tcp
+from yea import serve_http, serve_stdio, serve_tcp
 
 
 async def main() -> None:
@@ -29,7 +29,7 @@ async def main() -> None:
         return
     servers = [await serve_tcp(cal, host, tcp_port), await serve_http(cal, host, http_port)]
     print(
-        f"parley python example up · calendar yea://{host}:{tcp_port} http://{host}:{http_port}/yea"
+        f"yea python example up · calendar yea://{host}:{tcp_port} http://{host}:{http_port}/yea"
         f" · trusting {len(trust)} principal(s)",
         file=sys.stderr, flush=True,
     )
