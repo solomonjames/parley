@@ -68,11 +68,11 @@ const live = [
 ];
 // Scripted payload benchmark (bench/RESULTS.md): total input tokens, REST minified JSON vs YEA.
 const payload = [
-  ["Reschedule a meeting (REST: search, free slots, update)", "3,807", "1,552", "59%"],
-  ["Reschedule a meeting (REST: one outcome-level endpoint)", "1,609", "1,552", "4%"],
-  ["Find vegan meals under 700 kcal and order four", "3,176", "2,714", "15%"],
-  ["Read the full 60-item menu", "3,452", "2,499", "28%"],
-  ["Skim the first 30 items (REST limit=30, YEA budget=800)", "2,467", "1,965", "20%"],
+  ["Reschedule a meeting (REST: search, free slots, update)", "3,807", "1,548", "59%"],
+  ["Reschedule a meeting (REST: one outcome-level endpoint)", "1,609", "1,548", "4%"],
+  ["Find vegan meals under 700 kcal and order four", "3,176", "2,708", "15%"],
+  ["Read the full 60-item menu", "3,452", "2,495", "28%"],
+  ["Skim the first 30 items (REST limit=30, YEA budget=800)", "2,467", "1,961", "21%"],
 ];
 
 const changes: [string, string][] = [
@@ -192,12 +192,12 @@ const compare = [
           <thead><tr><th>Task</th><th class="num">REST, minified</th><th class="num">YEA</th><th class="num">Smaller</th></tr></thead>
           <tbody>
             <tr v-for="r in payload" :key="r[0]"><td>{{ r[0] }}</td><td class="num">{{ r[1] }}</td><td class="num">{{ r[2] }}</td><td class="num">{{ r[3] }}</td></tr>
-            <tr class="total"><td>All tasks, CRUD reschedule</td><td class="num">12,902</td><td class="num">8,730</td><td class="num">32%</td></tr>
+            <tr class="total"><td>All tasks, CRUD reschedule</td><td class="num">12,902</td><td class="num">8,712</td><td class="num">32%</td></tr>
           </tbody>
         </table>
       </div>
       <p class="caveat">
-        Against pretty-printed JSON, the total is 42%. When REST offers the same outcome-level endpoint, the reschedule
+        Against pretty-printed JSON, the total is 43%. When REST offers the same outcome-level endpoint, the reschedule
         row shrinks to 4%, so most of that row's gain is API shape.
         <a :href="withBase('/reference/benchmark')">Method and raw output</a>
       </p>
