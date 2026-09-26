@@ -1,5 +1,7 @@
 # A real session: Claude Code × Parley
 
+> Recorded when YEA was called Parley, so commands, tool names (`parley_*`) and output below appear as they were then.
+
 Unedited tool traffic from a headless Claude Code run (`claude-sonnet-5`), driving the example services through the Parley MCP bridge (`parley mcp`). The model got **no Parley documentation**. It had only the bridge's four tool descriptions and the service briefs.
 
 **Setup:** `parley init`, then `parley grant --risk low --per 40USD --spend 100USD --exp 2h`, then `node examples/serve.ts`, then `claude -p "…" --mcp-config …`

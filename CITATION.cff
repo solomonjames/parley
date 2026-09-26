@@ -1,6 +1,6 @@
 cff-version: 1.2.0
-message: "If you use Parley in research or a product, please cite it."
-title: "Parley: an open protocol for AI agents acting on behalf of people"
+message: "If you use YEA in research or a product, please cite it."
+title: "YEA: an open protocol for AI agents acting on behalf of people"
 authors:
   - family-names: Solomon
     given-names: James
