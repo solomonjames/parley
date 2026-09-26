@@ -133,5 +133,5 @@ npx parley-protocol openapi <your-openapi.json> # any REST API, as a Parley serv
 ```
 
 Read the [spec](../SPEC.md). It's short on purpose. If you build a service or an
-implementation, or find a hole, [open an issue](https://github.com/solomonjames/parley/issues).
+implementation, or find a hole, [open an issue](https://github.com/yea-protocol/yea/issues).
 Feedback on the spec is the most valuable contribution right now.

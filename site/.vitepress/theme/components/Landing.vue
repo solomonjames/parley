@@ -2,7 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 import { withBase } from "vitepress";
 
-const repo = "https://github.com/solomonjames/parley";
+const repo = "https://github.com/yea-protocol/yea";
 
 // The hero exchange. Every reply line is real Lens, as a model reads it.
 type Line = { t: string; kind: "wire" | "lens"; state?: "amber" | "green" | "undo" | "struck" };

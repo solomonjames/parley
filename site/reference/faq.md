@@ -30,4 +30,4 @@ Not yet. It's a v1 draft with two conformant implementations, a shared conforman
 
 ## What's the license?
 
-Apache-2.0. The spec is free to implement, and the [conformance vectors](https://github.com/solomonjames/parley/tree/main/conformance) are the contract.
+Apache-2.0. The spec is free to implement, and the [conformance vectors](https://github.com/yea-protocol/yea/tree/main/conformance) are the contract.

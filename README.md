@@ -12,7 +12,7 @@ Agents state an intent. Services reply with proposals whose effects are listed u
 The human's signed policy decides what can go ahead without asking, and reversible
 commits come with an undo window.
 
-[![CI](https://github.com/solomonjames/parley/actions/workflows/ci.yml/badge.svg)](https://github.com/solomonjames/parley/actions/workflows/ci.yml)
+[![CI](https://github.com/yea-protocol/yea/actions/workflows/ci.yml/badge.svg)](https://github.com/yea-protocol/yea/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/parley-protocol?color=FFB224&label=npm)](https://www.npmjs.com/package/parley-protocol)
 [![PyPI](https://img.shields.io/pypi/v/parley-protocol?color=FFB224&label=pypi)](https://pypi.org/project/parley-protocol/)
 ![spec](https://img.shields.io/badge/spec-v1%20draft-0B0D12)
@@ -21,7 +21,7 @@ commits come with an undo window.
 
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-works-FFB224) ![Claude Desktop](https://img.shields.io/badge/Claude%20Desktop-works-FFB224) ![Cursor](https://img.shields.io/badge/Cursor-works-FFB224) ![Codex](https://img.shields.io/badge/Codex-works-FFB224) ![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-works-FFB224) ![VS Code](https://img.shields.io/badge/VS%20Code-works-FFB224) ![Windsurf](https://img.shields.io/badge/Windsurf%2FDevin-works-FFB224) ![any MCP client](https://img.shields.io/badge/any%20MCP%20client-works-FFB224)
 
-**[Try it in your browser](https://solomonjames.github.io/parley/playground)** · [Why Parley](docs/why.md) · [Docs](https://solomonjames.github.io/parley/) · [Spec](SPEC.md) · [Quickstart](#quickstart) · [Use from Claude Code](#use-it-from-claude-code-today) · [Benchmark](#numbers) · [Design](docs/design.md)
+**[Try it in your browser](https://yea-protocol.github.io/yea/playground)** · [Why Parley](docs/why.md) · [Docs](https://yea-protocol.github.io/yea/) · [Spec](SPEC.md) · [Quickstart](#quickstart) · [Use from Claude Code](#use-it-from-claude-code-today) · [Benchmark](#numbers) · [Design](docs/design.md)
 
 <img src="docs/demo.svg" alt="Parley demo: an agent reschedules a meeting, undoes it, browses a menu within a token budget, and places an order that needs the human's consent" width="880">
 
@@ -53,9 +53,9 @@ agent ──UNDO r1 (the human changed their mind)──────────
 
 | I want to… | Do this |
 |---|---|
-| **See it work with a real model** (30 s) | `npx parley-protocol test-drive` runs Claude through a booking and a purchase that needs *your* approval. Needs an Anthropic API key. No key? Use `npx parley-protocol demo` or the [browser playground](https://solomonjames.github.io/parley/playground) |
-| **Give my AI tool safe actions** | In Claude Code: `/plugin marketplace add solomonjames/parley` then `/plugin install parley@parley`. Anywhere else: `npx parley-protocol install` (auto-detects Claude Code, Cursor, Codex, Gemini, VS Code, Windsurf and Claude Desktop). Then [add services](#use-it-from-claude-code-today) or [wrap an API](#wrap-any-rest-api-in-one-command): `parley openapi --preset github` |
-| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec. [From REST to Parley](https://solomonjames.github.io/parley/guide/service-design) translates a Stripe-style API step by step, with full code |
+| **See it work with a real model** (30 s) | `npx parley-protocol test-drive` runs Claude through a booking and a purchase that needs *your* approval. Needs an Anthropic API key. No key? Use `npx parley-protocol demo` or the [browser playground](https://yea-protocol.github.io/yea/playground) |
+| **Give my AI tool safe actions** | In Claude Code: `/plugin marketplace add yea-protocol/yea` then `/plugin install parley@parley`. Anywhere else: `npx parley-protocol install` (auto-detects Claude Code, Cursor, Codex, Gemini, VS Code, Windsurf and Claude Desktop). Then [add services](#use-it-from-claude-code-today) or [wrap an API](#wrap-any-rest-api-in-one-command): `parley openapi --preset github` |
+| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec. [From REST to Parley](https://yea-protocol.github.io/yea/guide/service-design) translates a Stripe-style API step by step, with full code |
 | **Implement the protocol** | Read the [spec](SPEC.md) and pass the [conformance vectors](conformance). Go and Rust ports are welcome |
 
 ## What changes
@@ -250,14 +250,14 @@ Read the [full specification](SPEC.md). It's short on purpose.
 <!-- #region quickstart -->
 **Try it in 10 seconds** (no clone): `npx parley-protocol demo` runs a narrated session
 with two services, a human's policy, consent and undo, over real sockets.
-[Or try it in your browser →](https://solomonjames.github.io/parley/playground)
+[Or try it in your browser →](https://yea-protocol.github.io/yea/playground)
 
 ```sh
 npm install parley-protocol        # TypeScript/JavaScript: Node ≥ 20, Bun, Deno (web-standard APIs only)
 uv add parley-protocol             # Python ≥ 3.10 (or: pip install parley-protocol)
 ```
 
-> The Python package isn't on PyPI yet. Until it is: `uv add "git+https://github.com/solomonjames/parley#subdirectory=python"`.
+> The Python package isn't on PyPI yet. Until it is: `uv add "git+https://github.com/yea-protocol/yea#subdirectory=python"`.
 
 ### Build a service
 
@@ -295,7 +295,7 @@ Params are validated against the compact schema automatically, and typos get fix
 ``rename `dya` to `day` ``. Budgets, `EXPAND`, idempotent commits, replay protection,
 grant verification, spend accounting and consent are all handled for you.
 
-Have a REST API already? [From REST to Parley](https://solomonjames.github.io/parley/guide/service-design) maps each REST concept
+Have a REST API already? [From REST to Parley](https://yea-protocol.github.io/yea/guide/service-design) maps each REST concept
 to Parley and translates a Stripe-backed billing API step by step, with the full code.
 
 ### Act as an agent
@@ -342,7 +342,7 @@ anything else, point `parley openapi` at an OpenAPI spec: GET endpoints become `
 exact HTTP request. The upstream call happens only on `COMMIT`, under your grant and with
 consent when your policy requires it. Upstream credentials (`--header`) are never shown
 to the model. Wrapping gives you the safety; to also cut the agent's turns, [design native
-intents](https://solomonjames.github.io/parley/guide/service-design) for your top jobs.
+intents](https://yea-protocol.github.io/yea/guide/service-design) for your top jobs.
 
 ```sh
 parley openapi https://petstore3.swagger.io/api/v3/openapi.json --base https://petstore3.swagger.io/api/v3
@@ -390,7 +390,7 @@ Tool results are Lens.
 **Claude Code plugin** (bundles the MCP server and a skill that teaches consent etiquette):
 
 ```text
-/plugin marketplace add solomonjames/parley
+/plugin marketplace add yea-protocol/yea
 /plugin install parley@parley
 ```
 
@@ -534,8 +534,8 @@ Not yet. It's a v1 draft with two conformant implementations, ~240 tests, and an
 
 ## Community
 
-- **Questions and ideas:** [GitHub Discussions](https://github.com/solomonjames/parley/discussions)
-- **Spec feedback and bugs:** [issues](https://github.com/solomonjames/parley/issues/new/choose) (there's a spec-feedback template)
+- **Questions and ideas:** [GitHub Discussions](https://github.com/yea-protocol/yea/discussions)
+- **Spec feedback and bugs:** [issues](https://github.com/yea-protocol/yea/issues/new/choose) (there's a spec-feedback template)
 - **Security:** report privately via [SECURITY.md](SECURITY.md)
 - **Contributing:** see [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). New implementations and presets are the most wanted
 

@@ -1,12 +1,12 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitepress';
 
-const repo = 'https://github.com/solomonjames/parley';
-const site = 'https://solomonjames.github.io/parley/';
+const repo = 'https://github.com/yea-protocol/yea';
+const site = 'https://yea-protocol.github.io/yea/';
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 export default defineConfig({
-  base: '/parley/',
+  base: '/yea/',
   title: 'Parley',
   description:
     'An open protocol for AI agents acting on behalf of people: intents, proposals, commits and undo, with signed delegation and token budgets.',
@@ -23,7 +23,7 @@ export default defineConfig({
   head: [
     [
       'link',
-      { rel: 'icon', type: 'image/svg+xml', href: '/parley/brand/mark.svg' },
+      { rel: 'icon', type: 'image/svg+xml', href: '/yea/brand/mark.svg' },
     ],
     ['meta', { name: 'theme-color', content: '#0B0D12' }],
     ['meta', { property: 'og:type', content: 'website' }],
@@ -71,7 +71,7 @@ export default defineConfig({
     outline: { level: [2, 3] },
     footer: {
       message: 'Apache-2.0. The spec is free to implement.',
-      copyright: `<a href="${repo}">github.com/solomonjames/parley</a>`,
+      copyright: `<a href="${repo}">github.com/yea-protocol/yea</a>`,
     },
   },
   markdown: {

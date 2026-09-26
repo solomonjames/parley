@@ -20,7 +20,7 @@ description: >-
   Act on the user's behalf with previews, consent and undo. Parley services answer
   intents with proposals whose effects, cost, risk and undo window are shown before
   anything happens; the user's signed policy decides what can commit without asking.
-source: https://github.com/solomonjames/parley
+source: https://github.com/yea-protocol/yea
 
 transport:
   type: stdio          # confirm key names against the validator
@@ -34,7 +34,7 @@ transport:
 
 ## PR body
 
-**What it is.** [Parley](https://github.com/solomonjames/parley) is an open protocol (Apache-2.0) for agents acting on behalf of people. Its MCP bridge exposes Parley services to any MCP client as four tools: `parley_ask`, `parley_intent`, `parley_commit`, `parley_undo`.
+**What it is.** [Parley](https://github.com/yea-protocol/yea) is an open protocol (Apache-2.0) for agents acting on behalf of people. Its MCP bridge exposes Parley services to any MCP client as four tools: `parley_ask`, `parley_intent`, `parley_commit`, `parley_undo`.
 
 **Why it fits Hermes.**
 - **Previews before side effects.** `parley_intent` returns proposals listing every effect, the cost, the risk and the undo window. Nothing changes until `parley_commit`.

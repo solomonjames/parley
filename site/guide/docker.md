@@ -3,7 +3,7 @@
 The `parley` CLI is published as a container image, so you can run services without installing Node:
 
 ```sh
-docker run --rm ghcr.io/solomonjames/parley demo
+docker run --rm ghcr.io/yea-protocol/yea demo
 ```
 
 The image's entrypoint is `parley`, so every [CLI command](/reference/cli) works. It runs as a non-root user, exposes ports 7447 and 8080, and is built for `linux/amd64` and `linux/arm64`.
@@ -16,9 +16,9 @@ Parley listens on `127.0.0.1` by default. Inside a container, pass `--host 0.0.0
 
 ```sh
 docker run --rm -p 7447:7447 -e GITHUB_TOKEN \
-  ghcr.io/solomonjames/parley openapi --preset github --host 0.0.0.0
+  ghcr.io/yea-protocol/yea openapi --preset github --host 0.0.0.0
 
-docker run --rm -p 7447:7447 ghcr.io/solomonjames/parley \
+docker run --rm -p 7447:7447 ghcr.io/yea-protocol/yea \
   openapi https://petstore3.swagger.io/api/v3/openapi.json --base https://petstore3.swagger.io/api/v3 --host 0.0.0.0
 ```
 
@@ -30,7 +30,7 @@ A wrapped API only accepts writes authorized by principals it trusts. Pass yours
 
 ```sh
 docker run --rm -p 7447:7447 -e PARLEY_TRUST="$(parley whoami | awk '/principal/{print $2}')" \
-  ghcr.io/solomonjames/parley openapi --preset github --host 0.0.0.0
+  ghcr.io/yea-protocol/yea openapi --preset github --host 0.0.0.0
 ```
 
 Then point your AI tool at it: `parley add parley://127.0.0.1:7447`.
@@ -38,7 +38,7 @@ Then point your AI tool at it: `parley add parley://127.0.0.1:7447`.
 ## The example services
 
 ```sh
-docker run --rm -p 7447:7447 -p 7449:7449 -p 7451:7451 -e PARLEY_TRUST=… ghcr.io/solomonjames/parley examples --host 0.0.0.0
+docker run --rm -p 7447:7447 -p 7449:7449 -p 7451:7451 -e PARLEY_TRUST=… ghcr.io/yea-protocol/yea examples --host 0.0.0.0
 ```
 
 ## Verify the image

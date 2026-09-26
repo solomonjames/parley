@@ -4,8 +4,8 @@ title: "Parley: an open protocol for AI agents acting on behalf of people"
 authors:
   - family-names: Solomon
     given-names: James
-repository-code: "https://github.com/solomonjames/parley"
-url: "https://solomonjames.github.io/parley/"
+repository-code: "https://github.com/yea-protocol/yea"
+url: "https://yea-protocol.github.io/yea/"
 license: Apache-2.0
 version: 0.1.0
 date-released: 2026-09-24

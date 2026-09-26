@@ -42,7 +42,7 @@ const HOME = `Parley demo services
 Use from Claude Code:
   npx parley-protocol init && npx parley-protocol grant --risk low --per 40USD --spend 100USD --exp 24h
   claude mcp add parley-demo -- npx parley-protocol mcp <this-origin>/calendar/parley <this-origin>/shop/parley
-https://github.com/solomonjames/parley
+https://github.com/yea-protocol/yea
 `;
 
 export default {

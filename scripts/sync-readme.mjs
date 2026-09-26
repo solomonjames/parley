@@ -2,8 +2,8 @@
 // page renders images and links correctly. Runs before `npm publish`.
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const RAW = 'https://raw.githubusercontent.com/solomonjames/parley/main/';
-const BLOB = 'https://github.com/solomonjames/parley/blob/main/';
+const RAW = 'https://raw.githubusercontent.com/yea-protocol/yea/main/';
+const BLOB = 'https://github.com/yea-protocol/yea/blob/main/';
 const isRel = (u) => !/^(https?:|#|mailto:)/.test(u);
 const isImg = (u) => /\.(svg|png|jpe?g|gif)$/i.test(u);
 const abs = (u) =>

@@ -73,14 +73,14 @@
     "vitest": "^5.0.1"
   },
   "author": "James Solomon",
-  "homepage": "https://solomonjames.github.io/parley/",
+  "homepage": "https://yea-protocol.github.io/yea/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/solomonjames/parley.git",
+    "url": "git+https://github.com/yea-protocol/yea.git",
     "directory": "ts"
   },
   "bugs": {
-    "url": "https://github.com/solomonjames/parley/issues"
+    "url": "https://github.com/yea-protocol/yea/issues"
   },
   "publishConfig": {
     "access": "public",
@@ -94,5 +94,5 @@
       "optional": true
     }
   },
-  "mcpName": "io.github.solomonjames/parley"
+  "mcpName": "io.github.yea-protocol/yea"
 }

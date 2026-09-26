@@ -1,6 +1,6 @@
-# ghcr.io/solomonjames/parley: the parley CLI with zero Node setup on your side.
-#   docker run --rm ghcr.io/solomonjames/parley demo
-#   docker run --rm -p 7447:7447 ghcr.io/solomonjames/parley openapi https://petstore3.swagger.io/api/v3/openapi.json --base https://petstore3.swagger.io/api/v3 --host 0.0.0.0
+# ghcr.io/yea-protocol/yea: the parley CLI with zero Node setup on your side.
+#   docker run --rm ghcr.io/yea-protocol/yea demo
+#   docker run --rm -p 7447:7447 ghcr.io/yea-protocol/yea openapi https://petstore3.swagger.io/api/v3/openapi.json --base https://petstore3.swagger.io/api/v3 --host 0.0.0.0
 FROM node:22-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json ./

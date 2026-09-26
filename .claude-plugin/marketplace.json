@@ -8,7 +8,7 @@
       "source": "./plugins/parley",
       "description": "Use Parley services from Claude Code: previewed actions, a signed spend/risk policy, human consent and undo.",
       "category": "productivity",
-      "homepage": "https://solomonjames.github.io/parley/"
+      "homepage": "https://yea-protocol.github.io/yea/"
     }
   ]
 }

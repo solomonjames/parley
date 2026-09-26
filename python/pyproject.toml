@@ -23,10 +23,10 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://solomonjames.github.io/parley/"
-Repository = "https://github.com/solomonjames/parley"
-Specification = "https://github.com/solomonjames/parley/blob/main/SPEC.md"
-Issues = "https://github.com/solomonjames/parley/issues"
+Homepage = "https://yea-protocol.github.io/yea/"
+Repository = "https://github.com/yea-protocol/yea"
+Specification = "https://github.com/yea-protocol/yea/blob/main/SPEC.md"
+Issues = "https://github.com/yea-protocol/yea/issues"
 
 [build-system]
 requires = ["uv_build>=0.9.5,<0.10.0"]

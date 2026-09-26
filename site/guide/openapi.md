@@ -91,4 +91,4 @@ A merge is only a proposal until it's committed, and it shows exactly what would
   cost: free · risk: high · undo: never · expires: 2026-09-24T14:10Z
 ```
 
-Presets live in [`ts/src/presets.ts`](https://github.com/solomonjames/parley/blob/main/ts/src/presets.ts). Contributions of new ones are welcome: each is a spec URL, an allow-list of operations with risks, response projections and the environment variables it reads.
+Presets live in [`ts/src/presets.ts`](https://github.com/yea-protocol/yea/blob/main/ts/src/presets.ts). Contributions of new ones are welcome: each is a spec URL, an allow-list of operations with risks, response projections and the environment variables it reads.

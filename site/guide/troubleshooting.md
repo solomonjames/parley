@@ -46,4 +46,4 @@ It needs Ed25519 in the browser's WebCrypto: current Chrome, Firefox or Safari.
 
 ## Still stuck?
 
-Open an issue with the output of `parley doctor` (it contains public keys only): [github.com/solomonjames/parley/issues](https://github.com/solomonjames/parley/issues).
+Open an issue with the output of `parley doctor` (it contains public keys only): [github.com/yea-protocol/yea/issues](https://github.com/yea-protocol/yea/issues).

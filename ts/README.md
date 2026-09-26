@@ -1,8 +1,8 @@
 <div align="center">
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/solomonjames/parley/main/docs/brand/logo-dark.svg">
-  <img alt="parley" src="https://raw.githubusercontent.com/solomonjames/parley/main/docs/brand/logo-light.svg" height="64">
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/brand/logo-dark.svg">
+  <img alt="parley" src="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/brand/logo-light.svg" height="64">
 </picture>
 
 ### HTTP was built for browsers. Parley is built for agents.
@@ -12,18 +12,18 @@ Agents state an intent. Services reply with proposals whose effects are listed u
 The human's signed policy decides what can go ahead without asking, and reversible
 commits come with an undo window.
 
-[![CI](https://github.com/solomonjames/parley/actions/workflows/ci.yml/badge.svg)](https://github.com/solomonjames/parley/actions/workflows/ci.yml)
+[![CI](https://github.com/yea-protocol/yea/actions/workflows/ci.yml/badge.svg)](https://github.com/yea-protocol/yea/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/parley-protocol?color=FFB224&label=npm)](https://www.npmjs.com/package/parley-protocol)
 [![PyPI](https://img.shields.io/pypi/v/parley-protocol?color=FFB224&label=pypi)](https://pypi.org/project/parley-protocol/)
 ![spec](https://img.shields.io/badge/spec-v1%20draft-0B0D12)
 ![deps](https://img.shields.io/badge/runtime%20deps-0-2BD9A5)
-[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/solomonjames/parley/blob/main/LICENSE)
+[![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/yea-protocol/yea/blob/main/LICENSE)
 
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-works-FFB224) ![Claude Desktop](https://img.shields.io/badge/Claude%20Desktop-works-FFB224) ![Cursor](https://img.shields.io/badge/Cursor-works-FFB224) ![Codex](https://img.shields.io/badge/Codex-works-FFB224) ![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-works-FFB224) ![VS Code](https://img.shields.io/badge/VS%20Code-works-FFB224) ![Windsurf](https://img.shields.io/badge/Windsurf%2FDevin-works-FFB224) ![any MCP client](https://img.shields.io/badge/any%20MCP%20client-works-FFB224)
 
-**[Try it in your browser](https://solomonjames.github.io/parley/playground)** · [Why Parley](https://github.com/solomonjames/parley/blob/main/docs/why.md) · [Docs](https://solomonjames.github.io/parley/) · [Spec](https://github.com/solomonjames/parley/blob/main/SPEC.md) · [Quickstart](#quickstart) · [Use from Claude Code](#use-it-from-claude-code-today) · [Benchmark](#numbers) · [Design](https://github.com/solomonjames/parley/blob/main/docs/design.md)
+**[Try it in your browser](https://yea-protocol.github.io/yea/playground)** · [Why Parley](https://github.com/yea-protocol/yea/blob/main/docs/why.md) · [Docs](https://yea-protocol.github.io/yea/) · [Spec](https://github.com/yea-protocol/yea/blob/main/SPEC.md) · [Quickstart](#quickstart) · [Use from Claude Code](#use-it-from-claude-code-today) · [Benchmark](#numbers) · [Design](https://github.com/yea-protocol/yea/blob/main/docs/design.md)
 
-<img src="https://raw.githubusercontent.com/solomonjames/parley/main/docs/demo.svg" alt="Parley demo: an agent reschedules a meeting, undoes it, browses a menu within a token budget, and places an order that needs the human's consent" width="880">
+<img src="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/demo.svg" alt="Parley demo: an agent reschedules a meeting, undoes it, browses a menu within a token budget, and places an order that needs the human's consent" width="880">
 
 </div>
 
@@ -53,10 +53,10 @@ agent ──UNDO r1 (the human changed their mind)──────────
 
 | I want to… | Do this |
 |---|---|
-| **See it work with a real model** (30 s) | `npx parley-protocol test-drive` runs Claude through a booking and a purchase that needs *your* approval. Needs an Anthropic API key. No key? Use `npx parley-protocol demo` or the [browser playground](https://solomonjames.github.io/parley/playground) |
-| **Give my AI tool safe actions** | In Claude Code: `/plugin marketplace add solomonjames/parley` then `/plugin install parley@parley`. Anywhere else: `npx parley-protocol install` (auto-detects Claude Code, Cursor, Codex, Gemini, VS Code, Windsurf and Claude Desktop). Then [add services](#use-it-from-claude-code-today) or [wrap an API](#wrap-any-rest-api-in-one-command): `parley openapi --preset github` |
-| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec. [From REST to Parley](https://solomonjames.github.io/parley/guide/service-design) translates a Stripe-style API step by step, with full code |
-| **Implement the protocol** | Read the [spec](https://github.com/solomonjames/parley/blob/main/SPEC.md) and pass the [conformance vectors](https://github.com/solomonjames/parley/blob/main/conformance). Go and Rust ports are welcome |
+| **See it work with a real model** (30 s) | `npx parley-protocol test-drive` runs Claude through a booking and a purchase that needs *your* approval. Needs an Anthropic API key. No key? Use `npx parley-protocol demo` or the [browser playground](https://yea-protocol.github.io/yea/playground) |
+| **Give my AI tool safe actions** | In Claude Code: `/plugin marketplace add yea-protocol/yea` then `/plugin install parley@parley`. Anywhere else: `npx parley-protocol install` (auto-detects Claude Code, Cursor, Codex, Gemini, VS Code, Windsurf and Claude Desktop). Then [add services](#use-it-from-claude-code-today) or [wrap an API](#wrap-any-rest-api-in-one-command): `parley openapi --preset github` |
+| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec. [From REST to Parley](https://yea-protocol.github.io/yea/guide/service-design) translates a Stripe-style API step by step, with full code |
+| **Implement the protocol** | Read the [spec](https://github.com/yea-protocol/yea/blob/main/SPEC.md) and pass the [conformance vectors](https://github.com/yea-protocol/yea/blob/main/conformance). Go and Rust ports are welcome |
 
 ## What changes
 
@@ -92,7 +92,7 @@ agent ──UNDO r1 (the human changed their mind)──────────
 
 `npm run demo` runs this over real TCP sockets. Everything under `│` is exactly what the
 model reads. The human's taps are simulated in code. Excerpt from
-[this run's full transcript](https://github.com/solomonjames/parley/blob/main/docs/demo-transcript.txt):
+[this run's full transcript](https://github.com/yea-protocol/yea/blob/main/docs/demo-transcript.txt):
 
 ```
 1. 👤 human delegates to the agent with a policy, not a password:
@@ -157,7 +157,7 @@ model reads. The human's taps are simulated in code. Excerpt from
 
 Headless Claude Code (Sonnet 5), the same services and the same stated rules in both arms,
 three runs per cell (medians). Violations are checked from real service state.
-[Method, every run, and what we got wrong →](https://github.com/solomonjames/parley/blob/main/bench/agent-eval/)
+[Method, every run, and what we got wrong →](https://github.com/yea-protocol/yea/blob/main/bench/agent-eval/)
 
 | Task | Arm | Tool calls | Total tokens | Cost | Time | Task success | Rule violations |
 |---|---|---|---|---|---|---|---|
@@ -168,14 +168,14 @@ three runs per cell (medians). Violations are checked from real service state.
 | Read-heavy: find the 3 highest-protein vegan meals | REST MCP | 1 | 54,135 | $0.091 | 7s | 3/3 | 0/3 |
 | Read-heavy: find the 3 highest-protein vegan meals | **Parley** | 1 | 54,766 | $0.094 | 8s | 3/3 | 0/3 |
 
-- **Zero violations in both arms, including under a prompt-injection attempt** ([results](https://github.com/solomonjames/parley/blob/main/bench/agent-eval/RESULTS-injection.md)). A well-behaved model followed the stated rules either way. Parley's rules are enforced *by the service*, so they still hold when a model doesn't. A run where the model behaves can't show that.
+- **Zero violations in both arms, including under a prompt-injection attempt** ([results](https://github.com/yea-protocol/yea/blob/main/bench/agent-eval/RESULTS-injection.md)). A well-behaved model followed the stated rules either way. Parley's rules are enforced *by the service*, so they still hold when a model doesn't. A run where the model behaves can't show that.
 - **Where Parley costs more:** on the over-limit order, its agent fetched the exact priced proposal before asking you. That's one extra turn, and in live use, turns (each re-reading ~27k tokens of Claude Code context) dominate total cost, not tool payloads.
 - **Where it wins:** in one of three reschedule runs the model passed the goal straight to `parley_intent`: 1 call and 55k tokens, against REST's 3 calls and 82k.
 
 ### Payload benchmark
 
 The same tasks as a scripted token count (o200k), isolating what each protocol sends the model.
-[Method →](https://github.com/solomonjames/parley/blob/main/bench/RESULTS.md)
+[Method →](https://github.com/yea-protocol/yea/blob/main/bench/RESULTS.md)
 
 | Task | Calls (REST → Parley) | Total input: REST minified JSON | REST pretty JSON | Parley | Saved vs minified | vs pretty |
 |---|---|---|---|---|---|---|
@@ -188,7 +188,7 @@ The same tasks as a scripted token count (o200k), isolating what each protocol s
 
 - Minified JSON is the fair baseline. Pretty-printed JSON is shown because many servers return it.
 - Most of the scripted reschedule win is API design (an outcome-level intent). Against a REST server with an equivalent endpoint it's only ~4%.
-- An early version of this benchmark had Parley *losing* on multi-step tasks. That led to [policy-gated auto-commit](https://github.com/solomonjames/parley/blob/main/SPEC.md#431-policy-gated-auto-commit) and to hoisting shared attributes in Lens.
+- An early version of this benchmark had Parley *losing* on multi-step tasks. That led to [policy-gated auto-commit](https://github.com/yea-protocol/yea/blob/main/SPEC.md#431-policy-gated-auto-commit) and to hoisting shared attributes in Lens.
 
 `npm run bench` reproduces the payload numbers, and `node bench/agent-eval/run.ts` the live ones.
 
@@ -206,7 +206,7 @@ hit `consent_required` at $53.95, and stopped. Unprompted, it told the user:
 
 Then it handed the human the approval command. (It ran without shell access. See
 [key placement](#keep-the-principal-key-away-from-the-agent) for why that matters.)
-[Full unedited transcript →](https://github.com/solomonjames/parley/blob/main/docs/claude-code-session.md) (9 turns, $0.19)
+[Full unedited transcript →](https://github.com/yea-protocol/yea/blob/main/docs/claude-code-session.md) (9 turns, $0.19)
 
 ## The protocol in one screen
 
@@ -242,7 +242,7 @@ sequenceDiagram
     A->>S: UNDO receipt (within window)
 ```
 
-Read the [full specification](https://github.com/solomonjames/parley/blob/main/SPEC.md). It's short on purpose.
+Read the [full specification](https://github.com/yea-protocol/yea/blob/main/SPEC.md). It's short on purpose.
 
 ## Quickstart
 
@@ -250,14 +250,14 @@ Read the [full specification](https://github.com/solomonjames/parley/blob/main/S
 <!-- #region quickstart -->
 **Try it in 10 seconds** (no clone): `npx parley-protocol demo` runs a narrated session
 with two services, a human's policy, consent and undo, over real sockets.
-[Or try it in your browser →](https://solomonjames.github.io/parley/playground)
+[Or try it in your browser →](https://yea-protocol.github.io/yea/playground)
 
 ```sh
 npm install parley-protocol        # TypeScript/JavaScript: Node ≥ 20, Bun, Deno (web-standard APIs only)
 uv add parley-protocol             # Python ≥ 3.10 (or: pip install parley-protocol)
 ```
 
-> The Python package isn't on PyPI yet. Until it is: `uv add "git+https://github.com/solomonjames/parley#subdirectory=python"`.
+> The Python package isn't on PyPI yet. Until it is: `uv add "git+https://github.com/yea-protocol/yea#subdirectory=python"`.
 
 ### Build a service
 
@@ -295,7 +295,7 @@ Params are validated against the compact schema automatically, and typos get fix
 ``rename `dya` to `day` ``. Budgets, `EXPAND`, idempotent commits, replay protection,
 grant verification, spend accounting and consent are all handled for you.
 
-Have a REST API already? [From REST to Parley](https://solomonjames.github.io/parley/guide/service-design) maps each REST concept
+Have a REST API already? [From REST to Parley](https://yea-protocol.github.io/yea/guide/service-design) maps each REST concept
 to Parley and translates a Stripe-backed billing API step by step, with the full code.
 
 ### Act as an agent
@@ -309,7 +309,7 @@ console.log(r.lens); // ← give this to your model
 if (r.kind === "PROPOSALS") await cal.commit(r.proposals[0]);
 ```
 
-Python has the same concepts in snake_case (`issue_grant`, `consent_grant`, `lens`, `connect`), with decorators and a `Plan` dataclass instead of chaining. The CLI and MCP bridge are TypeScript-only. See [python/README.md](https://github.com/solomonjames/parley/blob/main/python/README.md).
+Python has the same concepts in snake_case (`issue_grant`, `consent_grant`, `lens`, `connect`), with decorators and a `Plan` dataclass instead of chaining. The CLI and MCP bridge are TypeScript-only. See [python/README.md](https://github.com/yea-protocol/yea/blob/main/python/README.md).
 
 ### Delegate like you mean it
 
@@ -342,7 +342,7 @@ anything else, point `parley openapi` at an OpenAPI spec: GET endpoints become `
 exact HTTP request. The upstream call happens only on `COMMIT`, under your grant and with
 consent when your policy requires it. Upstream credentials (`--header`) are never shown
 to the model. Wrapping gives you the safety; to also cut the agent's turns, [design native
-intents](https://solomonjames.github.io/parley/guide/service-design) for your top jobs.
+intents](https://yea-protocol.github.io/yea/guide/service-design) for your top jobs.
 
 ```sh
 parley openapi https://petstore3.swagger.io/api/v3/openapi.json --base https://petstore3.swagger.io/api/v3
@@ -390,7 +390,7 @@ Tool results are Lens.
 **Claude Code plugin** (bundles the MCP server and a skill that teaches consent etiquette):
 
 ```text
-/plugin marketplace add solomonjames/parley
+/plugin marketplace add yea-protocol/yea
 /plugin install parley@parley
 ```
 
@@ -449,22 +449,22 @@ for delegated agents.
 
 | Path | What |
 |---|---|
-| [`SPEC.md`](https://github.com/solomonjames/parley/blob/main/SPEC.md) | The protocol, v1 draft |
-| [`conformance/`](https://github.com/solomonjames/parley/blob/main/conformance) | Language-neutral test vectors: canonical JSON, keys, hashes, proofs, grants, Lens and token estimates |
-| [`ts/`](https://github.com/solomonjames/parley/blob/main/ts) | Reference implementation (TypeScript, **zero runtime dependencies**, WebCrypto): service, client, transports, CLI, MCP bridge, OpenAPI adapter |
-| [`python/`](https://github.com/solomonjames/parley/blob/main/python) | Second implementation (Python), started from the spec and vectors, passing all of them, and interoperating with TS |
-| [`examples/`](https://github.com/solomonjames/parley/blob/main/examples) | Calendar and meal-shop services, plus the narrated demo |
-| [`bench/`](https://github.com/solomonjames/parley/blob/main/bench) | The token benchmark above |
-| [`docs/design.md`](https://github.com/solomonjames/parley/blob/main/docs/design.md) | Why it's built this way: every major decision and the alternatives we rejected |
-| [`plugins/`](https://github.com/solomonjames/parley/blob/main/plugins) · [`server.json`](https://github.com/solomonjames/parley/blob/main/server.json) | Claude Code plugin marketplace and the MCP registry entry |
-| [`site/`](https://github.com/solomonjames/parley/blob/main/site) | The docs site and browser playground (VitePress) |
-| [`deploy/demo/`](https://github.com/solomonjames/parley/blob/main/deploy/demo) | Hosted demo services on Cloudflare Workers (a Durable Object per agent) |
+| [`SPEC.md`](https://github.com/yea-protocol/yea/blob/main/SPEC.md) | The protocol, v1 draft |
+| [`conformance/`](https://github.com/yea-protocol/yea/blob/main/conformance) | Language-neutral test vectors: canonical JSON, keys, hashes, proofs, grants, Lens and token estimates |
+| [`ts/`](https://github.com/yea-protocol/yea/blob/main/ts) | Reference implementation (TypeScript, **zero runtime dependencies**, WebCrypto): service, client, transports, CLI, MCP bridge, OpenAPI adapter |
+| [`python/`](https://github.com/yea-protocol/yea/blob/main/python) | Second implementation (Python), started from the spec and vectors, passing all of them, and interoperating with TS |
+| [`examples/`](https://github.com/yea-protocol/yea/blob/main/examples) | Calendar and meal-shop services, plus the narrated demo |
+| [`bench/`](https://github.com/yea-protocol/yea/blob/main/bench) | The token benchmark above |
+| [`docs/design.md`](https://github.com/yea-protocol/yea/blob/main/docs/design.md) | Why it's built this way: every major decision and the alternatives we rejected |
+| [`plugins/`](https://github.com/yea-protocol/yea/blob/main/plugins) · [`server.json`](https://github.com/yea-protocol/yea/blob/main/server.json) | Claude Code plugin marketplace and the MCP registry entry |
+| [`site/`](https://github.com/yea-protocol/yea/blob/main/site) | The docs site and browser playground (VitePress) |
+| [`deploy/demo/`](https://github.com/yea-protocol/yea/blob/main/deploy/demo) | Hosted demo services on Cloudflare Workers (a Durable Object per agent) |
 
 The two implementations interoperate in both directions over TCP and HTTP. The Python
 suite also renders every TypeScript reply and event through its own Lens renderer and
 checks the output is byte-identical. Writing the second implementation surfaced real
 bugs in the first, including a consent-scoping hole and fail-open caveats, and every
-fix went into the spec and vectors. See [design notes](https://github.com/solomonjames/parley/blob/main/docs/design.md).
+fix went into the spec and vectors. See [design notes](https://github.com/yea-protocol/yea/blob/main/docs/design.md).
 
 ```sh
 npm install && npm test          # TypeScript: unit, conformance, transports, MCP bridge, TS→Python interop
@@ -483,7 +483,7 @@ No. MCP standardizes how a model *finds and calls tools*. Parley standardizes wh
 <details>
 <summary><b>Why a new protocol instead of HTTP conventions?</b></summary>
 
-Previews, consent bound to hashes, capability grants, budgets and Lens have to hold *across every service* to be worth anything to an agent. Conventions layered on HTTP get implemented differently by every API, which is how we got here. Parley can still ride HTTP (the bridge) where infrastructure requires it. Its semantics just don't depend on it. [More →](https://github.com/solomonjames/parley/blob/main/docs/design.md)
+Previews, consent bound to hashes, capability grants, budgets and Lens have to hold *across every service* to be worth anything to an agent. Conventions layered on HTTP get implemented differently by every API, which is how we got here. Parley can still ride HTTP (the bridge) where infrastructure requires it. Its semantics just don't depend on it. [More →](https://github.com/yea-protocol/yea/blob/main/docs/design.md)
 </details>
 
 <details>
@@ -495,7 +495,7 @@ They connect agents to agents (A2A) or agents to editors (ACP). Parley connects 
 <details>
 <summary><b>Does the model need to learn a new format?</b></summary>
 
-No. Lens is designed to be read cold: tables for uniform lists, `~ update`/`+ create`/`$ charge` effect lines, explicit costs and undo windows. In our [real session](https://github.com/solomonjames/parley/blob/main/docs/claude-code-session.md) Claude used it correctly with no documentation.
+No. Lens is designed to be read cold: tables for uniform lists, `~ update`/`+ create`/`$ charge` effect lines, explicit costs and undo windows. In our [real session](https://github.com/yea-protocol/yea/blob/main/docs/claude-code-session.md) Claude used it correctly with no documentation.
 </details>
 
 <details>
@@ -507,19 +507,19 @@ No. Any model that can call tools works. The bridge speaks MCP, and the protocol
 <details>
 <summary><b>Why not JWT or OAuth for delegation?</b></summary>
 
-They answer "who is this?" Agents need "what exactly may this do, for whom, up to how much, until when, and can it hand a narrower slice to a helper?" That's a capability chain (in the lineage of macaroons and Biscuit) with caveats a service can check offline. [More →](https://github.com/solomonjames/parley/blob/main/docs/design.md#grants)
+They answer "who is this?" Agents need "what exactly may this do, for whom, up to how much, until when, and can it hand a narrower slice to a helper?" That's a capability chain (in the lineage of macaroons and Biscuit) with caveats a service can check offline. [More →](https://github.com/yea-protocol/yea/blob/main/docs/design.md#grants)
 </details>
 
 <details>
 <summary><b>What stops a malicious service from lying about effects?</b></summary>
 
-Nothing in v1, beyond making the lie *explicit and bound*: the commit is tied to the hash of the effects shown, and receipts record what was claimed. Signed receipts (for non-repudiation) are on the [roadmap](https://github.com/solomonjames/parley/blob/main/docs/design.md#roadmap). Only connect services you'd trust with an API key today.
+Nothing in v1, beyond making the lie *explicit and bound*: the commit is tied to the hash of the effects shown, and receipts record what was claimed. Signed receipts (for non-repudiation) are on the [roadmap](https://github.com/yea-protocol/yea/blob/main/docs/design.md#roadmap). Only connect services you'd trust with an API key today.
 </details>
 
 <details>
 <summary><b>Is it production-ready?</b></summary>
 
-Not yet. It's a v1 draft with two conformant implementations, ~240 tests, and an adversarial security audit whose 15 findings are all fixed and covered by regression tests ([details](https://github.com/solomonjames/parley/blob/main/docs/design.md#security-review)). The reference services keep state in memory. Feedback on the spec is the most valuable contribution right now.
+Not yet. It's a v1 draft with two conformant implementations, ~240 tests, and an adversarial security audit whose 15 findings are all fixed and covered by regression tests ([details](https://github.com/yea-protocol/yea/blob/main/docs/design.md#security-review)). The reference services keep state in memory. Feedback on the spec is the most valuable contribution right now.
 </details>
 
 ## Roadmap
@@ -530,16 +530,16 @@ Not yet. It's a v1 draft with two conformant implementations, ~240 tests, and an
 - [ ] Revocation lists and signed receipts
 - [ ] `HOLD`: multi-service atomic commits (flight + hotel, or neither)
 - [ ] More presets (Jira, Cloudflare, …) and reversible wrapped writes (undo mappings)
-- [ ] Go and Rust implementations. [Help wanted](https://github.com/solomonjames/parley/blob/main/CONTRIBUTING.md)
+- [ ] Go and Rust implementations. [Help wanted](https://github.com/yea-protocol/yea/blob/main/CONTRIBUTING.md)
 
 ## Community
 
-- **Questions and ideas:** [GitHub Discussions](https://github.com/solomonjames/parley/discussions)
-- **Spec feedback and bugs:** [issues](https://github.com/solomonjames/parley/issues/new/choose) (there's a spec-feedback template)
-- **Security:** report privately via [SECURITY.md](https://github.com/solomonjames/parley/blob/main/SECURITY.md)
-- **Contributing:** see [CONTRIBUTING.md](https://github.com/solomonjames/parley/blob/main/CONTRIBUTING.md) and [AGENTS.md](https://github.com/solomonjames/parley/blob/main/AGENTS.md). New implementations and presets are the most wanted
+- **Questions and ideas:** [GitHub Discussions](https://github.com/yea-protocol/yea/discussions)
+- **Spec feedback and bugs:** [issues](https://github.com/yea-protocol/yea/issues/new/choose) (there's a spec-feedback template)
+- **Security:** report privately via [SECURITY.md](https://github.com/yea-protocol/yea/blob/main/SECURITY.md)
+- **Contributing:** see [CONTRIBUTING.md](https://github.com/yea-protocol/yea/blob/main/CONTRIBUTING.md) and [AGENTS.md](https://github.com/yea-protocol/yea/blob/main/AGENTS.md). New implementations and presets are the most wanted
 
-If you use Parley in research, please cite it ([CITATION.cff](https://github.com/solomonjames/parley/blob/main/CITATION.cff)).
+If you use Parley in research, please cite it ([CITATION.cff](https://github.com/yea-protocol/yea/blob/main/CITATION.cff)).
 
 ## License
 

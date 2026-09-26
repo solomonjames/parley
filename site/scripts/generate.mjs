@@ -11,7 +11,7 @@ const out = (p, s) => {
   mkdirSync(new URL('./', u), { recursive: true });
   writeFileSync(u, s);
 };
-const SITE = 'https://solomonjames.github.io/parley';
+const SITE = 'https://yea-protocol.github.io/yea';
 
 const cli = read('ts/src/cli.ts');
 const help = cli
@@ -143,7 +143,7 @@ ${list(optional)}
 out(
   'public/llms-full.txt',
   `${[
-    `# Parley\n\nSource: https://github.com/solomonjames/parley · Docs: ${SITE}/`,
+    `# Parley\n\nSource: https://github.com/yea-protocol/yea · Docs: ${SITE}/`,
     `## Quickstart\n\n${region(readme, 'quickstart')}`,
     `## Use it from Claude Code and other MCP clients\n\n${region(readme, 'claude-code')}`,
     `## CLI reference\n\n\`\`\`\n${help}\n\`\`\``,

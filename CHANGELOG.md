@@ -8,7 +8,7 @@
 - **OpenAPI adapter:** `parley openapi <spec>` serves any REST API as a Parley service, with writes as previewed, consent-gated proposals.
 - **One-command setup:** `parley install` registers the MCP bridge and agent instructions with Claude Code, Claude Desktop, Cursor, Windsurf, Gemini CLI, VS Code and Codex. `parley doctor` checks everything, and `parley uninstall` restores configs byte-for-byte.
 - **`parley test-drive`:** watch a real Claude model use Parley live, approving its purchases in your terminal.
-- **Distribution:** a Claude Code plugin (`/plugin marketplace add solomonjames/parley`), an MCP registry entry (`io.github.solomonjames/parley`), a Docker image (`ghcr.io/solomonjames/parley`), and attested releases with SHA256SUMS.
+- **Distribution:** a Claude Code plugin (`/plugin marketplace add yea-protocol/yea`), an MCP registry entry (`io.github.yea-protocol/yea`), a Docker image (`ghcr.io/yea-protocol/yea`), and attested releases with SHA256SUMS.
 - **Conformance vectors** for canonical JSON, keys, hashes, proofs, grants, Lens and token estimates.
 - **Benchmark:** 34% fewer total input tokens than minified-JSON REST MCP across four tasks, with honest caveats.
 - **Security:** an adversarial audit's 15 findings are fixed, with regression tests.

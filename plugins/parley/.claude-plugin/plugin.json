@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "description": "Use Parley services from Claude Code: previewed actions, a signed spend/risk policy, human consent and undo.",
   "author": { "name": "James Solomon" },
-  "homepage": "https://solomonjames.github.io/parley/",
-  "repository": "https://github.com/solomonjames/parley",
+  "homepage": "https://yea-protocol.github.io/yea/",
+  "repository": "https://github.com/yea-protocol/yea",
   "license": "Apache-2.0",
   "keywords": ["agents", "mcp", "delegation", "consent", "undo"]
 }

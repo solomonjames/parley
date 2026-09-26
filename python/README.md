@@ -1,14 +1,14 @@
-<img alt="parley" src="https://raw.githubusercontent.com/solomonjames/parley/main/docs/brand/logo-light.svg" height="48">
+<img alt="parley" src="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/brand/logo-light.svg" height="48">
 
 # parley-protocol (Python)
 
-**[Parley](https://github.com/solomonjames/parley) is the open protocol for AI agents acting on
+**[Parley](https://github.com/yea-protocol/yea) is the open protocol for AI agents acting on
 behalf of people.** Agents state an intent, services reply with proposals whose effects are
 listed up front, the human's signed policy decides what can go ahead without asking, and
 reversible commits come with an undo window.
 
-This is the Python implementation of the [spec](https://github.com/solomonjames/parley/blob/main/SPEC.md).
-It's checked against the shared [conformance vectors](https://github.com/solomonjames/parley/tree/main/conformance)
+This is the Python implementation of the [spec](https://github.com/yea-protocol/yea/blob/main/SPEC.md).
+It's checked against the shared [conformance vectors](https://github.com/yea-protocol/yea/tree/main/conformance)
 and tested for interop, in both directions, against the TypeScript reference. Python ≥ 3.10; its only
 dependency is `cryptography`.
 
@@ -58,5 +58,5 @@ example calendar on `parley://127.0.0.1:7457` and `http://127.0.0.1:8457/parley`
 
 The CLI (`parley`), the MCP bridge for Claude Code, and the OpenAPI adapter ship with the
 TypeScript package: `npx parley-protocol --help`. See the
-[main README](https://github.com/solomonjames/parley#readme) and the
-[docs](https://solomonjames.github.io/parley/).
+[main README](https://github.com/yea-protocol/yea#readme) and the
+[docs](https://yea-protocol.github.io/yea/).

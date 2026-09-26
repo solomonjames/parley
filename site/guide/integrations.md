@@ -37,7 +37,7 @@ Whatever the client, don't add `parley_commit` or `parley_undo` to an auto-appro
 As a plugin, which bundles the MCP config and a `parley` skill that teaches the model consent etiquette (it runs the npm package, so it works once `parley-protocol` 0.1.0 is published):
 
 ```text
-/plugin marketplace add solomonjames/parley
+/plugin marketplace add yea-protocol/yea
 /plugin install parley@parley
 ```
 
@@ -164,7 +164,7 @@ Consent works well here: when a commit needs the human's approval and the client
 
 ## MCP registry
 
-Parley's MCP registry entry is `io.github.solomonjames/parley` ([`server.json`](https://github.com/solomonjames/parley/blob/main/server.json): npm package `parley-protocol`, stdio transport, argument `mcp`). It's published with the first release; then clients that browse the registry can install it from there.
+Parley's MCP registry entry is `io.github.yea-protocol/yea` ([`server.json`](https://github.com/yea-protocol/yea/blob/main/server.json): npm package `parley-protocol`, stdio transport, argument `mcp`). It's published with the first release; then clients that browse the registry can install it from there.
 
 ## Services to try
 

@@ -3,7 +3,7 @@
 Parley is an authorization protocol. Security bugs are the most valuable reports we get.
 
 **Please report vulnerabilities privately** through
-[GitHub security advisories](https://github.com/solomonjames/parley/security/advisories/new).
+[GitHub security advisories](https://github.com/yea-protocol/yea/security/advisories/new).
 Don't open a public issue. We aim to respond within 72 hours.
 
 In scope: the spec (SPEC.md), the TypeScript reference (`ts/`), the Python implementation
