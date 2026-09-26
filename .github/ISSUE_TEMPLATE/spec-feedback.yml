@@ -5,12 +5,19 @@ labels: [area/spec, status/triage]
 body:
   - type: input
     id: section
-    attributes: { label: Section, placeholder: "e.g. §6.3 Caveats" }
-    validations: { required: true }
+    attributes:
+      label: Section
+      placeholder: "e.g. §6.3 Caveats"
+    validations:
+      required: true
   - type: textarea
     id: problem
-    attributes: { label: What is unclear or wrong?, description: Quote the text if you can. }
-    validations: { required: true }
+    attributes:
+      label: "What is unclear or wrong?"
+      description: Quote the text if you can.
+    validations:
+      required: true
   - type: textarea
     id: proposal
-    attributes: { label: Proposed change }
+    attributes:
+      label: Proposed change
