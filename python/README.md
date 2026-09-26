@@ -13,7 +13,7 @@ and tested for interop, in both directions, against the TypeScript reference. Py
 dependency is `cryptography`.
 
 ```sh
-pip install parley-protocol  # imports as `parley`
+uv add parley-protocol       # or: pip install parley-protocol; imports as `parley`
 cd python && uv run pytest   # from a checkout: conformance + TS interop (node ≥ 22.18)
 ```
 

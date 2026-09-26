@@ -254,10 +254,10 @@ with two services, a human's policy, consent and undo, over real sockets.
 
 ```sh
 npm install parley-protocol        # TypeScript/JavaScript: Node ≥ 20, Bun, Deno (web-standard APIs only)
-pip install parley-protocol        # Python ≥ 3.10
+uv add parley-protocol             # Python ≥ 3.10 (or: pip install parley-protocol)
 ```
 
-> The Python package isn't on PyPI yet. Until it is: `git clone`, then `pip install ./python`.
+> The Python package isn't on PyPI yet. Until it is: `uv add "git+https://github.com/solomonjames/parley#subdirectory=python"`.
 
 ### Build a service
 
