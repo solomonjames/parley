@@ -1,6 +1,6 @@
 # Security
 
-Parley is an authorization protocol. Security bugs are the most valuable reports we get.
+YEA is an authorization protocol. Security bugs are the most valuable reports we get.
 
 **Please report vulnerabilities privately** through
 [GitHub security advisories](https://github.com/yea-protocol/yea/security/advisories/new).
@@ -19,6 +19,6 @@ Past findings and their fixes are listed in [docs/design.md](docs/design.md#secu
 ## Deployment guidance
 
 - Keep the **principal key** where agents can't read it: another OS user, another machine,
-  or a phone (`PARLEY_PRINCIPAL_HOME`). An agent that can read it can sign its own consent.
+  or a phone (`YEA_PRINCIPAL_HOME`). An agent that can read it can sign its own consent.
 - Use short-lived grants (`exp`), and pair `per` with `spend`.
-- Run Parley over an authenticated transport (`yeas://`, `https://`).
+- Run YEA over an authenticated transport (`yeas://`, `https://`).

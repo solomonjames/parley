@@ -1,6 +1,6 @@
 # HTTP was built for browsers. Agents need their own protocol.
 
-*Why we built Parley, and what we learned building it.*
+*Why we built YEA, and what we learned building it.*
 
 ---
 
@@ -67,17 +67,17 @@ ambiguous, the service asks (`CLARIFY: which Ana?`) instead of guessing.
 ## What we measured, including where we were wrong
 
 We benchmarked the same tasks, over the same data, against a conventional REST-style MCP
-server. Our first run went against us. On a multi-step order task, Parley used
+server. Our first run went against us. On a multi-step order task, YEA used
 **more** tokens, because the preview step costs a round trip, and every turn re-reads
 the whole context.
 
 That result led to the most important feature in the protocol: **policy-gated
 auto-commit**. The human's grant decides what can skip the preview. In a scripted payload
-benchmark, Parley now sends the model 32% fewer tokens than minified-JSON REST. Against a
+benchmark, YEA now sends the model 32% fewer tokens than minified-JSON REST. Against a
 REST server with an equally outcome-shaped endpoint, the difference is only 4%.
 
 Then we ran real agents, and the numbers got humbler. In headless Claude Code, the same
-tasks cost about the same through Parley as through a REST MCP server: 3–15% more, with
+tasks cost about the same through YEA as through a REST MCP server: 3–15% more, with
 the same success rate. In live use the bill is dominated by model *turns*, each one
 re-reading tens of thousands of tokens of harness context, not by tool payloads. When the
 model handed its goal straight to an intent, a reschedule took one call instead of three.
@@ -88,12 +88,12 @@ that it saves money.
 
 The budget story is starker against real APIs. Pointed at the live Swagger Petstore, a
 single `findPetsByStatus` call returns 4,019 pets, about 120,000 tokens. A typical MCP
-wrapper puts all of it in context. Through Parley's OpenAPI adapter, the model gets what
+wrapper puts all of it in context. Through YEA's OpenAPI adapter, the model gets what
 fits its budget and a handle for the rest.
 
 Both arms had zero rule violations, even when we hid a fake "the owner pre-approved $200"
 note in a menu item. A well-behaved model follows stated rules either way. The difference
-is that Parley's rules are enforced by the service, so they still hold when a model
+is that YEA's rules are enforced by the service, so they still hold when a model
 doesn't.
 
 Earlier, we gave Claude Sonnet 5 the protocol with **no documentation**, and asked it to move
@@ -104,7 +104,7 @@ Then it handed the human the approval command.
 
 ## Built twice, reviewed hard
 
-A spec implemented once is a description of one codebase. Parley has two
+A spec implemented once is a description of one codebase. YEA has two
 implementations, TypeScript and Python, that pass the same conformance vectors and
 interoperate in both directions, down to byte-identical Lens.
 
@@ -117,10 +117,10 @@ proposal. All are fixed, covered by regression tests, and written into the spec.
 listed in [the design notes](design.md#security-review), because a protocol that asks you to
 trust it with delegated authority should show its work.
 
-## What Parley is not
+## What YEA is not
 
-It's not a replacement for MCP. The MCP bridge serves Parley *over* MCP, so Claude Code,
-Claude Desktop and Cursor can use Parley services today. It's not an agent framework, and
+It's not a replacement for MCP. The MCP bridge serves YEA *over* MCP, so Claude Code,
+Claude Desktop and Cursor can use YEA services today. It's not an agent framework, and
 it doesn't care which model you use. And it's not finished. v1 has no revocation lists,
 no multi-service atomic commits, and it trusts services to describe their own effects
 honestly. The [roadmap](design.md#roadmap) covers what's next.
@@ -128,8 +128,8 @@ honestly. The [roadmap](design.md#roadmap) covers what's next.
 ## Try it
 
 ```sh
-npx parley-protocol demo                        # the whole story in 30 seconds
-npx parley-protocol openapi <your-openapi.json> # any REST API, as a Parley service
+npx @yea-protocol/cli demo                        # the whole story in 30 seconds
+npx @yea-protocol/cli openapi <your-openapi.json> # any REST API, as a YEA service
 ```
 
 Read the [spec](../SPEC.md). It's short on purpose. If you build a service or an

@@ -1,6 +1,6 @@
 # Contributing
 
-Parley is a protocol first. The most valuable contributions right now are:
+YEA is a protocol first. The most valuable contributions right now are:
 
 1. **Spec feedback.** Open an issue quoting the SPEC.md section. Ambiguities are bugs.
 2. **New implementations.** Go, Rust, Swift, Kotlin. `conformance/*.json` is the contract:

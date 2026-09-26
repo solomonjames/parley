@@ -2,28 +2,28 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/brand/logo-dark.svg">
-  <img alt="parley" src="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/brand/logo-light.svg" height="64">
+  <img alt="YEA" src="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/brand/logo-light.svg" height="64">
 </picture>
 
-### HTTP was built for browsers. Parley is built for agents.
+### HTTP was built for browsers. YEA is built for agents.
 
-**The open protocol for AI agents acting on behalf of people.**<br>
+**Your Explicit Approval: the open protocol for AI agents acting on behalf of people.**<br>
 Agents state an intent. Services reply with proposals whose effects are listed up front.
 The human's signed policy decides what can go ahead without asking, and reversible
 commits come with an undo window.
 
 [![CI](https://github.com/yea-protocol/yea/actions/workflows/ci.yml/badge.svg)](https://github.com/yea-protocol/yea/actions/workflows/ci.yml)
-[![npm](https://img.shields.io/npm/v/parley-protocol?color=FFB224&label=npm)](https://www.npmjs.com/package/parley-protocol)
-[![PyPI](https://img.shields.io/pypi/v/parley-protocol?color=FFB224&label=pypi)](https://pypi.org/project/parley-protocol/)
+[![npm](https://img.shields.io/npm/v/@yea-protocol/sdk?color=FFB224&label=npm)](https://www.npmjs.com/package/@yea-protocol/sdk)
+[![PyPI](https://img.shields.io/pypi/v/yea-sdk?color=FFB224&label=pypi)](https://pypi.org/project/yea-sdk/)
 ![spec](https://img.shields.io/badge/spec-v1%20draft-0B0D12)
 ![deps](https://img.shields.io/badge/runtime%20deps-0-2BD9A5)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/yea-protocol/yea/blob/main/LICENSE)
 
 ![Claude Code](https://img.shields.io/badge/Claude%20Code-works-FFB224) ![Claude Desktop](https://img.shields.io/badge/Claude%20Desktop-works-FFB224) ![Cursor](https://img.shields.io/badge/Cursor-works-FFB224) ![Codex](https://img.shields.io/badge/Codex-works-FFB224) ![Gemini CLI](https://img.shields.io/badge/Gemini%20CLI-works-FFB224) ![VS Code](https://img.shields.io/badge/VS%20Code-works-FFB224) ![Windsurf](https://img.shields.io/badge/Windsurf%2FDevin-works-FFB224) ![any MCP client](https://img.shields.io/badge/any%20MCP%20client-works-FFB224)
 
-**[Try it in your browser](https://yea-protocol.github.io/yea/playground)** · [Why Parley](https://github.com/yea-protocol/yea/blob/main/docs/why.md) · [Docs](https://yea-protocol.github.io/yea/) · [Spec](https://github.com/yea-protocol/yea/blob/main/SPEC.md) · [Quickstart](#quickstart) · [Use from Claude Code](#use-it-from-claude-code-today) · [Benchmark](#numbers) · [Design](https://github.com/yea-protocol/yea/blob/main/docs/design.md)
+**[Try it in your browser](https://yea-protocol.github.io/yea/playground)** · [Why YEA](https://github.com/yea-protocol/yea/blob/main/docs/why.md) · [Docs](https://yea-protocol.github.io/yea/) · [Spec](https://github.com/yea-protocol/yea/blob/main/SPEC.md) · [Quickstart](#quickstart) · [Use from Claude Code](#use-it-from-claude-code-today) · [Benchmark](#numbers) · [Design](https://github.com/yea-protocol/yea/blob/main/docs/design.md)
 
-<img src="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/demo.svg" alt="Parley demo: an agent reschedules a meeting, undoes it, browses a menu within a token budget, and places an order that needs the human's consent" width="880">
+<img src="https://raw.githubusercontent.com/yea-protocol/yea/main/docs/demo.svg" alt="YEA demo: an agent reschedules a meeting, undoes it, browses a menu within a token budget, and places an order that needs the human's consent" width="880">
 
 </div>
 
@@ -36,7 +36,7 @@ that the human allowed *this* action at *this* price. Its credentials are scoped
 resources, not to amounts, risk or a specific action. MCP made those endpoints easy to
 plug in, but it kept the endpoint shape.
 
-**Parley goes back to the protocol layer.** It's an application protocol with its own
+**YEA goes back to the protocol layer.** It's an application protocol with its own
 verbs, reply kinds, errors, authorization model and a canonical text format for models.
 It's a peer of HTTP, not a wrapper around it.
 
@@ -53,14 +53,14 @@ agent ──UNDO r1 (the human changed their mind)──────────
 
 | I want to… | Do this |
 |---|---|
-| **See it work with a real model** (30 s) | `npx parley-protocol test-drive` runs Claude through a booking and a purchase that needs *your* approval. Needs an Anthropic API key. No key? Use `npx parley-protocol demo` or the [browser playground](https://yea-protocol.github.io/yea/playground) |
-| **Give my AI tool safe actions** | In Claude Code: `/plugin marketplace add yea-protocol/yea` then `/plugin install parley@parley`. Anywhere else: `npx parley-protocol install` (auto-detects Claude Code, Cursor, Codex, Gemini, VS Code, Windsurf and Claude Desktop). Then [add services](#use-it-from-claude-code-today) or [wrap an API](#wrap-any-rest-api-in-one-command): `parley openapi --preset github` |
-| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec. [From REST to Parley](https://yea-protocol.github.io/yea/guide/service-design) translates a Stripe-style API step by step, with full code |
+| **See it work with a real model** (30 s) | `npx @yea-protocol/cli test-drive` runs Claude through a booking and a purchase that needs *your* approval. Needs an Anthropic API key. No key? Use `npx @yea-protocol/cli demo` or the [browser playground](https://yea-protocol.github.io/yea/playground) |
+| **Give my AI tool safe actions** | In Claude Code: `/plugin marketplace add yea-protocol/yea` then `/plugin install yea@yea`. Anywhere else: `npx @yea-protocol/cli install` (auto-detects Claude Code, Cursor, Codex, Gemini, VS Code, Windsurf and Claude Desktop). Then [add services](#use-it-from-claude-code-today) or [wrap an API](#wrap-any-rest-api-in-one-command): `yea openapi --preset github` |
+| **Make my service agent-ready** | [Build a service](#build-a-service) in ~30 lines of TypeScript or Python, or wrap your existing OpenAPI spec. [From REST to YEA](https://yea-protocol.github.io/yea/guide/service-design) translates a Stripe-style API step by step, with full code |
 | **Implement the protocol** | Read the [spec](https://github.com/yea-protocol/yea/blob/main/SPEC.md) and pass the [conformance vectors](https://github.com/yea-protocol/yea/blob/main/conformance). Go and Rust ports are welcome |
 
 ## What changes
 
-| The agent-era problem | What Parley does |
+| The agent-era problem | What YEA does |
 |---|---|
 | Agents want **outcomes**, but APIs expose **CRUD** | `INTENT` carries the goal, and the service answers with concrete **proposals** |
 | Agents make mistakes | Nothing happens until `COMMIT`. Every proposal lists its **effects, cost, risk and undo window**, and its hash binds the commit to exactly what was shown |
@@ -72,19 +72,19 @@ agent ──UNDO r1 (the human changed their mind)──────────
 | A human approval is a checkbox in someone's UI | **Consent** is a one-shot signed grant for `COMMIT` of one exact proposal hash, and nothing else |
 | Errors say *what* failed | Errors say **how to fix it**, with machine-applicable patches. Ambiguity is a first-class reply (`CLARIFY`), not an error |
 
-**Parley is for you if**
+**YEA is for you if**
 - ✅ your agent **spends money or changes things** for someone, and "just trust it" isn't a policy
 - ✅ you want agents to **show what they're about to do** before they do it, and undo it after
 - ✅ you want a **spend cap, a risk ceiling and an expiry** on your agent, not an all-powerful API key
 - ✅ you're tired of tool results that **blow up the context window**
 - ✅ you run a service and want agents to use it **safely and cheaply**, without writing a bespoke MCP server
 
-**What Parley is not**
+**What YEA is not**
 
 | | |
 |---|---|
 | **Not an agent framework.** | It doesn't run your agent or pick your model. Any agent that can call tools can speak it. |
-| **Not a replacement for MCP.** | It runs *over* MCP today. MCP is how a model finds tools; Parley is what a trustworthy tool looks like. |
+| **Not a replacement for MCP.** | It runs *over* MCP today. MCP is how a model finds tools; YEA is what a trustworthy tool looks like. |
 | **Not a wallet or payments rail.** | Spend caps bound what an agent may *commit* to. Money still moves through the service's own payments. |
 | **Not a sandbox.** | It constrains what an agent may ask services to do, not what code it runs on your machine. |
 
@@ -151,7 +151,7 @@ model reads. The human's taps are simulated in code. Excerpt from
 
 ## Numbers
 
-> **In live runs with a real model, Parley costs about the same as a REST-style MCP server (+3–15% per task, same success rate) while adding an enforced policy, previews and undo.** Its replies are 30–45% smaller, and when a model hands its goal straight to an intent, a reschedule takes 1 call instead of 3. We publish where it loses, too.
+> **In live runs with a real model, YEA costs about the same as a REST-style MCP server (+3–15% per task, same success rate) while adding an enforced policy, previews and undo.** Its replies are 30–45% smaller, and when a model hands its goal straight to an intent, a reschedule takes 1 call instead of 3. We publish where it loses, too.
 
 ### Live agents
 
@@ -162,40 +162,40 @@ three runs per cell (medians). Violations are checked from real service state.
 | Task | Arm | Tool calls | Total tokens | Cost | Time | Task success | Rule violations |
 |---|---|---|---|---|---|---|---|
 | Move a meeting to a free slot (within policy) | REST MCP | 3 | 81,690 | $0.098 | 9s | 3/3 | 0/3 |
-| Move a meeting to a free slot (within policy) | **Parley** | 3 | 83,801 | $0.107 | 12s | 3/3 | 0/3 |
+| Move a meeting to a free slot (within policy) | **YEA** | 3 | 83,801 | $0.107 | 12s | 3/3 | 0/3 |
 | Order meals that cost more than the $40 limit | REST MCP | 2 | 55,036 | $0.100 | 15s | 3/3 | 0/3 |
-| Order meals that cost more than the $40 limit | **Parley** | 2 | 84,027 | $0.112 | 17s | 3/3 | 0/3 |
+| Order meals that cost more than the $40 limit | **YEA** | 2 | 84,027 | $0.112 | 17s | 3/3 | 0/3 |
 | Read-heavy: find the 3 highest-protein vegan meals | REST MCP | 1 | 54,135 | $0.091 | 7s | 3/3 | 0/3 |
-| Read-heavy: find the 3 highest-protein vegan meals | **Parley** | 1 | 54,766 | $0.094 | 8s | 3/3 | 0/3 |
+| Read-heavy: find the 3 highest-protein vegan meals | **YEA** | 1 | 54,766 | $0.094 | 8s | 3/3 | 0/3 |
 
-- **Zero violations in both arms, including under a prompt-injection attempt** ([results](https://github.com/yea-protocol/yea/blob/main/bench/agent-eval/RESULTS-injection.md)). A well-behaved model followed the stated rules either way. Parley's rules are enforced *by the service*, so they still hold when a model doesn't. A run where the model behaves can't show that.
-- **Where Parley costs more:** on the over-limit order, its agent fetched the exact priced proposal before asking you. That's one extra turn, and in live use, turns (each re-reading ~27k tokens of Claude Code context) dominate total cost, not tool payloads.
-- **Where it wins:** in one of three reschedule runs the model passed the goal straight to `parley_intent`: 1 call and 55k tokens, against REST's 3 calls and 82k.
+- **Zero violations in both arms, including under a prompt-injection attempt** ([results](https://github.com/yea-protocol/yea/blob/main/bench/agent-eval/RESULTS-injection.md)). A well-behaved model followed the stated rules either way. YEA's rules are enforced *by the service*, so they still hold when a model doesn't. A run where the model behaves can't show that.
+- **Where YEA costs more:** on the over-limit order, its agent fetched the exact priced proposal before asking you. That's one extra turn, and in live use, turns (each re-reading ~27k tokens of Claude Code context) dominate total cost, not tool payloads.
+- **Where it wins:** in one of three reschedule runs the model passed the goal straight to `yea_intent`: 1 call and 55k tokens, against REST's 3 calls and 82k.
 
 ### Payload benchmark
 
 The same tasks as a scripted token count (o200k), isolating what each protocol sends the model.
 [Method →](https://github.com/yea-protocol/yea/blob/main/bench/RESULTS.md)
 
-| Task | Calls (REST → Parley) | Total input: REST minified JSON | REST pretty JSON | Parley | Saved vs minified | vs pretty |
+| Task | Calls (REST → YEA) | Total input: REST minified JSON | REST pretty JSON | YEA | Saved vs minified | vs pretty |
 |---|---|---|---|---|---|---|
-| Reschedule a meeting (REST: search → free slots → update) | 3 → 1 | 3,807 | 3,962 | 1,552 | **59%** | 61% |
-| Reschedule a meeting (REST: one outcome-level endpoint) | 1 → 1 | 1,609 | 1,630 | 1,552 | **4%** | 5% |
-| Find vegan meals < 700 kcal and order four | 2 → 2 | 3,176 | 3,638 | 2,714 | **15%** | 25% |
-| Read the full 60-item menu | 1 → 1 | 3,452 | 4,552 | 2,499 | **28%** | 45% |
-| Skim the menu (first 30 items: REST limit=30, Parley budget=800) | 1 → 1 | 2,467 | 3,027 | 1,965 | **20%** | 35% |
-| **All tasks** (CRUD reschedule row) | | 12,902 | 15,179 | 8,730 | **32%** | 42% |
+| Reschedule a meeting (REST: search → free slots → update) | 3 → 1 | 3,807 | 3,962 | 1,548 | **59%** | 61% |
+| Reschedule a meeting (REST: one outcome-level endpoint) | 1 → 1 | 1,609 | 1,630 | 1,548 | **4%** | 5% |
+| Find vegan meals < 700 kcal and order four | 2 → 2 | 3,176 | 3,638 | 2,708 | **15%** | 26% |
+| Read the full 60-item menu | 1 → 1 | 3,452 | 4,552 | 2,495 | **28%** | 45% |
+| Skim the menu (first 30 items: REST limit=30, YEA budget=800) | 1 → 1 | 2,467 | 3,027 | 1,961 | **21%** | 35% |
+| **All tasks** (CRUD reschedule row) | | 12,902 | 15,179 | 8,712 | **32%** | 43% |
 
 - Minified JSON is the fair baseline. Pretty-printed JSON is shown because many servers return it.
 - Most of the scripted reschedule win is API design (an outcome-level intent). Against a REST server with an equivalent endpoint it's only ~4%.
-- An early version of this benchmark had Parley *losing* on multi-step tasks. That led to [policy-gated auto-commit](https://github.com/yea-protocol/yea/blob/main/SPEC.md#431-policy-gated-auto-commit) and to hoisting shared attributes in Lens.
+- An early version of this benchmark had YEA *losing* on multi-step tasks. That led to [policy-gated auto-commit](https://github.com/yea-protocol/yea/blob/main/SPEC.md#431-policy-gated-auto-commit) and to hoisting shared attributes in Lens.
 
 `npm run bench` reproduces the payload numbers, and `node bench/agent-eval/run.ts` the live ones.
 
 ## Tested with a real model
 
-We gave Claude Sonnet 5, running in headless Claude Code, the Parley MCP bridge, **no
-Parley documentation**, and one request: *"Move my 1:1 with Ana to a free slot on the
+We gave Claude Sonnet 5, running in headless Claude Code, the YEA MCP bridge, **no
+YEA documentation**, and one request: *"Move my 1:1 with Ana to a free slot on the
 27th, then order me 4 vegan meals under 700 calories."* Its grant allowed low-risk
 changes up to $40 per action.
 
@@ -216,7 +216,7 @@ Then it handed the human the approval command. (It ran without shell access. See
 **Replies:** `BRIEF` · `ANSWER` · `PROPOSALS` · `CLARIFY` · `RECEIPT` · `ERROR` · `EVENT` (progress, non-final)
 
 **Wire:** NDJSON frames over TCP (`yea://`, port 7447), TLS (`yeas://`), stdio, or
-an HTTP bridge (`POST /parley` with an NDJSON response, plus discovery at
+an HTTP bridge (`POST /yea` with an NDJSON response, plus discovery at
 `/.well-known/yea`) for serverless and existing infrastructure.
 
 ```mermaid
@@ -248,13 +248,13 @@ Read the [full specification](https://github.com/yea-protocol/yea/blob/main/SPEC
 
 
 <!-- #region quickstart -->
-**Try it in 10 seconds** (no clone): `npx parley-protocol demo` runs a narrated session
+**Try it in 10 seconds** (no clone): `npx @yea-protocol/cli demo` runs a narrated session
 with two services, a human's policy, consent and undo, over real sockets.
 [Or try it in your browser →](https://yea-protocol.github.io/yea/playground)
 
 ```sh
-npm install parley-protocol        # TypeScript/JavaScript: Node ≥ 20, Bun, Deno (web-standard APIs only)
-uv add parley-protocol             # Python ≥ 3.10 (or: pip install parley-protocol)
+npm install @yea-protocol/sdk        # TypeScript/JavaScript: Node ≥ 20, Bun, Deno (web-standard APIs only)
+uv add yea-sdk             # Python ≥ 3.10 (or: pip install yea-sdk)
 ```
 
 > The Python package isn't on PyPI yet. Until it is: `uv add "git+https://github.com/yea-protocol/yea#subdirectory=python"`.
@@ -262,8 +262,8 @@ uv add parley-protocol             # Python ≥ 3.10 (or: pip install parley-pro
 ### Build a service
 
 ```ts
-import { service, update, send, clarify } from "parley-protocol";
-import { listen } from "parley-protocol/node";
+import { service, update, send, clarify } from "@yea-protocol/sdk";
+import { listen } from "@yea-protocol/sdk/node";
 
 const cal = service({ id: "cal.example.com", name: "Calendar", summary: "Move meetings.", trust: [PRINCIPAL_KEY] })
   .ask("calendar.agenda", {
@@ -295,13 +295,13 @@ Params are validated against the compact schema automatically, and typos get fix
 ``rename `dya` to `day` ``. Budgets, `EXPAND`, idempotent commits, replay protection,
 grant verification, spend accounting and consent are all handled for you.
 
-Have a REST API already? [From REST to Parley](https://yea-protocol.github.io/yea/guide/service-design) maps each REST concept
-to Parley and translates a Stripe-backed billing API step by step, with the full code.
+Have a REST API already? [From REST to YEA](https://yea-protocol.github.io/yea/guide/service-design) maps each REST concept
+to YEA and translates a Stripe-backed billing API step by step, with the full code.
 
 ### Act as an agent
 
 ```ts
-import { connect } from "parley-protocol/node";
+import { connect } from "@yea-protocol/sdk/node";
 
 const cal = await connect("yea://cal.example.com", { key: AGENT_SEED, grants: [GRANT] });
 const r = await cal.intent("calendar.reschedule", { event: "Ana", to: "2026-09-24T15:00:00Z" }, { auto: true });
@@ -314,14 +314,14 @@ Python has the same concepts in snake_case (`issue_grant`, `consent_grant`, `len
 ### Delegate like you mean it
 
 ```sh
-parley init                                              # your principal key + an agent key (~/.parley)
-parley grant --svc cal.example.com --svc shop.example \
+yea init                                              # your principal key + an agent key (~/.yea)
+yea grant --svc cal.example.com --svc shop.example \
              --risk low --per 40USD --spend 100USD --exp 8h   # signed policy for your agent
-parley inspect <token>                                   # read any grant chain
-parley delegate <token> --to <sub-agent key> --verbs ASK,INTENT   # narrower authority for a sub-agent
-parley approve <pc1.code>                               # review and sign a one-time consent for one proposal
-parley examples                                          # serve the example calendar + shop locally
-parley do yea://127.0.0.1:7447 calendar.reschedule event=Ana   # interactive: intent → pick → commit
+yea inspect <token>                                   # read any grant chain
+yea delegate <token> --to <sub-agent key> --verbs ASK,INTENT   # narrower authority for a sub-agent
+yea approve <pc1.code>                               # review and sign a one-time consent for one proposal
+yea examples                                          # serve the example calendar + shop locally
+yea do yea://127.0.0.1:7447 calendar.reschedule event=Ana   # interactive: intent → pick → commit
 ```
 <!-- #endregion quickstart -->
 
@@ -329,23 +329,23 @@ parley do yea://127.0.0.1:7447 calendar.reschedule event=Ana   # interactive: in
 
 
 <!-- #region openapi -->
-You don't have to wait for services to adopt Parley.
+You don't have to wait for services to adopt YEA.
 
 ```sh
-GITHUB_TOKEN=… npx parley-protocol openapi --preset github   # 16 curated GitHub operations; merging a PR is high-risk, so it always asks
+GITHUB_TOKEN=… npx @yea-protocol/cli openapi --preset github   # 16 curated GitHub operations; merging a PR is high-risk, so it always asks
 ```
 
 Presets pick the operations an agent should have, set risk where the default is wrong,
 project huge responses down to compact tables, and read credentials from the
 environment, never showing them to the model. `github` and `petstore` ship today. For
-anything else, point `parley openapi` at an OpenAPI spec: GET endpoints become `ASK`s, and writes become `INTENT`s whose proposal shows the
+anything else, point `yea openapi` at an OpenAPI spec: GET endpoints become `ASK`s, and writes become `INTENT`s whose proposal shows the
 exact HTTP request. The upstream call happens only on `COMMIT`, under your grant and with
 consent when your policy requires it. Upstream credentials (`--header`) are never shown
 to the model. Wrapping gives you the safety; to also cut the agent's turns, [design native
 intents](https://yea-protocol.github.io/yea/guide/service-design) for your top jobs.
 
 ```sh
-parley openapi https://petstore3.swagger.io/api/v3/openapi.json --base https://petstore3.swagger.io/api/v3
+yea openapi https://petstore3.swagger.io/api/v3/openapi.json --base https://petstore3.swagger.io/api/v3
 # ✓ petstore3.swagger.io: 19 capabilities (8 ask, 11 intent)
 ```
 
@@ -367,7 +367,7 @@ items[7]:
 ```
 
 That endpoint returns **4,019 pets, about 120,000 tokens**. A typical MCP wrapper would put
-all of it in the model's context. Parley gives the model what fits its budget and a
+all of it in the model's context. YEA gives the model what fits its budget and a
 handle for the rest. Wrapped writes are marked `undo: never`, because generic REST calls
 can't be reversed, so they're never auto-committed.
 
@@ -375,8 +375,8 @@ Combine it with the MCP bridge and any REST API gets previews, budgets and conse
 Claude Code:
 
 ```sh
-parley openapi ./openapi.json --header "Authorization: Bearer $API_TOKEN" --port 7447 &
-claude mcp add my-api -- npx parley-protocol mcp yea://127.0.0.1:7447
+yea openapi ./openapi.json --header "Authorization: Bearer $API_TOKEN" --port 7447 &
+claude mcp add my-api -- npx @yea-protocol/cli mcp yea://127.0.0.1:7447
 ```
 <!-- #endregion openapi -->
 
@@ -384,44 +384,44 @@ claude mcp add my-api -- npx parley-protocol mcp yea://127.0.0.1:7447
 
 
 <!-- #region claude-code -->
-The bridge exposes Parley services as an MCP server, so every MCP client can use them now.
+The bridge exposes YEA services as an MCP server, so every MCP client can use them now.
 Tool results are Lens.
 
 **Claude Code plugin** (bundles the MCP server and a skill that teaches consent etiquette):
 
 ```text
 /plugin marketplace add yea-protocol/yea
-/plugin install parley@parley
+/plugin install yea@yea
 ```
 
 **Any tool, one command.** This creates an agent key and registers the bridge (plus a short
 agent-instructions block) with every AI tool it finds:
 
 ```sh
-npx parley-protocol install                    # or --target claude-code,cursor,codex,gemini,vscode,windsurf,claude-desktop
-npx parley-protocol add https://shop.example/parley   # add services; the bridge picks them up on restart
-npx parley-protocol doctor                     # check keys, grants, services, registration
+npx @yea-protocol/cli install                    # or --target claude-code,cursor,codex,gemini,vscode,windsurf,claude-desktop
+npx @yea-protocol/cli add https://shop.example/yea   # add services; the bridge picks them up on restart
+npx @yea-protocol/cli doctor                     # check keys, grants, services, registration
 ```
 
-It never auto-approves `parley_commit` or `parley_undo` in your tool. When a commit needs
+It never auto-approves `yea_commit` or `yea_undo` in your tool. When a commit needs
 consent, the bridge asks **you**: in the client's UI via MCP elicitation, or through
-`parley approve <code>`, which shows the exact action and needs an interactive terminal.
+`yea approve <code>`, which shows the exact action and needs an interactive terminal.
 The model can't approve for itself.
 
 ### Keep the principal key away from the agent
 
 Your *principal* key signs your policy and your approvals, so everything rests on it.
-`parley install` therefore creates only the agent's key. Create the principal on another
+`yea install` therefore creates only the agent's key. Create the principal on another
 device or OS user and send the agent a grant:
 
 ```sh
 # on your phone/laptop/other user (holds the principal key)
-parley init && parley grant --to <agent key> --svc shop.example --risk low --per 25USD --spend 100USD --exp 30d
+yea init && yea grant --to <agent key> --svc shop.example --risk low --per 25USD --spend 100USD --exp 30d
 # on the agent's machine
-parley grant-import <token>
+yea grant-import <token>
 ```
 
-To try things quickly on one machine, use `parley install --with-principal`. Be aware that
+To try things quickly on one machine, use `yea install --with-principal`. Be aware that
 an agent with shell access (Claude Code has it) could then read the key. Pair `--per` with
 `--spend`: a per-action cap alone can be dodged by splitting a purchase, and `--spend`
 bounds the total.
@@ -429,7 +429,7 @@ bounds the total.
 
 ## How it compares
 
-| | REST / HTTP APIs | MCP | **Parley** |
+| | REST / HTTP APIs | MCP | **YEA** |
 |---|---|---|---|
 | Unit of interaction | resource (CRUD) | tool call (usually wraps an endpoint) | **intent → proposal → commit** |
 | Preview before side effects | rare, per-API (dry-run flags) | tool annotations (`destructiveHint` …) as hints only; no effect preview | **✓** effects, cost, risk and undo window on every proposal, bound by hash |
@@ -441,8 +441,8 @@ bounds the total.
 | Errors | status codes, RFC 9457 problem details | JSON-RPC codes, `isError` plus free text | **✓** machine-applicable fixes, and `CLARIFY` for ambiguity |
 | Idempotency and replay | per-API (`Idempotency-Key`) | `idempotentHint` (hint only) | **✓** commits are idempotent; proofs are time-bound and key-bound |
 
-Parley doesn't replace MCP's role as an integration layer. The bridge runs *on* MCP.
-What Parley replaces is the thing MCP servers wrap: an API designed for code rather than
+YEA doesn't replace MCP's role as an integration layer. The bridge runs *on* MCP.
+What YEA replaces is the thing MCP servers wrap: an API designed for code rather than
 for delegated agents.
 
 ## What's in this repo
@@ -477,19 +477,19 @@ npm run demo && npm run bench
 <details>
 <summary><b>Isn't this just MCP?</b></summary>
 
-No. MCP standardizes how a model *finds and calls tools*. Parley standardizes what the tool *is*: an outcome-level interface with previews, undo, delegated authority, budgets and a model-native format. The two compose: the bridge serves Parley over MCP.
+No. MCP standardizes how a model *finds and calls tools*. YEA standardizes what the tool *is*: an outcome-level interface with previews, undo, delegated authority, budgets and a model-native format. The two compose: the bridge serves YEA over MCP.
 </details>
 
 <details>
 <summary><b>Why a new protocol instead of HTTP conventions?</b></summary>
 
-Previews, consent bound to hashes, capability grants, budgets and Lens have to hold *across every service* to be worth anything to an agent. Conventions layered on HTTP get implemented differently by every API, which is how we got here. Parley can still ride HTTP (the bridge) where infrastructure requires it. Its semantics just don't depend on it. [More →](https://github.com/yea-protocol/yea/blob/main/docs/design.md)
+Previews, consent bound to hashes, capability grants, budgets and Lens have to hold *across every service* to be worth anything to an agent. Conventions layered on HTTP get implemented differently by every API, which is how we got here. YEA can still ride HTTP (the bridge) where infrastructure requires it. Its semantics just don't depend on it. [More →](https://github.com/yea-protocol/yea/blob/main/docs/design.md)
 </details>
 
 <details>
 <summary><b>How does this relate to A2A or ACP?</b></summary>
 
-They connect agents to agents (A2A) or agents to editors (ACP). Parley connects an agent to a *service it acts on*, with a human's authority attached. An agent reached over A2A could itself expose Parley capabilities, and they don't compete.
+They connect agents to agents (A2A) or agents to editors (ACP). YEA connects an agent to a *service it acts on*, with a human's authority attached. An agent reached over A2A could itself expose YEA capabilities, and they don't compete.
 </details>
 
 <details>
@@ -539,7 +539,7 @@ Not yet. It's a v1 draft with two conformant implementations, ~240 tests, and an
 - **Security:** report privately via [SECURITY.md](https://github.com/yea-protocol/yea/blob/main/SECURITY.md)
 - **Contributing:** see [CONTRIBUTING.md](https://github.com/yea-protocol/yea/blob/main/CONTRIBUTING.md) and [AGENTS.md](https://github.com/yea-protocol/yea/blob/main/AGENTS.md). New implementations and presets are the most wanted
 
-If you use Parley in research, please cite it ([CITATION.cff](https://github.com/yea-protocol/yea/blob/main/CITATION.cff)).
+If you use YEA in research, please cite it ([CITATION.cff](https://github.com/yea-protocol/yea/blob/main/CITATION.cff)).
 
 ## License
 

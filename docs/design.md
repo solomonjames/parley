@@ -1,11 +1,11 @@
-# Parley — design decisions
+# YEA — design decisions
 
 Each section records a decision, the alternatives we considered, and why we chose what
 we did. Where a measurement drove the choice, the numbers are included.
 
 ## A protocol, not conventions on HTTP
 
-**Decision.** Parley defines its own frames, verbs, reply kinds, errors and authorization.
+**Decision.** YEA defines its own frames, verbs, reply kinds, errors and authorization.
 HTTP is one of four transports (§2.4), not the substrate.
 
 **Alternatives.** (a) REST conventions plus headers (`Prefer: preview`, `Idempotency-Key`,
@@ -18,7 +18,7 @@ limits, output that fits a budget, and a text form the model can read. Conventio
 adopted piecemeal, and a preview header that only a third of APIs honor is worse than
 none, because the agent can't rely on it. The same logic made HTTP a protocol rather than
 a set of conventions on FTP. We kept an HTTP bridge because reach matters: it runs on
-serverless platforms and passes through proxies, while the semantics stay Parley's.
+serverless platforms and passes through proxies, while the semantics stay YEA's.
 
 ## Intent → proposal → commit
 
@@ -32,7 +32,7 @@ it. A side benefit is that services can offer *alternatives* ("standard or expre
 CRUD can't express.
 
 **The cost we measured.** The preview adds a round trip. In an early, unpublished run of
-the benchmark (before the changes below), that made Parley use about 1.5× the total
+the benchmark (before the changes below), that made YEA use about 1.5× the total
 input tokens of plain REST on a two-step order task, because every turn re-reads the
 context. The fix is below.
 
@@ -50,8 +50,8 @@ slow.
 signed policy**. "My agent may move meetings and spend up to $40 on anything it can undo"
 becomes one round trip. Anything outside that falls back to proposals automatically.
 Irreversible actions never auto-commit. In the scripted payload benchmark this took the
-reschedule task from 3 calls to 1, and Parley sends 32% fewer tokens than minified-JSON
-REST (42% against pretty JSON; only ~4% against an equivalent outcome-level REST endpoint).
+reschedule task from 3 calls to 1, and YEA sends 32% fewer tokens than minified-JSON
+REST (43% against pretty JSON; only ~4% against an equivalent outcome-level REST endpoint).
 In **live** agent runs ([bench/agent-eval](../bench/agent-eval/)), total cost comes out
 about even (+3–15% per task): turns dominate cost there, and models don't always hand
 their goal straight to an intent. When they do, it's 1 call instead of 3.
@@ -76,7 +76,7 @@ buys three things:
    (`items[60]{sku,name,usd,cal,protein}:`), strings are unquoted when safe, and effects
    use one-character operators (`~ update`, `+ create`, `$ charge`). The 60-item menu
    costs 1,095 tokens in Lens against 1,919 minified and 3,019 pretty-printed.
-2. **Consistency across services.** A model that has read one Parley receipt can read all of them.
+2. **Consistency across services.** A model that has read one YEA receipt can read all of them.
 3. **Budgets that mean something.** A budget constrains the rendering the model actually reads, not a JSON byte count.
 
 Shared proposal attributes (cost, risk, undo, expiry) are stated once in the header.
@@ -103,7 +103,7 @@ benchmark payloads, and the menu as JSON and as Lens), reproducible with
 
 Bytes/4 undercounts structured text by up to 2.7×. It estimates the full menu's Lens at
 623 tokens when it's really 1,095, so an "800-token" budget let the whole thing through.
-The regex tracks real tokenizers on the text Parley actually sends, and it's four
+The regex tracks real tokenizers on the text YEA actually sends, and it's four
 alternatives long.
 
 **Elision safety.** Budget fitting may drop whole trailing proposals or capabilities, and
@@ -130,7 +130,7 @@ possession signed by the holder key.
   heavy dependency for every implementer, and its generality works against a fixed
   fail-closed caveat set.
 - *UCAN:* the closest relative. It's built on DIDs and JWT/IPLD encodings and designed
-  for resource capabilities. Parley's needs are narrower and more agent-specific: spend
+  for resource capabilities. YEA's needs are narrower and more agent-specific: spend
   accounting, risk ceilings, and consent bound to a proposal hash.
 
 **Why this shape.**
@@ -221,10 +221,10 @@ It confirmed 15 findings, and every one now has a regression test in
 
 - **The principal key must be isolated from the agent.** Everything rests on it. If an
   agent can read the principal key, it can sign its own consent. The CLI supports
-  keeping it elsewhere (`PARLEY_PRINCIPAL_HOME`), and approval requires an interactive
+  keeping it elsewhere (`YEA_PRINCIPAL_HOME`), and approval requires an interactive
   terminal, but a local shell-capable agent on the same account defeats both.
 
-- **Services are trusted to describe their own effects.** Parley makes the description
+- **Services are trusted to describe their own effects.** YEA makes the description
   explicit and binds commits to it, but a malicious service can still lie. Signed
   receipts (below) make lies attributable.
 - **No revocation.** Keep grants short-lived with `exp`.
@@ -243,7 +243,7 @@ It confirmed 15 findings, and every one now has a regression test in
 - **`HOLD`: multi-party atomic commits.** Collect proposals from an airline and a hotel,
   hold both, then commit both or neither.
 - **Signed receipts** for non-repudiation and audit logs a principal can verify.
-- **Discovery by DNS** (`_parley` TXT → endpoint), alongside `/.well-known/yea`.
+- **Discovery by DNS** (`_yea` TXT → endpoint), alongside `/.well-known/yea`.
 - **QUIC / WebTransport** transport.
 - **More implementations.** Go and Rust ports are welcome, and `conformance/` is the
   contract.
