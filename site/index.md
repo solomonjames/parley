@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Parley, the protocol agents speak
+title: YEA, the protocol agents speak
 sidebar: false
 aside: false
 ---

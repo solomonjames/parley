@@ -1,6 +1,6 @@
-# From REST to Parley
+# From REST to YEA
 
-**The short version:** in REST, the agent works out *how* to do a job, one call at a time. In Parley, the agent says *what* it wants, and your service answers with ready-made plans: what will happen, what it costs, and whether it can be undone. This page shows how to turn a REST API into that, using a Stripe-backed billing API as the example.
+**The short version:** in REST, the agent works out *how* to do a job, one call at a time. In YEA, the agent says *what* it wants, and your service answers with ready-made plans: what will happen, what it costs, and whether it can be undone. This page shows how to turn a REST API into that, using a Stripe-backed billing API as the example.
 
 ## One job, both ways
 
@@ -24,7 +24,7 @@ Nothing tells the agent that a refund is permanent, or that the customer gets an
 </div>
 <div>
 
-**Parley: the agent makes one call and picks a plan**
+**YEA: the agent makes one call and picks a plan**
 
 ```text
 INTENT billing.refund {who: "Chen"}
@@ -45,12 +45,12 @@ The agent commits the second plan. Because it can't be undone, the human's polic
 </div>
 
 ::: info Why not just wrap the REST API?
-You can: [`parley openapi`](/guide/openapi) gives any REST API Parley's safety in one command. But the agent still makes every call itself, and each call is another model turn, which is where most of an agent's cost goes ([live eval](/benchmark/live)). A native service takes those turns away.
+You can: [`yea openapi`](/guide/openapi) gives any REST API YEA's safety in one command. But the agent still makes every call itself, and each call is another model turn, which is where most of an agent's cost goes ([live eval](/benchmark/live)). A native service takes those turns away.
 :::
 
 ## The cheat sheet
 
-| In your REST API | In Parley |
+| In your REST API | In YEA |
 |---|---|
 | Several `GET`s that answer one question | One `ASK` |
 | A `POST`, `PATCH` or `DELETE` | An `INTENT` that returns plans, then `COMMIT` |
@@ -67,7 +67,7 @@ You can: [`parley openapi`](/guide/openapi) gives any REST API Parley's safety i
 
 Write down the requests people make, then find the endpoints each one needs. Each request becomes one capability.
 
-| What the user says | Stripe endpoints today | Parley |
+| What the user says | Stripe endpoints today | YEA |
 |---|---|---|
 | "What's going on with Chen's account?" | `GET` customers, subscriptions, charges | `ASK billing.customer {who}` |
 | "Refund Chen's last payment" | the three `GET`s, then `POST /v1/refunds` | `INTENT billing.refund {who}` |
@@ -106,7 +106,7 @@ One `ASK` makes the REST calls it needs and returns only what an agent needs to 
 </div>
 <div>
 
-**Parley: what the agent reads**
+**YEA: what the agent reads**
 
 ```text
 id: cus_chen
@@ -125,7 +125,7 @@ payments[2]{id,date,amount,refunded,status}:
 - **Accept names and emails,** and resolve them in the service.
 - **Return readable values:** dates, not timestamps; `49.00 USD`, not `4900`.
 - **Keep rows flat,** so they render as a table.
-- **Don't paginate.** Parley trims long lists to the agent's [budget](/guide/budgets) for you.
+- **Don't paginate.** YEA trims long lists to the agent's [budget](/guide/budgets) for you.
 
 ::: details The code for this ASK
 <<< ../../examples/stripe-billing.ts#ask
@@ -150,12 +150,12 @@ When a reverse call exists, `revert()` makes it, and the plan becomes undoable. 
 <<< ../../examples/stripe-billing.ts#cancel-plan
 
 - **List every effect.** The human approves what the plan says, so `apply()` must do nothing more.
-- **Add `revert()` only if it really restores the old state.** Parley only commits undoable plans automatically.
+- **Add `revert()` only if it really restores the old state.** YEA only commits undoable plans automatically.
 - **Offer the choices a person would,** like "full or unused days" and "now or at period end". Put the safest common choice first.
 
 ### 4. Make errors say how to fix the request
 
-| When | Parley error | Include |
+| When | YEA error | Include |
 |---|---|---|
 | Params are out of range | `invalid_params` | A fix: `refund the rest (49.00 USD) → {"amount":49}` |
 | A name matches several records | `CLARIFY` | One option per match |
@@ -172,9 +172,9 @@ Idempotency, pagination, confirmation screens and permission checks are part of 
 
 ```sh
 export STRIPE_SECRET_KEY=sk_test_…
-export PARLEY_TRUST="$(parley whoami | awk '/principal/{print $2}')"
+export YEA_TRUST="$(yea whoami | awk '/principal/{print $2}')"
 node examples/stripe-billing.ts
-parley add yea://127.0.0.1:7453   # now your AI tool can use it
+yea add yea://127.0.0.1:7453   # now your AI tool can use it
 ```
 
 The [playground](/playground) runs the same design with made-up data, no key needed.

@@ -1,11 +1,11 @@
 # Build a service
 
-A Parley service is a set of capabilities plus the protocol machinery around them, which the library provides. You write what's specific to your domain: what can be read, and how an intent turns into concrete, undoable plans. For what makes those choices good, see [From REST to Parley](/guide/service-design).
+A YEA service is a set of capabilities plus the protocol machinery around them, which the library provides. You write what's specific to your domain: what can be read, and how an intent turns into concrete, undoable plans. For what makes those choices good, see [From REST to YEA](/guide/service-design).
 
 ## Capabilities
 
 ```ts
-import { service, create, update, remove, send, charge, money, clarify, ParleyError, fix } from "parley-protocol";
+import { service, create, update, remove, send, charge, money, clarify, YeaError, fix } from "@yea-protocol/sdk";
 
 const shop = service({
   id: "shop.example",          // the audience id: proofs are bound to it, so keep it stable
@@ -55,10 +55,10 @@ Parameter names map to type strings: `string`, `int`, `number`, `bool`, `date`, 
 
 ## Errors that teach
 
-Throw `ParleyError(code, message, { fix: [...] })`. A fix is a sentence plus an optional params patch that should make the request succeed:
+Throw `YeaError(code, message, { fix: [...] })`. A fix is a sentence plus an optional params patch that should make the request succeed:
 
 ```ts
-throw new ParleyError("conflict", `${to} overlaps "Design review"`, {
+throw new YeaError("conflict", `${to} overlaps "Design review"`, {
   fix: [fix("use free slot 2026-09-27T10:00:00Z", { to: "2026-09-27T10:00:00Z" })],
 });
 ```
@@ -66,11 +66,11 @@ throw new ParleyError("conflict", `${to} overlaps "Design review"`, {
 ## Serve it
 
 ```ts
-import { listen, serveHttp } from "parley-protocol/node";
-import { fetchHandler } from "parley-protocol";
+import { listen, serveHttp } from "@yea-protocol/sdk/node";
+import { fetchHandler } from "@yea-protocol/sdk";
 
 await listen(shop);                          // yea://127.0.0.1:7447 (pass tls options for yeas://)
-await serveHttp(shop, { port: 8080 });       // POST /parley, GET /.well-known/yea
+await serveHttp(shop, { port: 8080 });       // POST /yea, GET /.well-known/yea
 export default { fetch: fetchHandler(shop) } // Cloudflare Workers, Bun, Deno
 ```
 

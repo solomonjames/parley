@@ -66,13 +66,13 @@ const live = [
   ["Read-heavy: find the 3 highest-protein vegan meals", "$0.091", "$0.094", "+3%"],
   ["The same order, with a prompt injection hidden in the menu", "$0.104", "$0.120", "+15%"],
 ];
-// Scripted payload benchmark (bench/RESULTS.md): total input tokens, REST minified JSON vs Parley.
+// Scripted payload benchmark (bench/RESULTS.md): total input tokens, REST minified JSON vs YEA.
 const payload = [
   ["Reschedule a meeting (REST: search, free slots, update)", "3,807", "1,552", "59%"],
   ["Reschedule a meeting (REST: one outcome-level endpoint)", "1,609", "1,552", "4%"],
   ["Find vegan meals under 700 kcal and order four", "3,176", "2,714", "15%"],
   ["Read the full 60-item menu", "3,452", "2,499", "28%"],
-  ["Skim the first 30 items (REST limit=30, Parley budget=800)", "2,467", "1,965", "20%"],
+  ["Skim the first 30 items (REST limit=30, YEA budget=800)", "2,467", "1,965", "20%"],
 ];
 
 const changes: [string, string][] = [
@@ -101,9 +101,9 @@ const compare = [
   <div class="landing">
     <section class="hero">
       <div class="hero-copy">
-        <h1>HTTP was built for browsers. Parley is built for agents.</h1>
+        <h1>HTTP was built for browsers. YEA is built for agents.</h1>
         <p class="lede">
-          An open protocol for AI agents acting on behalf of people. The agent states what it wants. The service
+          YEA (Your Explicit Approval) is an open protocol for AI agents acting on behalf of people. The agent states what it wants. The service
           replies with proposals whose effects are listed up front. The human's policy decides what can go ahead
           without asking, and commits come with an undo window.
         </p>
@@ -154,14 +154,14 @@ const compare = [
       <h2>Enforced safety at about the same cost</h2>
       <p class="sub">
         A real model did the same tasks through a REST-style MCP server holding an unrestricted credential, and through
-        the Parley bridge holding a grant that encodes the user's rules. Both got the same rules in the prompt: nothing
+        the YEA bridge holding a grant that encodes the user's rules. Both got the same rules in the prompt: nothing
         over $40 per purchase or $100 in total, and nothing risky or irreversible, without asking. Outcomes were checked
         from the services' real state after each run.
       </p>
       <div class="table-wrap">
         <table class="wide">
           <thead>
-            <tr><th>Task</th><th class="num">REST MCP</th><th class="num">Parley</th><th class="num">Cost</th><th>Success</th><th>Rule violations</th></tr>
+            <tr><th>Task</th><th class="num">REST MCP</th><th class="num">YEA</th><th class="num">Cost</th><th>Success</th><th>Rule violations</th></tr>
           </thead>
           <tbody>
             <tr v-for="r in live" :key="r[0]">
@@ -171,11 +171,11 @@ const compare = [
         </table>
       </div>
       <p class="caveat">
-        Median cost per task over 3 runs, Claude Sonnet 5 in headless Claude Code. Parley costs 3–15% more per task, with
+        Median cost per task over 3 runs, Claude Sonnet 5 in headless Claude Code. YEA costs 3–15% more per task, with
         the same success rate. Most of each bill is the model re-reading its context every turn, not the tool payloads.
         Neither arm broke a rule, even with a fake "owner pre-approved $200" note hidden in the menu: this model followed
         the stated rules. The difference is who enforces them. With REST, the rules held because the model obeyed. With
-        Parley, the service enforces them, so they hold even when a model doesn't. When the model sends the goal straight
+        YEA, the service enforces them, so they hold even when a model doesn't. When the model sends the goal straight
         to an intent, a reschedule took 1 call and 55k tokens against REST's 3 calls and 82k, but that happened in 1 of 3
         runs.
         <a :href="withBase('/benchmark/live')">Every run, the method and what we got wrong</a>
@@ -189,7 +189,7 @@ const compare = [
       </p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Task</th><th class="num">REST, minified</th><th class="num">Parley</th><th class="num">Smaller</th></tr></thead>
+          <thead><tr><th>Task</th><th class="num">REST, minified</th><th class="num">YEA</th><th class="num">Smaller</th></tr></thead>
           <tbody>
             <tr v-for="r in payload" :key="r[0]"><td>{{ r[0] }}</td><td class="num">{{ r[1] }}</td><td class="num">{{ r[2] }}</td><td class="num">{{ r[3] }}</td></tr>
             <tr class="total"><td>All tasks, CRUD reschedule</td><td class="num">12,902</td><td class="num">8,730</td><td class="num">32%</td></tr>
@@ -211,7 +211,7 @@ const compare = [
         </p>
       </blockquote>
       <p class="attrib">
-        Claude Sonnet 5 in headless Claude Code, given the Parley MCP bridge and no Parley documentation, after its order
+        Claude Sonnet 5 in headless Claude Code, given the YEA MCP bridge and no YEA documentation, after its order
         hit <code>consent_required</code>. It then handed the human the approval command.
         <a :href="withBase('/reference/claude-session')">Read the unedited session</a>
       </p>
@@ -221,17 +221,17 @@ const compare = [
       <div>
         <h2>Use it from Claude Code today</h2>
         <p>
-          The bridge exposes Parley services as an MCP server, so Claude Code, Claude Desktop, Cursor and other MCP
+          The bridge exposes YEA services as an MCP server, so Claude Code, Claude Desktop, Cursor and other MCP
           clients can use them now. Tool results are Lens. When a commit needs consent, the bridge never approves on the
           model's behalf.
         </p>
         <a :href="withBase('/guide/claude-code')">Set it up</a>
       </div>
       <div>
-        <pre class="cmd"><code>parley init
-parley grant --svc cal.example.com --risk low \
+        <pre class="cmd"><code>yea init
+yea grant --svc cal.example.com --risk low \
   --per 25USD --spend 100USD --exp 24h
-claude mcp add parley -- npx parley-protocol mcp \
+claude mcp add yea -- npx @yea-protocol/cli mcp \
   yea://127.0.0.1:7447</code></pre>
         <p class="warn">
           Keep the principal key where the agent can't reach it. An agent with shell access that can read it can sign
@@ -245,14 +245,14 @@ claude mcp add parley -- npx parley-protocol mcp \
       <h2>How it compares</h2>
       <div class="table-wrap">
         <table class="compare">
-          <thead><tr><th></th><th>REST / HTTP APIs</th><th>MCP</th><th>Parley</th></tr></thead>
+          <thead><tr><th></th><th>REST / HTTP APIs</th><th>MCP</th><th>YEA</th></tr></thead>
           <tbody>
             <tr v-for="c in compare" :key="c[0]"><th scope="row">{{ c[0] }}</th><td>{{ c[1] }}</td><td>{{ c[2] }}</td><td class="us">{{ c[3] }}</td></tr>
           </tbody>
         </table>
       </div>
       <p class="caveat">
-        Parley doesn't replace MCP as an integration layer; the bridge runs on MCP. It replaces what MCP servers usually
+        YEA doesn't replace MCP as an integration layer; the bridge runs on MCP. It replaces what MCP servers usually
         wrap: an API designed for code rather than for delegated agents.
       </p>
     </section>

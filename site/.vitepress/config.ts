@@ -7,7 +7,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
 export default defineConfig({
   base: '/yea/',
-  title: 'Parley',
+  title: 'YEA',
   description:
     'An open protocol for AI agents acting on behalf of people: intents, proposals, commits and undo, with signed delegation and token budgets.',
   cleanUrls: true,
@@ -32,7 +32,7 @@ export default defineConfig({
       {
         property: 'og:title',
         content:
-          'Parley: HTTP was built for browsers. Parley is built for agents.',
+          'YEA (Your Explicit Approval): the open protocol for AI agents acting on behalf of people.',
       },
     ],
     [
@@ -49,9 +49,9 @@ export default defineConfig({
     ['meta', { name: 'twitter:image', content: `${site}brand/social.png` }],
   ],
   themeConfig: {
-    logo: { light: '/brand/mark.svg', dark: '/brand/mark.svg', alt: 'Parley' },
+    logo: { light: '/brand/mark.svg', dark: '/brand/mark.svg', alt: 'YEA' },
     nav: [
-      { text: 'Why Parley', link: '/why' },
+      { text: 'Why YEA', link: '/why' },
       { text: 'Guide', link: '/guide/quickstart', activeMatch: '/guide/' },
       { text: 'Playground', link: '/playground' },
       { text: 'Spec', link: '/reference/spec', activeMatch: '/reference/' },
@@ -131,7 +131,10 @@ export default defineConfig({
     resolve: {
       alias: [
         // The playground runs the real TypeScript core, straight from source.
-        { find: /^parley-protocol$/, replacement: r('../../ts/src/index.ts') },
+        {
+          find: /^@yea-protocol\/sdk$/,
+          replacement: r('../../ts/src/index.ts'),
+        },
         {
           find: /^@examples\/(.*)$/,
           replacement: r('../../ts/src/examples/$1'),
@@ -209,7 +212,7 @@ function sidebar() {
     {
       text: 'Start',
       items: [
-        { text: 'Why Parley', link: '/why' },
+        { text: 'Why YEA', link: '/why' },
         { text: 'Quickstart', link: '/guide/quickstart' },
         { text: 'Playground', link: '/playground' },
         { text: 'Test drive', link: '/guide/test-drive' },
@@ -230,7 +233,7 @@ function sidebar() {
     {
       text: 'Build',
       items: [
-        { text: 'From REST to Parley', link: '/guide/service-design' },
+        { text: 'From REST to YEA', link: '/guide/service-design' },
         { text: 'Build a service', link: '/guide/build-a-service' },
         { text: 'Wrap any REST API', link: '/guide/openapi' },
         { text: 'Docker', link: '/guide/docker' },

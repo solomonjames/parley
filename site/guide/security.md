@@ -1,6 +1,6 @@
 # Security model
 
-Parley's safety comes from a few mechanisms that each close a specific gap. It also has known limits, listed at the end.
+YEA's safety comes from a few mechanisms that each close a specific gap. It also has known limits, listed at the end.
 
 ## Rule one: keep the principal key away from the agent
 
@@ -8,11 +8,11 @@ Parley's safety comes from a few mechanisms that each close a specific gap. It a
 Every protection below assumes the agent can't sign with the principal's key. If it can, it can issue itself any grant and approve any consent.
 :::
 
-`parley init` stores the principal key and the agent key side by side in `~/.parley`, which is convenient for trying things out. An agent with shell or file access, such as Claude Code, can read that directory. For anything real:
+`yea init` stores the principal key and the agent key side by side in `~/.yea`, which is convenient for trying things out. An agent with shell or file access, such as Claude Code, can read that directory. For anything real:
 
 - keep the principal key on another OS user, another machine, or a phone;
-- set `PARLEY_PRINCIPAL_HOME` to where it lives, and approve consent there;
-- give the agent's machine only the agent key and its grants: `parley install` does exactly that by default, and `parley grant-import` brings over a grant issued elsewhere.
+- set `YEA_PRINCIPAL_HOME` to where it lives, and approve consent there;
+- give the agent's machine only the agent key and its grants: `yea install` does exactly that by default, and `yea grant-import` brings over a grant issued elsewhere.
 
 The spec requires this of tooling: implementations must not let an agent trigger signing with the principal key ([SPEC §6.6](/reference/spec#66-multiple-grants-and-consent)).
 
@@ -33,10 +33,10 @@ The spec requires this of tooling: implementations must not let an agent trigger
 
 ## Known limits in v1
 
-- **Services are trusted to describe their own effects.** Parley makes the description explicit and binds commits to it, but a malicious service can still lie. Signed receipts are on the roadmap.
+- **Services are trusted to describe their own effects.** YEA makes the description explicit and binds commits to it, but a malicious service can still lie. Signed receipts are on the roadmap.
 - **No revocation.** Keep grants short-lived with `exp`.
 - **`spend` is counted per service.** Scope money grants with `svc`.
-- **`auto` proofs bind the frame id, not the params,** because floats have no canonical form. Run Parley over TLS (`yeas://`, `https://`) so frames can't be rewritten in transit.
+- **`auto` proofs bind the frame id, not the params,** because floats have no canonical form. Run YEA over TLS (`yeas://`, `https://`) so frames can't be rewritten in transit.
 - **The reference services keep state in memory.**
 
 The TypeScript implementation had an adversarial security audit, and all 15 findings are fixed with regression tests. See the [design notes](/reference/design) for the details and the reasoning behind each choice.

@@ -8,19 +8,19 @@ editLink: false
 
 ## How operations map
 
-| OpenAPI operation | Parley capability | What the model sees |
+| OpenAPI operation | YEA capability | What the model sees |
 |---|---|---|
 | `GET` | `ASK` | The response as Lens, fitted to the budget, with `EXPAND` handles for the rest |
 | `POST` | `INTENT`, effect `create` | A proposal showing the exact request: method, URL and body |
 | `PUT`, `PATCH` | `INTENT`, effect `update` | The same, as an update |
 | `DELETE` | `INTENT`, effect `delete`, risk `medium` | The same, as a delete |
 
-Nothing is sent upstream until `COMMIT`. Wrapped writes are irreversible (`undo: never`), so they are never auto-committed, and grants, spend caps and consent apply unchanged. Upstream errors become Parley errors.
+Nothing is sent upstream until `COMMIT`. Wrapped writes are irreversible (`undo: never`), so they are never auto-committed, and grants, spend caps and consent apply unchanged. Upstream errors become YEA errors.
 
 ## Options
 
 ```sh
-parley openapi <spec.json|url> [--base <url>] [--header "K: V"] [--id <service id>] [--prefix <name>] [--port 7447] [--http 8080]
+yea openapi <spec.json|url> [--base <url>] [--header "K: V"] [--id <service id>] [--prefix <name>] [--port 7447] [--http 8080]
 ```
 
 | Flag | Meaning |
@@ -30,15 +30,15 @@ parley openapi <spec.json|url> [--base <url>] [--header "K: V"] [--id <service i
 | `--id` | The service id, which proofs are bound to. Defaults to the API's host |
 | `--prefix` | The capability name prefix. Defaults to a slug of the API's title |
 | `--port` | The `yea://` port (7447) |
-| `--http` | Also serve the HTTP bridge on this port, at `/parley` |
+| `--http` | Also serve the HTTP bridge on this port, at `/yea` |
 
-Writes are authorized for the principals in `PARLEY_TRUST`, or your own principal key if that's unset.
+Writes are authorized for the principals in `YEA_TRUST`, or your own principal key if that's unset.
 
 ## From code
 
 ```ts
-import { fromOpenAPI, loadOpenAPI } from "parley-protocol/openapi";
-import { listen } from "parley-protocol/node";
+import { fromOpenAPI, loadOpenAPI } from "@yea-protocol/sdk/openapi";
+import { listen } from "@yea-protocol/sdk/node";
 
 const spec = await loadOpenAPI("https://petstore3.swagger.io/api/v3/openapi.json");
 const svc = fromOpenAPI(spec, {
@@ -56,8 +56,8 @@ await listen(svc);
 Some APIs are big enough that exposing every operation would be a bad idea. A preset picks the operations an agent should have, sets the right risk for each, projects responses down to what a model needs, and reads credentials from the environment, where the model never sees them.
 
 ```sh
-GITHUB_TOKEN=… parley openapi --preset github      # 16 GitHub operations
-parley openapi --preset petstore                   # the Swagger Petstore, for trying things
+GITHUB_TOKEN=… yea openapi --preset github      # 16 GitHub operations
+yea openapi --preset petstore                   # the Swagger Petstore, for trying things
 ```
 
 ### `github`

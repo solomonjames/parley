@@ -1,4 +1,4 @@
-/* Parley brand on top of the VitePress default theme.
+/* YEA brand on top of the VitePress default theme.
    Colour carries protocol state everywhere: amber = proposed / waiting on a human,
    green = committed (a receipt), red = refused. Nothing else gets those colours. */
 :root {
@@ -86,7 +86,7 @@ h1, h2, h3, h4, .VPNavBarTitle .title, .vp-doc h1, .vp-doc h2, .vp-doc h3 {
   *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
 }
 
-/* Two columns for REST-vs-Parley comparisons; stacks on narrow screens. */
+/* Two columns for REST-vs-YEA comparisons; stacks on narrow screens. */
 .vp-doc .side-by-side { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .vp-doc .side-by-side > div { min-width: 0; }
 .vp-doc .side-by-side p { font-size: 0.92rem; }

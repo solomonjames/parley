@@ -1,6 +1,6 @@
 # Budgets and EXPAND
 
-Every token a model reads costs money and context. So every Parley request can say how much it wants back, and replies fit.
+Every token a model reads costs money and context. So every YEA request can say how much it wants back, and replies fit.
 
 ## The budget
 

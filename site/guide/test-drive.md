@@ -1,9 +1,9 @@
 # Test drive
 
-Watch a real Claude model use Parley, live, in your terminal:
+Watch a real Claude model use YEA, live, in your terminal:
 
 ```sh
-npx parley-protocol test-drive
+npx @yea-protocol/cli test-drive
 ```
 
 It runs the example calendar and shop in-process, gives the model the same four tools the MCP bridge exposes, and hands it a task. The default task: move your 1:1 with Ana to a free slot, then order four vegan meals under 700 calories.
@@ -18,8 +18,8 @@ It runs the example calendar and shop in-process, gives the model the same four 
 ## Options
 
 ```sh
-npx parley-protocol test-drive "book a 30-minute coffee with Sam tomorrow"   # your own task
-npx parley-protocol test-drive --model claude-sonnet-5                      # another model
+npx @yea-protocol/cli test-drive "book a 30-minute coffee with Sam tomorrow"   # your own task
+npx @yea-protocol/cli test-drive --model claude-sonnet-5                      # another model
 ```
 
 The default model is `claude-opus-5`, with server-side fallbacks if a request is refused.
@@ -27,6 +27,6 @@ The default model is `claude-opus-5`, with server-side fallbacks if a request is
 ## Requirements
 
 - An Anthropic API key in `ANTHROPIC_API_KEY`, or an `ant auth login` profile.
-- Node 20 or newer. The Anthropic SDK is fetched on first use; `parley-protocol` itself has no runtime dependencies.
+- Node 20 or newer. The Anthropic SDK is fetched on first use; the SDK itself (`@yea-protocol/sdk`) has no runtime dependencies.
 
 The test drive never touches your real keys or grants: its principal, agent and policy exist only for the session. To connect your own AI tools instead, see [Integrations](/guide/integrations).

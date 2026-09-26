@@ -19,7 +19,7 @@ const help = cli
     cli.indexOf('const HELP = `') + 14,
     cli.indexOf('`;', cli.indexOf('const HELP = `')),
   )
-  .replace(/\$\{home\(\)\}/g, '~/.parley');
+  .replace(/\$\{home\(\)\}/g, '~/.yea');
 
 out('.vitepress/generated/cli-help.txt', `${help}\n`);
 
@@ -41,9 +41,9 @@ const readme = read('README.md');
 
 const pages = [
   [
-    'Why Parley',
+    'Why YEA',
     '/why',
-    'The problem with agents acting through APIs built for code, and the five ideas behind Parley',
+    'The problem with agents acting through APIs built for code, and the five ideas behind YEA',
   ],
   [
     'Quickstart',
@@ -53,7 +53,7 @@ const pages = [
   [
     'Integrations',
     '/guide/integrations',
-    'Connect Parley to Claude Code, Claude Desktop, Cursor, VS Code, Codex, Gemini CLI, Zed, Windsurf and Hermes Agent',
+    'Connect YEA to Claude Code, Claude Desktop, Cursor, VS Code, Codex, Gemini CLI, Zed, Windsurf and Hermes Agent',
   ],
   [
     'Intents and proposals',
@@ -72,9 +72,9 @@ const pages = [
   ],
   ['Lens', '/guide/lens', 'The canonical text rendering models read'],
   [
-    'From REST to Parley',
+    'From REST to YEA',
     '/guide/service-design',
-    'Translate a REST API into a Parley service: the concept mapping, five steps, and a full Stripe-backed example',
+    'Translate a REST API into a YEA service: the concept mapping, five steps, and a full Stripe-backed example',
   ],
   [
     'Build a service',
@@ -84,7 +84,7 @@ const pages = [
   [
     'Wrap any REST API',
     '/guide/openapi',
-    'parley openapi: GETs become ASKs, writes become proposals',
+    'yea openapi: GETs become ASKs, writes become proposals',
   ],
   [
     'Security model',
@@ -94,18 +94,18 @@ const pages = [
   [
     'Troubleshooting',
     '/guide/troubleshooting',
-    'parley doctor and common problems',
+    'yea doctor and common problems',
   ],
-  ['CLI reference', '/reference/cli', 'Every parley command'],
-  ['Specification', '/reference/spec', 'The Parley v1 wire protocol'],
+  ['CLI reference', '/reference/cli', 'Every yea command'],
+  ['Specification', '/reference/spec', 'The YEA v1 wire protocol'],
 ];
 const optional = [
   ['Playground', '/playground', 'Try the protocol in the browser'],
-  ['Design decisions', '/reference/design', 'Why Parley is built this way'],
+  ['Design decisions', '/reference/design', 'Why YEA is built this way'],
   [
     'Live-agent evaluation',
     '/benchmark/live',
-    'A real model through REST-MCP vs Parley: cost, success and rule violations, including prompt injection',
+    'A real model through REST-MCP vs YEA: cost, success and rule violations, including prompt injection',
   ],
   [
     'Payload benchmark',
@@ -124,9 +124,9 @@ const list = (xs) =>
 
 out(
   'public/llms.txt',
-  `# Parley
+  `# YEA
 
-> Parley is an open protocol for AI agents acting on behalf of people. Agents send an INTENT; services reply with proposals whose effects, cost, risk and undo window are listed up front; nothing changes until COMMIT, which carries a grant signed by the human's key. The human's policy decides what can commit without asking, and anything beyond it needs a one-shot consent bound to the exact proposal. Replies fit a token budget and are rendered as Lens, a compact text format for models. Implementations: TypeScript (reference) and Python. MCP clients use Parley through the bridge: \`npx -y parley-protocol mcp\`.
+> YEA is an open protocol for AI agents acting on behalf of people. Agents send an INTENT; services reply with proposals whose effects, cost, risk and undo window are listed up front; nothing changes until COMMIT, which carries a grant signed by the human's key. The human's policy decides what can commit without asking, and anything beyond it needs a one-shot consent bound to the exact proposal. Replies fit a token budget and are rendered as Lens, a compact text format for models. Implementations: TypeScript (reference) and Python. MCP clients use YEA through the bridge: \`npx -y @yea-protocol/cli mcp\`.
 
 Full text of the key docs, the CLI and the spec in one file: ${SITE}/llms-full.txt
 
@@ -143,7 +143,7 @@ ${list(optional)}
 out(
   'public/llms-full.txt',
   `${[
-    `# Parley\n\nSource: https://github.com/yea-protocol/yea · Docs: ${SITE}/`,
+    `# YEA\n\nSource: https://github.com/yea-protocol/yea · Docs: ${SITE}/`,
     `## Quickstart\n\n${region(readme, 'quickstart')}`,
     `## Use it from Claude Code and other MCP clients\n\n${region(readme, 'claude-code')}`,
     `## CLI reference\n\n\`\`\`\n${help}\n\`\`\``,
