@@ -1,6 +1,6 @@
 # Intents and proposals
 
-REST gives an agent resources to create, read, update and delete. Parley gives it a different loop: say what you want, see exactly what would happen, then decide.
+REST gives an agent resources to create, read, update and delete. YEA gives it a different loop: say what you want, see exactly what would happen, then decide.
 
 ```
 agent ──INTENT "move my 1:1 with Ana to Thursday"──────▶ service

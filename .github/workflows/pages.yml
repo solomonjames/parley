@@ -25,7 +25,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run build -w parley-site   # the playground imports ts/src directly; no ts build needed
+      - run: npm run build -w yea-site   # the playground imports ts/src directly; no ts build needed
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

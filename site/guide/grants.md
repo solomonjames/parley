@@ -7,9 +7,9 @@ A grant answers two questions: who is this agent acting for, and what exactly ma
 The **principal**, usually a person, holds an Ed25519 key and signs a root block naming the agent's key and a list of **caveats**. The agent can append a block that delegates a *narrower* grant to a sub-agent's key. Caveats only accumulate, so delegation can only restrict. Any service that trusts the principal's key verifies the whole chain offline ([SPEC §6](/reference/spec#6-grants--delegation-for-agents)).
 
 ```sh
-parley grant --svc cal.example.com --svc shop.example --risk low --per 40USD --spend 100USD --exp 8h
-parley delegate <token> --to <sub-agent key> --verbs ASK,INTENT
-parley inspect <token>
+yea grant --svc cal.example.com --svc shop.example --risk low --per 40USD --spend 100USD --exp 8h
+yea delegate <token> --to <sub-agent key> --verbs ASK,INTENT
+yea inspect <token>
 ```
 
 ## Caveats

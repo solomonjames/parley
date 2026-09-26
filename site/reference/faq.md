@@ -2,19 +2,19 @@
 
 ## Isn't this just MCP?
 
-No. MCP standardizes how a model finds and calls tools. Parley standardizes what the tool is: an outcome-level interface with previews, undo, delegated authority, budgets and a model-native format. They compose: the Parley bridge serves Parley services over MCP, so any MCP client can use them today. See [Use it from Claude Code](/guide/claude-code).
+No. MCP standardizes how a model finds and calls tools. YEA standardizes what the tool is: an outcome-level interface with previews, undo, delegated authority, budgets and a model-native format. They compose: the YEA bridge serves YEA services over MCP, so any MCP client can use them today. See [Use it from Claude Code](/guide/claude-code).
 
 ## Why a new protocol instead of HTTP conventions?
 
-Previews, consent bound to hashes, capability grants, budgets and Lens have to hold across every service to be worth anything to an agent. Conventions layered on HTTP get adopted piecemeal and implemented differently by every API, and a preview header only some APIs honor is worse than none, because the agent can't rely on it. Parley still rides HTTP through its bridge where infrastructure requires it; its semantics just don't depend on it. More in the [design notes](/reference/design#a-protocol-not-conventions-on-http).
+Previews, consent bound to hashes, capability grants, budgets and Lens have to hold across every service to be worth anything to an agent. Conventions layered on HTTP get adopted piecemeal and implemented differently by every API, and a preview header only some APIs honor is worse than none, because the agent can't rely on it. YEA still rides HTTP through its bridge where infrastructure requires it; its semantics just don't depend on it. More in the [design notes](/reference/design#a-protocol-not-conventions-on-http).
 
 ## Does the model need to learn a new format?
 
-No. Lens is designed to be read cold: tables for uniform lists, `~ update` and `$ charge` effect lines, explicit costs and undo windows. In [a real session](/reference/claude-session), Claude read it correctly with no Parley documentation at all.
+No. Lens is designed to be read cold: tables for uniform lists, `~ update` and `$ charge` effect lines, explicit costs and undo windows. In [a real session](/reference/claude-session), Claude read it correctly with no YEA documentation at all.
 
 ## Does it cost more to use?
 
-About the same. In [live runs](/benchmark/live) with Claude Sonnet 5 in headless Claude Code, Parley cost 3–15% more per task than a REST-style MCP server, with the same success rate. Parley's replies are 30–45% smaller than JSON ([payload benchmark](/reference/benchmark)), but a live session's cost is dominated by the model re-reading its context every turn, so that doesn't lower the bill on its own. What you get for the difference is a policy the service enforces, previews and undo.
+About the same. In [live runs](/benchmark/live) with Claude Sonnet 5 in headless Claude Code, YEA cost 3–15% more per task than a REST-style MCP server, with the same success rate. YEA's replies are 30–45% smaller than JSON ([payload benchmark](/reference/benchmark)), but a live session's cost is dominated by the model re-reading its context every turn, so that doesn't lower the bill on its own. What you get for the difference is a policy the service enforces, previews and undo.
 
 ## Why not JWT or OAuth for delegation?
 

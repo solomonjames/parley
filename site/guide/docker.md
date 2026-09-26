@@ -1,15 +1,15 @@
 # Docker
 
-The `parley` CLI is published as a container image, so you can run services without installing Node:
+The `yea` CLI is published as a container image, so you can run services without installing Node:
 
 ```sh
 docker run --rm ghcr.io/yea-protocol/yea demo
 ```
 
-The image's entrypoint is `parley`, so every [CLI command](/reference/cli) works. It runs as a non-root user, exposes ports 7447 and 8080, and is built for `linux/amd64` and `linux/arm64`.
+The image's entrypoint is `yea`, so every [CLI command](/reference/cli) works. It runs as a non-root user, exposes ports 7447 and 8080, and is built for `linux/amd64` and `linux/arm64`.
 
 ::: tip Bind to 0.0.0.0 inside containers
-Parley listens on `127.0.0.1` by default. Inside a container, pass `--host 0.0.0.0` so the published port reaches it.
+YEA listens on `127.0.0.1` by default. Inside a container, pass `--host 0.0.0.0` so the published port reaches it.
 :::
 
 ## Wrap an API
@@ -29,16 +29,16 @@ Add `--http 8080 -p 8080:8080` to also serve the HTTP bridge. Upstream credentia
 A wrapped API only accepts writes authorized by principals it trusts. Pass yours in:
 
 ```sh
-docker run --rm -p 7447:7447 -e PARLEY_TRUST="$(parley whoami | awk '/principal/{print $2}')" \
+docker run --rm -p 7447:7447 -e YEA_TRUST="$(yea whoami | awk '/principal/{print $2}')" \
   ghcr.io/yea-protocol/yea openapi --preset github --host 0.0.0.0
 ```
 
-Then point your AI tool at it: `parley add yea://127.0.0.1:7447`.
+Then point your AI tool at it: `yea add yea://127.0.0.1:7447`.
 
 ## The example services
 
 ```sh
-docker run --rm -p 7447:7447 -p 7449:7449 -p 7451:7451 -e PARLEY_TRUST=… ghcr.io/yea-protocol/yea examples --host 0.0.0.0
+docker run --rm -p 7447:7447 -p 7449:7449 -p 7451:7451 -e YEA_TRUST=… ghcr.io/yea-protocol/yea examples --host 0.0.0.0
 ```
 
 ## Verify the image

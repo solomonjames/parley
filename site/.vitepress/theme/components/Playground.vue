@@ -1,10 +1,10 @@
 <script setup lang="ts">
-// The Parley playground: the real protocol core and example services, running in the page.
+// The YEA playground: the real protocol core and example services, running in the page.
 // You play the agent (left); the right shows exactly what a model would read.
 import { computed, nextTick, onMounted, reactive, ref, shallowRef, watch } from "vue";
-import type { Client, KeyPair } from "parley-protocol";
+import type { Client, KeyPair } from "@yea-protocol/sdk";
 
-type Core = typeof import("parley-protocol");
+type Core = typeof import("@yea-protocol/sdk");
 type Frame = Record<string, any>;
 type Exchange = { n: number; service: string; request: Frame; reply: Frame; events: Frame[]; ms: number; auto: boolean };
 
@@ -73,7 +73,7 @@ const targets = computed(() => {
 
 onMounted(async () => {
   try {
-    const [c, cal, sh, bi] = await Promise.all([import("parley-protocol"), import("@examples/calendar.ts"), import("@examples/shop.ts"), import("@examples/billing.ts")]);
+    const [c, cal, sh, bi] = await Promise.all([import("@yea-protocol/sdk"), import("@examples/calendar.ts"), import("@examples/shop.ts"), import("@examples/billing.ts")]);
     core.value = c;
     const [principal, agent] = await Promise.all([c.keyPair(), c.keyPair()]);
     keys.value = { principal, agent };
@@ -328,7 +328,7 @@ function onKey(e: KeyboardEvent) {
       <div>
         <h1>Playground</h1>
         <p>
-          You're the agent. A calendar, a meal shop and a billing system run in this page on the real Parley core, and your requests are
+          You're the agent. A calendar, a meal shop and a billing system run in this page on the real YEA core, and your requests are
           signed with a grant from the human's policy. The right side shows exactly what a model would read.
         </p>
       </div>

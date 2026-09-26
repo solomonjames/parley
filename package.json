@@ -15,7 +15,7 @@
     "test": "npm test -w @yea-protocol/sdk",
     "demo": "npm run build && node examples/demo.ts",
     "bench": "npm run build && node bench/run.ts && node bench/estimator.ts",
-    "site": "npm run build -w parley-site",
+    "site": "npm run build -w yea-site",
     "lint": "biome check .",
     "lint:style": "oxlint --config .oxlintrc.json ts/src ts/test ts/scripts examples bench deploy/demo/src scripts site/scripts site/.vitepress/config.ts site/.vitepress/theme/index.ts",
     "lint:style:fix": "npm run lint:style -- --fix",

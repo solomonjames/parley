@@ -8,7 +8,7 @@ editLink: false
 
 ## What the model gets
 
-Four generic tools (`parley_ask`, `parley_intent`, `parley_commit`, `parley_undo`) and each service's brief. It needs no Parley documentation: in [a real session](/reference/claude-session), Claude Sonnet 5 read Lens cold, moved a meeting within policy, stopped at a purchase over its limit, and asked the human to approve it.
+Four generic tools (`yea_ask`, `yea_intent`, `yea_commit`, `yea_undo`) and each service's brief. It needs no YEA documentation: in [a real session](/reference/claude-session), Claude Sonnet 5 read Lens cold, moved a meeting within policy, stopped at a purchase over its limit, and asked the human to approve it.
 
 ## Try it without running anything
 
