@@ -47,7 +47,7 @@ def ts_servers():
     if any(_port_open(p) for pair in PORTS.values() for p in pair):
         pytest.skip("interop ports 7447/8447/7449/8449 are already in use")
     proc = subprocess.Popen(
-        ["node", "examples/serve.ts"], cwd=REPO, env={**os.environ, "PARLEY_TRUST": PRINCIPAL.public},
+        ["node", "examples/serve.ts"], cwd=REPO, env={**os.environ, "YEA_TRUST": PRINCIPAL.public},
         stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True,
     )
     deadline = time.time() + 15

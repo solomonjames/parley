@@ -25,9 +25,9 @@ describe.skipIf(!ready)('interop: TS client → Python service', async () => {
       cwd: pyDir,
       env: {
         ...process.env,
-        PARLEY_TRUST: principal.public,
-        PARLEY_PORT: String(TCP),
-        PARLEY_HTTP_PORT: String(HTTP),
+        YEA_TRUST: principal.public,
+        YEA_PORT: String(TCP),
+        YEA_HTTP_PORT: String(HTTP),
       },
       stdio: 'ignore',
     });

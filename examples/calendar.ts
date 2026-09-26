@@ -1,3 +1,3 @@
-// The example calendar lives in the package (parley-protocol/examples) so `npx parley-protocol demo`
+// The example calendar lives in the package (@yea-protocol/sdk/examples) so `npx @yea-protocol/cli demo`
 // works without cloning. Source: ts/src/examples/calendar.ts
-export { calendar } from 'parley-protocol/examples';
+export { calendar } from '@yea-protocol/sdk/examples';

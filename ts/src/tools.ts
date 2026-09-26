@@ -1,5 +1,5 @@
 /**
- * The agent-facing tool surface shared by the MCP bridge and `parley test-drive`:
+ * The agent-facing tool surface shared by the MCP bridge and `yea test-drive`:
  * four tools whose results are Lens, with consent routed to a human through `approve`.
  */
 
@@ -18,12 +18,12 @@ const obj = (properties: Record<string, unknown>, required: string[]) => ({
 });
 
 export const INSTRUCTIONS =
-  "Parley acts for the user under their signed policy. To do something, call parley_intent with the user's goal (names, days are fine: no lookups needed) " +
-  'and auto:true if they asked for exactly this; it finishes in one call when the policy allows. parley_ask is for questions. If approval is needed, tell the user.\n\n';
+  "YEA acts for the user under their signed policy. To do something, call yea_intent with the user's goal (names, days are fine: no lookups needed) " +
+  'and auto:true if they asked for exactly this; it finishes in one call when the policy allows. yea_ask is for questions. If approval is needed, tell the user.\n\n';
 
 export const TOOLS = [
   {
-    name: 'parley_ask',
+    name: 'yea_ask',
     description:
       'Read (never changes anything). Pass `handle` to expand an elided result.',
     inputSchema: obj(
@@ -38,7 +38,7 @@ export const TOOLS = [
     ),
   },
   {
-    name: 'parley_intent',
+    name: 'yea_intent',
     description:
       "Do something: the user's goal as params (names, days are fine). auto:true finishes now if their policy allows; else returns proposals (effects, cost, risk, undo) or a question.",
     inputSchema: obj(
@@ -54,13 +54,13 @@ export const TOOLS = [
     ),
   },
   {
-    name: 'parley_commit',
+    name: 'yea_commit',
     description:
       'Execute a proposal by id, exactly as shown. Only what the user wants.',
     inputSchema: obj({ service: str, proposal: str }, ['service', 'proposal']),
   },
   {
-    name: 'parley_undo',
+    name: 'yea_undo',
     description: 'Undo a receipt within its undo window.',
     inputSchema: obj({ service: str, receipt: str }, ['service', 'receipt']),
   },
@@ -109,10 +109,10 @@ interface HostState {
 type ToolFn = (s: HostState, c: Client, a: ToolArgs) => Promise<ToolResult>;
 
 const TOOL_FNS: Record<string, ToolFn> = {
-  parley_ask: askTool,
-  parley_intent: intentTool,
-  parley_undo: undoTool,
-  parley_commit: commitTool,
+  yea_ask: askTool,
+  yea_intent: intentTool,
+  yea_undo: undoTool,
+  yea_commit: commitTool,
 };
 
 export async function createToolHost(
@@ -122,7 +122,7 @@ export async function createToolHost(
   const state: HostState = { services: new Map(), seen: new Map(), approve };
   const { briefs, problems } = await greet(clients, state.services);
   const none =
-    'No Parley services are configured. Tell the user to run `npx parley-protocol add <url>` (or `npx parley-protocol setup`) and restart.';
+    'No YEA services are configured. Tell the user to run `npx @yea-protocol/cli add <url>` (or `npx @yea-protocol/cli setup`) and restart.';
   const instructions =
     INSTRUCTIONS +
     (briefs.length ? briefs.join('\n\n') : none) +
@@ -249,7 +249,7 @@ async function commitTool(
 
   if (!known || known.service !== a.service) {
     return {
-      text: `✗ not_found: unknown proposal ${a.proposal} at ${a.service}; call parley_intent first`,
+      text: `✗ not_found: unknown proposal ${a.proposal} at ${a.service}; call yea_intent first`,
       isError: true,
     };
   }
@@ -275,7 +275,7 @@ async function commitTool(
       return {
         text:
           r.lens +
-          `\n  → the user did not approve this here. If they want it, ask them to review it and run, in their own terminal: parley approve ${consentCode(consent, p)}  — then call parley_commit again.`,
+          `\n  → the user did not approve this here. If they want it, ask them to review it and run, in their own terminal: yea approve ${consentCode(consent, p)}  — then call yea_commit again.`,
         isError: true,
       };
     }

@@ -1,1 +1,1 @@
-{ "name": "parley-examples", "private": true, "type": "module", "dependencies": { "parley-protocol": "*" } }
+{ "name": "yea-examples", "private": true, "type": "module", "dependencies": { "@yea-protocol/sdk": "*" } }

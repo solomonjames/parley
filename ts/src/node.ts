@@ -333,7 +333,7 @@ export async function transport(
   return socketTransport(sock);
 }
 
-/** Connect a client to a Parley service by URL. */
+/** Connect a client to a YEA service by URL. */
 export async function connect(
   url: string,
   opts: ClientOptions & { tls?: tls.ConnectionOptions } = {},

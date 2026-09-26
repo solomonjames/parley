@@ -19,10 +19,10 @@ from parley import serve_http, serve_stdio, serve_tcp
 
 
 async def main() -> None:
-    trust = [k for k in os.environ.get("PARLEY_TRUST", "").split(",") if k]
+    trust = [k for k in os.environ.get("YEA_TRUST", "").split(",") if k]
     host = os.environ.get("HOST", "127.0.0.1")
-    tcp_port = int(os.environ.get("PARLEY_PORT", "7457"))
-    http_port = int(os.environ.get("PARLEY_HTTP_PORT", "8457"))
+    tcp_port = int(os.environ.get("YEA_PORT", "7457"))
+    http_port = int(os.environ.get("YEA_HTTP_PORT", "8457"))
     cal = calendar(trust)
     if "--stdio" in sys.argv:
         await serve_stdio(cal)

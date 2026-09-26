@@ -1,12 +1,9 @@
 {
-  "name": "parley-protocol",
+  "name": "@yea-protocol/sdk",
   "version": "0.1.0",
-  "description": "Parley: the protocol agents speak. Intents, proposals, commits and undo, with signed delegation and token budgets. Built for AI agents, not browsers.",
+  "description": "The YEA protocol SDK for TypeScript: services, clients, grants, Lens and the MCP bridge. Zero runtime dependencies.",
   "type": "module",
   "license": "Apache-2.0",
-  "bin": {
-    "parley": "dist/cli.js"
-  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "exports": {
@@ -33,6 +30,10 @@
     "./demo": {
       "types": "./dist/examples/demo.d.ts",
       "default": "./dist/examples/demo.js"
+    },
+    "./cli": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
     }
   },
   "files": [
@@ -93,6 +94,5 @@
     "@anthropic-ai/sdk": {
       "optional": true
     }
-  },
-  "mcpName": "io.github.yea-protocol/yea"
+  }
 }

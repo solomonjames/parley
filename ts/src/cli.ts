@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createInterface, type Interface } from 'node:readline/promises';
-/** parley — command line for the Parley protocol. */
+/** yea — command line for the YEA protocol. */
 import { parseArgs } from 'node:util';
 import type { Client } from './client.js';
 import type { KeyPair } from './crypto.js';
@@ -27,42 +27,42 @@ import {
 } from './setup.js';
 import type { ConsentRequest, Proposal, Risk, Verb } from './types.js';
 
-const HELP = `parley — the protocol agents speak
+const HELP = `yea — the protocol agents speak
 
 get started
-  parley install [--target claude-code,cursor,codex,gemini,vscode,windsurf,claude-desktop] [--local] [--with-principal]
+  yea install [--target claude-code,cursor,codex,gemini,vscode,windsurf,claude-desktop] [--local] [--with-principal]
                                            keys, a safe default policy, the MCP bridge and agent instructions (auto-detects tools)
-  parley add <url>                         add a service for your AI tools (parley services · parley remove <url>)
-  parley doctor                            check keys, grants, services and AI-tool registration
-  parley uninstall [--target …]            remove Parley from your AI tools
+  yea add <url>                         add a service for your AI tools (yea services · yea remove <url>)
+  yea doctor                            check keys, grants, services and AI-tool registration
+  yea uninstall [--target …]            remove YEA from your AI tools
 
 identity
-  parley init                              create your principal key and an agent key in ${home()}
-  parley whoami                            show public keys
-  parley grant [caveats]                   principal → agent grant (saved; used automatically)
-  parley grant-import <token>              save a grant issued to this machine's agent key (principal kept elsewhere)
-  parley delegate <token> --to <key> [caveats]   attenuate a grant for a sub-agent
-  parley inspect <token>                   decode a grant chain
-  parley approve <pc1.code>                review and sign a one-time consent for one proposal
+  yea init                              create your principal key and an agent key in ${home()}
+  yea whoami                            show public keys
+  yea grant [caveats]                   principal → agent grant (saved; used automatically)
+  yea grant-import <token>              save a grant issued to this machine's agent key (principal kept elsewhere)
+  yea delegate <token> --to <key> [caveats]   attenuate a grant for a sub-agent
+  yea inspect <token>                   decode a grant chain
+  yea approve <pc1.code>                review and sign a one-time consent for one proposal
 
 talk to a service  (url: yea://host:port · yeas://… · http(s)://…/yea · "stdio:cmd args")
-  parley hello  <url>
-  parley ask    <url> <capability> [key=value …]
-  parley intent <url> <capability> [key=value …] [--goal "…"]
-  parley commit <url> <proposal-id> <hash>
-  parley undo   <url> <receipt-id>
-  parley expand <url> <handle>
-  parley do     <url> <capability> [key=value …]   intent → choose → commit, with consent prompts
+  yea hello  <url>
+  yea ask    <url> <capability> [key=value …]
+  yea intent <url> <capability> [key=value …] [--goal "…"]
+  yea commit <url> <proposal-id> <hash>
+  yea undo   <url> <receipt-id>
+  yea expand <url> <handle>
+  yea do     <url> <capability> [key=value …]   intent → choose → commit, with consent prompts
 
 try it
-  parley test-drive [--model m] ["task"]  watch a real Claude model use Parley live (needs an Anthropic API key)
-  parley demo                              narrated end-to-end demo (two services, consent, undo, sub-agents)
-  parley examples [--port 7447] [--host]            serve the example calendar (7447), shop (7449) and billing (7451), trusting your principal
+  yea test-drive [--model m] ["task"]  watch a real Claude model use YEA live (needs an Anthropic API key)
+  yea demo                              narrated end-to-end demo (two services, consent, undo, sub-agents)
+  yea examples [--port 7447] [--host]            serve the example calendar (7447), shop (7449) and billing (7451), trusting your principal
 
 bridges
-  parley mcp <url> [<url> …]               run an MCP server (stdio) exposing Parley services
-  parley openapi <spec.json|url> [--base <url>] [--header "K: V"] [--port 7447] [--http 8080] [--preset github|petstore]
-                                           serve any REST API as a Parley service (writes become proposals)
+  yea mcp <url> [<url> …]               run an MCP server (stdio) exposing YEA services
+  yea openapi <spec.json|url> [--base <url>] [--header "K: V"] [--port 7447] [--http 8080] [--preset github|petstore]
+                                           serve any REST API as a YEA service (writes become proposals)
 
 caveats: --svc <id> --can <pattern> --verbs ASK,INTENT --exp 24h --per 50USD --spend 200USD --risk low|medium|high
 options: --budget <tokens> --json`;
@@ -186,7 +186,7 @@ async function client(url: string): Promise<Client> {
   return connect(url, {
     key: agent?.seed,
     grants: [...loadGrants('grants'), ...loadGrants('consents')],
-    name: o.name ?? 'parley-cli',
+    name: o.name ?? 'yea-cli',
     budget: o.budget ? Number(o.budget) : undefined,
   });
 }
@@ -282,9 +282,9 @@ async function confirm(question: string): Promise<boolean> {
   return yes;
 }
 
-/** Principals whose grants a local service trusts: PARLEY_TRUST, else the principal key here. */
+/** Principals whose grants a local service trusts: YEA_TRUST, else the principal key here. */
 async function trustedPrincipals(): Promise<string[]> {
-  const trust = (process.env.PARLEY_TRUST ?? '').split(',').filter(Boolean);
+  const trust = (process.env.YEA_TRUST ?? '').split(',').filter(Boolean);
   const p = await principalKey();
 
   if (p && !trust.length) {
@@ -308,7 +308,7 @@ async function cmdInit() {
     a = await agentKey(true);
 
   console.log(
-    `principal ${p.public}\nagent     ${a.public}\n\nnext: parley grant --exp 24h --spend 100USD --risk low`,
+    `principal ${p.public}\nagent     ${a.public}\n\nnext: yea grant --exp 24h --spend 100USD --risk low`,
   );
 }
 
@@ -317,12 +317,12 @@ async function cmdWhoami() {
     a = await agentKey();
 
   console.log(
-    `principal ${p?.public ?? '(none — run parley init)'}\nagent     ${a?.public ?? '(none)'}`,
+    `principal ${p?.public ?? '(none — run yea init)'}\nagent     ${a?.public ?? '(none)'}`,
   );
 }
 
 async function cmdGrant() {
-  const p = (await principalKey()) ?? die('no principal key — run parley init');
+  const p = (await principalKey()) ?? die('no principal key — run yea init');
   const to = o.to ?? (await agentKey())?.public ?? die('no agent key');
   const token = await issueGrant({ principal: p, to, caveats: caveats() });
   const info = await inspectGrant(token);
@@ -338,13 +338,13 @@ async function cmdGrant() {
 }
 
 async function cmdGrantImport(rest: string[]) {
-  const token = rest[0] ?? die('usage: parley grant-import <pg1.… token>');
+  const token = rest[0] ?? die('usage: yea grant-import <pg1.… token>');
   const info = await inspectGrant(token);
   const a = await agentKey();
 
   if (!a || info.holder !== a.public) {
     die(
-      `this grant is for ${info.holder}, not this machine's agent key ${a?.public ?? '(none: run parley install)'}`,
+      `this grant is for ${info.holder}, not this machine's agent key ${a?.public ?? '(none: run yea install)'}`,
     );
   }
 
@@ -357,7 +357,7 @@ async function cmdDelegate(rest: string[]) {
 
   console.log(
     await delegateGrant(
-      rest[0] ?? die('usage: parley delegate <token> --to <key>'),
+      rest[0] ?? die('usage: yea delegate <token> --to <key>'),
       {
         holder: a,
         to: o.to ?? die('--to required'),
@@ -368,9 +368,7 @@ async function cmdDelegate(rest: string[]) {
 }
 
 async function cmdInspect(rest: string[]) {
-  const info = await inspectGrant(
-    rest[0] ?? die('usage: parley inspect <token>'),
-  );
+  const info = await inspectGrant(rest[0] ?? die('usage: yea inspect <token>'));
 
   console.log(
     lean({
@@ -391,7 +389,7 @@ async function cmdApprove(rest: string[]) {
     (await principalKey()) ??
     die('no principal key here: approve on the machine that holds it');
   const consent = decodeConsentCode(
-    rest[0] ?? die('usage: parley approve <pc1.… code>'),
+    rest[0] ?? die('usage: yea approve <pc1.… code>'),
   );
 
   if (consent.principal !== p.public) {
@@ -451,7 +449,7 @@ async function cmdTestDrive(rest: string[]) {
   try {
     await import('@anthropic-ai/sdk');
   } catch {
-    // Keep parley-protocol dependency-free: fetch the SDK only for this command.
+    // Keep @yea-protocol/sdk dependency-free: fetch the SDK only for this command.
     const { spawnSync } = await import('node:child_process');
     const { createRequire } = await import('node:module');
     const version = createRequire(import.meta.url)('../package.json').version;
@@ -465,8 +463,8 @@ async function cmdTestDrive(rest: string[]) {
         '-p',
         '@anthropic-ai/sdk',
         '-p',
-        `parley-protocol@${version}`,
-        'parley',
+        `@yea-protocol/sdk@${version}`,
+        'yea',
         ...process.argv.slice(2),
       ],
       { stdio: 'inherit' },
@@ -498,7 +496,7 @@ async function cmdExamples() {
   await listen(shop({ trust }), { port: port + 2, host: o.host });
   await listen(billing({ trust }), { port: port + 4, host: o.host });
   console.error(
-    `✓ calendar yea://127.0.0.1:${port} · shop yea://127.0.0.1:${port + 2} · billing yea://127.0.0.1:${port + 4} · trusting ${trust.length} principal(s)${trust.length ? '' : ' (run parley init first to commit anything)'}\n  try: parley do yea://127.0.0.1:${port} calendar.reschedule event=Ana`,
+    `✓ calendar yea://127.0.0.1:${port} · shop yea://127.0.0.1:${port + 2} · billing yea://127.0.0.1:${port + 4} · trusting ${trust.length} principal(s)${trust.length ? '' : ' (run yea init first to commit anything)'}\n  try: yea do yea://127.0.0.1:${port} calendar.reschedule event=Ana`,
   );
 }
 
@@ -527,7 +525,7 @@ async function cmdOpenapi(rest: string[]) {
     preset?.spec ??
       rest[0] ??
       die(
-        'usage: parley openapi <spec.json|url> [--base <url>]  (or --preset ' +
+        'usage: yea openapi <spec.json|url> [--base <url>]  (or --preset ' +
           Object.keys(PRESETS).join('|') +
           ')',
       ),
@@ -557,7 +555,7 @@ async function cmdOpenapi(rest: string[]) {
     svc.capabilities.filter((c) => c.kind === kind).length;
 
   console.error(
-    `✓ ${svc.id}: ${svc.capabilities.length} capabilities (${count('ask')} ask, ${count('intent')} intent)\n  yea://127.0.0.1:${port}${o.http ? `  ·  http://127.0.0.1:${o.http}/yea` : ''}\n  trusting ${trust.length} principal(s) for writes\n  try: parley hello yea://127.0.0.1:${port}`,
+    `✓ ${svc.id}: ${svc.capabilities.length} capabilities (${count('ask')} ask, ${count('intent')} intent)\n  yea://127.0.0.1:${port}${o.http ? `  ·  http://127.0.0.1:${o.http}/yea` : ''}\n  trusting ${trust.length} principal(s) for writes\n  try: yea hello yea://127.0.0.1:${port}`,
   );
 }
 
@@ -571,13 +569,13 @@ const headerFlags = () =>
   );
 
 async function cmdMcp(rest: string[]) {
-  // With no URLs, serve the services registered with `parley add` (~/.parley/services.json).
+  // With no URLs, serve the services registered with `yea add` (~/.yea/services.json).
   const urls = rest.length ? rest : listServices();
   const clients = (
     await Promise.all(
       urls.map((u) =>
         client(u).catch((e) => {
-          console.error(`parley mcp: ${u}: ${(e as Error).message}`);
+          console.error(`yea mcp: ${u}: ${(e as Error).message}`);
 
           return null;
         }),
@@ -592,7 +590,7 @@ async function cmdMcp(rest: string[]) {
 // ---- services for your AI tools ----
 
 async function cmdAdd(rest: string[]) {
-  const url = rest[0] ?? die('usage: parley add <url>');
+  const url = rest[0] ?? die('usage: yea add <url>');
   const c = await client(url);
   const b = await c.hello(400);
 
@@ -609,14 +607,14 @@ async function cmdAdd(rest: string[]) {
 }
 
 async function cmdRemove(rest: string[]) {
-  removeService(rest[0] ?? die('usage: parley remove <url>'));
+  removeService(rest[0] ?? die('usage: yea remove <url>'));
   console.log(`✓ removed ${rest[0]}`);
 }
 
 async function cmdServices() {
   const s = listServices();
 
-  console.log(s.length ? s.join('\n') : 'no services yet: parley add <url>');
+  console.log(s.length ? s.join('\n') : 'no services yet: yea add <url>');
 }
 
 async function cmdInstall() {
@@ -643,7 +641,7 @@ async function cmdInstall() {
 
   if (!names.length) {
     console.log(
-      `\nno AI tools detected. Pick some: parley install --target ${Object.keys(CLIENTS).join(',')}`,
+      `\nno AI tools detected. Pick some: yea install --target ${Object.keys(CLIENTS).join(',')}`,
     );
   }
 
@@ -662,10 +660,10 @@ async function cmdInstall() {
   console.log(
     s.length
       ? `\nservices    ${s.join(', ')}`
-      : '\nnext: add a service with `parley add <url>`, or try the examples: `parley examples`, then `parley add yea://127.0.0.1:7447`',
+      : '\nnext: add a service with `yea add <url>`, or try the examples: `yea examples`, then `yea add yea://127.0.0.1:7447`',
   );
   console.log(
-    'restart your AI tool, then ask it to do something. Check anything with: parley doctor',
+    'restart your AI tool, then ask it to do something. Check anything with: yea doctor',
   );
 }
 
@@ -686,13 +684,13 @@ async function installPrincipal(a: KeyPair): Promise<KeyPair | null> {
 
   if (!create && process.stdin.isTTY && !o.yes) {
     create = await confirm(
-      'Create your approval (principal) key on this machine too? Handy for trying Parley, but an agent with shell access could read it. [y/N] › ',
+      'Create your approval (principal) key on this machine too? Handy for trying YEA, but an agent with shell access could read it. [y/N] › ',
     );
   }
 
   if (!create) {
     console.log(
-      `principal   not on this machine (recommended). On the device that holds it, run:\n              parley grant --to ${a.public} --risk low --per 25USD --spend 100USD --exp 30d\n            and save the token here with: parley grant-import <token>   (or re-run with --with-principal to try things quickly)`,
+      `principal   not on this machine (recommended). On the device that holds it, run:\n              yea grant --to ${a.public} --risk low --per 25USD --spend 100USD --exp 30d\n            and save the token here with: yea grant-import <token>   (or re-run with --with-principal to try things quickly)`,
     );
 
     return null;
@@ -719,7 +717,7 @@ async function installDefaultPolicy(p: KeyPair, a: KeyPair) {
 
   saveGrant(token, 'grants', (await inspectGrant(token)).id.slice(0, 16));
   console.log(
-    'policy      low-risk actions, ≤ 25.00 USD each, ≤ 100.00 USD total, 30 days. Anything else asks you. (change: parley grant …)',
+    'policy      low-risk actions, ≤ 25.00 USD each, ≤ 100.00 USD total, 30 days. Anything else asks you. (change: yea grant …)',
   );
 }
 
@@ -760,7 +758,7 @@ async function cmdDoctor() {
   if (major >= 20) {
     ok(`node ${process.versions.node}`);
   } else {
-    bad(`node ${process.versions.node}: Parley needs node ≥ 20`);
+    bad(`node ${process.versions.node}: YEA needs node ≥ 20`);
   }
 
   const a = await agentKey();
@@ -768,14 +766,14 @@ async function cmdDoctor() {
   if (a) {
     ok(`agent key ${a.public.slice(0, 24)}…`);
   } else {
-    bad('no agent key: run parley install');
+    bad('no agent key: run yea install');
   }
 
   const p = await principalKey();
 
   if (p) {
     warn(
-      `principal key is readable here (${process.env.PARLEY_PRINCIPAL_HOME ?? home()}). Fine for trying things; for real use keep it away from agents (SECURITY.md)`,
+      `principal key is readable here (${process.env.YEA_PRINCIPAL_HOME ?? home()}). Fine for trying things; for real use keep it away from agents (SECURITY.md)`,
     );
   } else {
     ok('principal key is not on this machine (recommended)');
@@ -791,7 +789,7 @@ async function checkGrants(a: KeyPair | null) {
 
   if (!grants.length) {
     bad(
-      'no grants: your agent can read but not act. parley grant … (or parley install)',
+      'no grants: your agent can read but not act. yea grant … (or yea install)',
     );
   }
 
@@ -830,7 +828,7 @@ async function checkServices() {
   const services = listServices();
 
   if (!services.length) {
-    warn('no services: parley add <url>');
+    warn('no services: yea add <url>');
   }
 
   for (const u of services) {
@@ -868,7 +866,7 @@ function checkRegistration() {
   if (installed.length) {
     ok(`registered with: ${installed.join(', ')}`);
   } else {
-    warn('not registered with any AI tool: parley install');
+    warn('not registered with any AI tool: yea install');
   }
 }
 
@@ -903,7 +901,7 @@ async function cmdExpand(c: Client, [handle]: string[]) {
   show(await c.expand(handle, { budget: budgetFlag() }));
 }
 
-/** `parley do`: intent → choose → commit, answering questions and consent prompts at the terminal. */
+/** `yea do`: intent → choose → commit, answering questions and consent prompts at the terminal. */
 async function interactive(
   c: Client,
   capability: string,

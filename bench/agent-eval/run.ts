@@ -1,6 +1,6 @@
 // Live-agent evaluation: a real model (headless Claude Code) does the same tasks against the
-// same services through (a) a conventional REST-style MCP server and (b) the Parley MCP bridge.
-// Both arms get the SAME user rules in the prompt; only Parley also enforces them (signed grant).
+// same services through (a) a conventional REST-style MCP server and (b) the YEA MCP bridge.
+// Both arms get the SAME user rules in the prompt; only YEA also enforces them (signed grant).
 //
 //   node bench/agent-eval/run.ts [--runs 3] [--model sonnet]
 //
@@ -10,9 +10,9 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
-import { issueGrant, keyPair } from 'parley-protocol';
-import { catalog } from 'parley-protocol/examples';
-import { connect } from 'parley-protocol/node';
+import { issueGrant, keyPair } from '@yea-protocol/sdk';
+import { catalog } from '@yea-protocol/sdk/examples';
+import { connect } from '@yea-protocol/sdk/node';
 
 const { values: o } = parseArgs({
   options: {
@@ -159,7 +159,7 @@ interface StreamLine {
   num_turns?: number;
 }
 
-async function runOne(arm: 'rest' | 'parley', task: Task, port: number) {
+async function runOne(arm: 'rest' | 'yea', task: Task, port: number) {
   const home = mkdtempSync(join(tmpdir(), `eval-${arm}-`));
   const principal = await keyPair(),
     agent = await keyPair(),
@@ -172,7 +172,7 @@ async function runOne(arm: 'rest' | 'parley', task: Task, port: number) {
 
   mkdirSync(join(home, 'grants'));
 
-  // REST arm: an unrestricted credential, like an API key. Parley arm: the same rules, signed.
+  // REST arm: an unrestricted credential, like an API key. YEA arm: the same rules, signed.
   const caveats =
     arm === 'rest'
       ? []
@@ -193,7 +193,7 @@ async function runOne(arm: 'rest' | 'parley', task: Task, port: number) {
     {
       env: {
         ...process.env,
-        PARLEY_TRUST: principal.public,
+        YEA_TRUST: principal.public,
         INJECT: o.inject ? '1' : '',
       },
       stdio: 'ignore',
@@ -203,7 +203,7 @@ async function runOne(arm: 'rest' | 'parley', task: Task, port: number) {
   // Wait until *these* services answer (never reuse a port a stale process may hold).
   for (let i = 0; i < 50; i++) {
     try {
-      const probe = await connect(`parley://127.0.0.1:${port + 2}`);
+      const probe = await connect(`yea://127.0.0.1:${port + 2}`);
       const b = await probe.hello(50);
 
       probe.close();
@@ -216,19 +216,19 @@ async function runOne(arm: 'rest' | 'parley', task: Task, port: number) {
     await new Promise((r) => setTimeout(r, 100));
   }
 
-  const cal = `parley://127.0.0.1:${port}`,
-    shop = `parley://127.0.0.1:${port + 2}`;
+  const cal = `yea://127.0.0.1:${port}`,
+    shop = `yea://127.0.0.1:${port + 2}`;
   const server =
     arm === 'rest'
       ? {
           command: 'node',
           args: [join(ROOT, 'bench/agent-eval/rest-mcp.ts'), cal, shop],
-          env: { PARLEY_HOME: home },
+          env: { YEA_HOME: home },
         }
       : {
           command: 'node',
           args: [CLI, 'mcp', cal, shop],
-          env: { PARLEY_HOME: home },
+          env: { YEA_HOME: home },
         };
   const cfg = join(home, 'mcp.json');
 
@@ -340,7 +340,7 @@ let port = 20000 + Math.floor(Math.random() * 20000);
 
 for (const task of TASKS.filter((t) => !o.only || t.id === o.only)) {
   for (let i = 0; i < RUNS; i++) {
-    for (const arm of ['rest', 'parley'] as const) {
+    for (const arm of ['rest', 'yea'] as const) {
       port += 4;
 
       const r = await runOne(arm, task, port);
@@ -378,7 +378,7 @@ log(
 );
 log(`> ${RULES}\n`);
 log(
-  `The REST arm holds an unrestricted credential (like an API key); the Parley arm holds a grant that encodes those rules. **Violations** are checked from the services' real state after each run, not from what the model said.\n`,
+  `The REST arm holds an unrestricted credential (like an API key); the YEA arm holds a grant that encodes those rules. **Violations** are checked from the services' real state after each run, not from what the model said.\n`,
 );
 log(
   `| Task | Arm | Tool calls | Total tokens | Cost | Time | Task success | Rule violations |`,
@@ -386,7 +386,7 @@ log(
 log(`|---|---|---|---|---|---|---|---|`);
 
 for (const t of TASKS) {
-  for (const arm of ['rest', 'parley'] as const) {
+  for (const arm of ['rest', 'yea'] as const) {
     const rs = all.filter((r) => r.task === t.id && r.arm === arm);
 
     if (!rs.length) {
@@ -396,7 +396,7 @@ for (const t of TASKS) {
     const v = rs.filter((r) => r.violation).length;
 
     log(
-      `| ${t.title} | ${arm === 'rest' ? 'REST MCP' : '**Parley**'} | ${median(rs.map((r) => r.toolCalls))} | ${Math.round(median(rs.map((r) => r.tokens))).toLocaleString('en-US')} | $${median(rs.map((r) => r.cost)).toFixed(3)} | ${median(rs.map((r) => r.wall)).toFixed(0)}s | ${rs.filter((r) => r.success).length}/${rs.length} | ${v ? `**${v}/${rs.length}**` : `0/${rs.length}`} |`,
+      `| ${t.title} | ${arm === 'rest' ? 'REST MCP' : '**YEA**'} | ${median(rs.map((r) => r.toolCalls))} | ${Math.round(median(rs.map((r) => r.tokens))).toLocaleString('en-US')} | $${median(rs.map((r) => r.cost)).toFixed(3)} | ${median(rs.map((r) => r.wall)).toFixed(0)}s | ${rs.filter((r) => r.success).length}/${rs.length} | ${v ? `**${v}/${rs.length}**` : `0/${rs.length}`} |`,
     );
   }
 }

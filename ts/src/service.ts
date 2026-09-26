@@ -1,10 +1,10 @@
 /**
- * Build a Parley service. Transport-independent: `handle(frame)` turns a request frame
+ * Build a YEA service. Transport-independent: `handle(frame)` turns a request frame
  * into its final reply (emitting EVENTs along the way). Transports live in node.ts / http.ts.
  */
 import { fit, type HandleStore, MemoryHandleStore } from './budget.js';
 import { proposalHash, randomId } from './crypto.js';
-import { fix, ParleyError } from './errors.js';
+import { fix, YeaError } from './errors.js';
 import {
   type CheckContext,
   checkGrant,
@@ -238,7 +238,7 @@ export class Service {
 
     try {
       if (!isRequestFrame(frame)) {
-        throw new ParleyError(
+        throw new YeaError(
           'bad_frame',
           'frames need "yea": 1 and a string "id"',
         );
@@ -269,7 +269,7 @@ export class Service {
   }
 
   private errorReply(re: string, e: unknown): ErrorReply {
-    if (e instanceof ParleyError) {
+    if (e instanceof YeaError) {
       return {
         yea: 1,
         id: randomId('s', 6),
@@ -304,7 +304,7 @@ export class Service {
     if (other) {
       const verb = kind === 'ask' ? 'INTENT' : 'ASK';
 
-      throw new ParleyError(
+      throw new YeaError(
         'unknown_capability',
         `${name} is ${kind === 'ask' ? 'an intent' : 'an ask'} capability`,
         { fix: [fix(`send it with ${verb}`)] },
@@ -313,7 +313,7 @@ export class Service {
 
     const near = closest(String(name), all);
 
-    throw new ParleyError(
+    throw new YeaError(
       'unknown_capability',
       `no capability named ${JSON.stringify(name)}`,
       {
@@ -355,13 +355,13 @@ export class Service {
     scope: AuthScope,
   ): Promise<Authorized> {
     if (!req.grants?.length) {
-      throw new ParleyError(
+      throw new YeaError(
         'unauthorized',
         `${scope.verb} needs a grant from your principal`,
         {
           fix: [
             fix(
-              'ask your principal to issue a grant (parley grant) and send it in `grants` with a `proof`',
+              'ask your principal to issue a grant (yea grant) and send it in `grants` with a `proof`',
             ),
           ],
         },
@@ -448,7 +448,7 @@ export class Service {
       return proof;
     }
 
-    throw new ParleyError('unauthorized', err ?? 'missing proof', {
+    throw new YeaError('unauthorized', err ?? 'missing proof', {
       fix: [
         fix(
           `sign {aud:"${this.id}",verb:"${verb}",target,ts} with the grant holder key`,
@@ -628,7 +628,7 @@ export class Service {
     const plans = Array.isArray(out) ? out : [out];
 
     if (!plans.length) {
-      throw new ParleyError('not_found', 'no way to satisfy this intent', {
+      throw new YeaError('not_found', 'no way to satisfy this intent', {
         fix: [fix('relax the constraints and try again')],
       });
     }
@@ -757,7 +757,7 @@ export class Service {
     const stored = this.proposals.get(req.proposal);
 
     if (!stored) {
-      throw new ParleyError(
+      throw new YeaError(
         'not_found',
         `no proposal ${JSON.stringify(req.proposal)}`,
         { fix: [fix('send INTENT again to get fresh proposals')] },
@@ -767,7 +767,7 @@ export class Service {
     const { proposal } = stored;
 
     if (req.hash !== proposal.hash) {
-      throw new ParleyError(
+      throw new YeaError(
         'conflict',
         'hash does not match the proposal; you would commit something other than what you saw',
         { fix: [fix('re-read the proposal, or send INTENT again')] },
@@ -798,7 +798,7 @@ export class Service {
         prior.kind === 'RECEIPT' &&
         this.receipts.get(prior.receipt.id)?.principal !== auth.iss
       ) {
-        throw new ParleyError(
+        throw new YeaError(
           'forbidden',
           'this proposal was committed by a different principal',
         );
@@ -812,7 +812,7 @@ export class Service {
     this.checkRequester(stored, auth);
 
     if (this.now() >= proposal.expires) {
-      throw new ParleyError('expired', 'this proposal has expired', {
+      throw new YeaError('expired', 'this proposal has expired', {
         fix: [fix('send INTENT again to get a fresh proposal')],
       });
     }
@@ -827,7 +827,7 @@ export class Service {
   /** Only the agent that asked for a proposal (with a verified proof) may commit it. */
   private checkRequester(stored: StoredProposal, auth: Authorized) {
     if (!stored.requester) {
-      throw new ParleyError(
+      throw new YeaError(
         'forbidden',
         "this proposal came from an anonymous INTENT and can't be committed",
         {
@@ -839,7 +839,7 @@ export class Service {
     }
 
     if (stored.requester !== auth.holder) {
-      throw new ParleyError(
+      throw new YeaError(
         'forbidden',
         'only the agent that requested this proposal can commit it',
         { fix: [fix('send INTENT yourself, then commit your own proposal')] },
@@ -864,7 +864,7 @@ export class Service {
       return Promise.resolve(
         this.errorReply(
           reqId,
-          new ParleyError(
+          new YeaError(
             'consent_required',
             'would exceed the spend limit (other commits are in flight); your principal must approve this exact proposal',
             { consent: consentRequest(proposal, this.id, auth.iss) },
@@ -939,7 +939,7 @@ export class Service {
     const stored = this.receipts.get(req.receipt);
 
     if (!stored || stored.receipt.undoes) {
-      throw new ParleyError(
+      throw new YeaError(
         'not_found',
         `no undoable receipt ${JSON.stringify(req.receipt)}`,
       );
@@ -952,7 +952,7 @@ export class Service {
     });
 
     if (auth.iss !== stored.principal) {
-      throw new ParleyError(
+      throw new YeaError(
         'forbidden',
         'only the principal who committed this can undo it',
       );
@@ -965,11 +965,11 @@ export class Service {
     const { receipt, plan } = stored;
 
     if (!receipt.undo || !plan.revert) {
-      throw new ParleyError('forbidden', 'this action is irreversible');
+      throw new YeaError('forbidden', 'this action is irreversible');
     }
 
     if (this.now() > receipt.undo.until) {
-      throw new ParleyError(
+      throw new YeaError(
         'expired',
         `the undo window closed at ${new Date(receipt.undo.until * 1000).toISOString()}`,
       );
@@ -1035,7 +1035,7 @@ export class Service {
     const parked = this.handles.get(req.handle);
 
     if (!parked) {
-      throw new ParleyError(
+      throw new YeaError(
         'expired',
         `handle ${JSON.stringify(req.handle)} is unknown or expired`,
         { fix: [fix('repeat the original request')] },
@@ -1051,7 +1051,7 @@ export class Service {
       );
 
       if (err || req.proof?.key !== parked.owner) {
-        throw new ParleyError(
+        throw new YeaError(
           'unauthorized',
           'this handle belongs to another agent',
           {
@@ -1062,7 +1062,7 @@ export class Service {
         );
       }
     } else if (this.opts.requireGrants) {
-      throw new ParleyError(
+      throw new YeaError(
         'unauthorized',
         'EXPAND needs a grant from your principal',
       );
@@ -1112,7 +1112,7 @@ const positiveInt = (v: unknown): number | undefined =>
   typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : undefined;
 
 const unknownVerb = (req: { verb?: unknown }) =>
-  new ParleyError('bad_frame', `unknown verb ${JSON.stringify(req.verb)}`, {
+  new YeaError('bad_frame', `unknown verb ${JSON.stringify(req.verb)}`, {
     fix: [fix('use one of HELLO, ASK, INTENT, COMMIT, UNDO, EXPAND')],
   });
 
@@ -1130,11 +1130,11 @@ function grantFailure(
   failed: Failed[],
   proposal: Proposal | undefined,
   service: string,
-): ParleyError {
+): YeaError {
   const consent = failed.find((c) => c.code === 'consent_required');
 
   if (consent?.iss && proposal) {
-    return new ParleyError(
+    return new YeaError(
       'consent_required',
       `${consent.reason}; your principal must approve this exact proposal`,
       { consent: consentRequest(proposal, service, consent.iss) },
@@ -1144,12 +1144,12 @@ function grantFailure(
   const forbidden = failed.find((c) => c.code === 'forbidden');
 
   if (forbidden) {
-    return new ParleyError('forbidden', forbidden.reason, {
+    return new YeaError('forbidden', forbidden.reason, {
       need: forbidden.need,
     });
   }
 
-  return new ParleyError('unauthorized', failed[0].reason);
+  return new YeaError('unauthorized', failed[0].reason);
 }
 
 const consentRequest = (

@@ -1,9 +1,9 @@
 // Reproduces the token-estimator comparison in docs/design.md: how well each candidate
-// `est()` tracks a real BPE tokenizer (o200k) on the text Parley actually sends.
+// `est()` tracks a real BPE tokenizer (o200k) on the text YEA actually sends.
 
 import { readFileSync } from 'node:fs';
+import { Client, est, lean, local } from '@yea-protocol/sdk';
 import { encode } from 'gpt-tokenizer/encoding/o200k_base';
-import { Client, est, lean, local } from 'parley-protocol';
 import { catalog, shop } from '../examples/shop.ts';
 
 const lensCases: { lens: string }[] = JSON.parse(
@@ -21,7 +21,7 @@ const corpus = [
 const candidates: Record<string, (s: string) => number> = {
   'ceil(bytes / 4)': (s) => Math.ceil(Buffer.byteLength(s) / 4),
   'ceil(bytes / 3)': (s) => Math.ceil(Buffer.byteLength(s) / 3),
-  'Parley est() (SPEC §8 regex)': est,
+  'YEA est() (SPEC §8 regex)': est,
 };
 
 console.log(

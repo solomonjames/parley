@@ -30,7 +30,7 @@ export {
   verify,
 } from './crypto.js';
 
-export { fail, fix, ParleyError } from './errors.js';
+export { fail, fix, YeaError } from './errors.js';
 
 export {
   type Caveat,

@@ -1,12 +1,12 @@
 /**
- * OpenAPI → Parley. Wrap any existing REST API as a Parley service:
+ * OpenAPI → YEA. Wrap any existing REST API as a YEA service:
  *   GET operations            → ASK capabilities (read-only, budgeted, Lens)
  *   POST/PUT/PATCH/DELETE     → INTENT capabilities whose proposal shows the exact request
  *                               (method, URL, body) as its effect; COMMIT performs it.
  * REST calls can't be undone generically, so wrapped writes are irreversible and are
  * never auto-committed. Grants, spend caps and consent all apply unchanged.
  */
-import { ParleyError } from './errors.js';
+import { YeaError } from './errors.js';
 import { type Plan, type Service, service } from './service.js';
 import type { Effect, ErrorCode, ParamSchema, Risk } from './types.js';
 
@@ -416,10 +416,7 @@ function buildRequest(baseUrl: string, op: Op, params: Json) {
 
   for (const k of op.pathParams) {
     if (params[k] === undefined) {
-      throw new ParleyError(
-        'invalid_params',
-        `missing path parameter \`${k}\``,
-      );
+      throw new YeaError('invalid_params', `missing path parameter \`${k}\``);
     }
 
     path = path.replace(`{${k}}`, encodeURIComponent(String(params[k])));
@@ -450,7 +447,7 @@ function buildRequest(baseUrl: string, op: Op, params: Json) {
   return { url, body };
 }
 
-/** Map an upstream HTTP error status to the closest Parley error code. */
+/** Map an upstream HTTP error status to the closest YEA error code. */
 function errorCodeFor(status: number): ErrorCode {
   if (status === 404) {
     return 'not_found';
@@ -508,7 +505,7 @@ async function send({ o, fetch }: Upstream, req: UpstreamRequest) {
       signal: AbortSignal.timeout(o.timeoutMs ?? 30_000),
     });
   } catch (e) {
-    throw new ParleyError(
+    throw new YeaError(
       'unavailable',
       `upstream request failed: ${(e as Error).message}`,
       { retry: 5 },
@@ -516,7 +513,7 @@ async function send({ o, fetch }: Upstream, req: UpstreamRequest) {
   }
 }
 
-/** Perform an upstream call; non-2xx responses become ParleyErrors. */
+/** Perform an upstream call; non-2xx responses become YeaErrors. */
 async function callUpstream(up: Upstream, req: UpstreamRequest) {
   const res = await send(up, req);
   const data = parseResponse(await res.text());
@@ -524,7 +521,7 @@ async function callUpstream(up: Upstream, req: UpstreamRequest) {
   if (!res.ok) {
     const shown = typeof data === 'string' ? data : JSON.stringify(data);
 
-    throw new ParleyError(
+    throw new YeaError(
       errorCodeFor(res.status),
       `upstream ${res.status}: ${shown.slice(0, 200)}`,
     );
@@ -594,7 +591,7 @@ interface InfoNode {
   description?: string;
 }
 
-/** Build a Parley service from an OpenAPI 3 document (JSON object). */
+/** Build a YEA service from an OpenAPI 3 document (JSON object). */
 export function fromOpenAPI(spec: Json, o: OpenApiOptions = {}): Service {
   const servers = spec.servers as { url?: string }[] | undefined;
   const baseUrl = (o.baseUrl ?? servers?.[0]?.url ?? '').replace(/\/$/, '');

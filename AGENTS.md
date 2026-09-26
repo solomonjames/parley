@@ -17,7 +17,7 @@ Guidance for AI coding agents (and humans) working in this repo.
 5. **Readable code.** `npm run lint` and `npm run lint:style` must pass. Split long or complex functions into named helpers; no `any` and no `!` assertions. See [CONTRIBUTING.md](CONTRIBUTING.md#code-style).
 6. **Honest numbers.** Benchmarks are reproducible (`npm run bench`) and published with caveats. Don't cherry-pick.
 7. **Work from issues.** Pick up `status/ready` issues in your area, claim them (assignee, `status/in-progress`, a comment naming your session), and link the PR with `Closes #n`. Don't start untracked work: open a Task first. Put decisions and anything needing credentials or money on `status/needs-james` instead of guessing.
-8. **One worktree per session.** Sessions share a clone, so never switch branches in the main checkout. Use `git worktree add --no-track -b <issue>-<slug> ../yea-<issue> origin/main`, then `git push -u origin HEAD`, work and open the PR there, then `git worktree remove` it after merge.
+8. **One worktree per session.** Sessions share a clone, so never switch branches in the main checkout. Use `git worktree add --no-track -b <issue>-<slug> ../yea-<issue> origin/main`, then `npm ci` in it (so the pre-commit hook and tests run), `git push -u origin HEAD`, work and open the PR there, then `git worktree remove` it after merge.
 9. **Pull requests only.** `main` is protected: push a branch, open a PR, let CI pass, then squash-merge (`gh pr merge --squash --delete-branch`). Merge your own PR only when CI is green and the *Done when* list is checked.
 
 ## Commands

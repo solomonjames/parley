@@ -1,4 +1,4 @@
-/** Parley client: what an agent (or its harness) uses to talk to a service. */
+/** YEA client: what an agent (or its harness) uses to talk to a service. */
 import { randomId } from './crypto.js';
 import { type Caveat, decodeGrant, makeProof } from './grants.js';
 import { lens } from './lens.js';

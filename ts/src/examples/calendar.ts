@@ -1,16 +1,16 @@
-// A calendar that speaks Parley. Agents say what they want ("move my 1:1 with Ana to
+// A calendar that speaks YEA. Agents say what they want ("move my 1:1 with Ana to
 // Thursday"); the calendar answers with proposals whose effects, risk and undo window
 // are explicit. Nothing changes until COMMIT, and every change can be undone for a day.
 import {
   clarify,
   create,
   fix,
-  ParleyError,
   type Plan,
   remove,
   send,
   service,
   update,
+  YeaError,
 } from '../index.js';
 
 interface Ev {
@@ -198,13 +198,9 @@ function pickEvent<T>(events: Ev[], q: string, then: (e: Ev) => T) {
   const m = find(events, q);
 
   if (!m.length) {
-    throw new ParleyError(
-      'not_found',
-      `no event matches ${JSON.stringify(q)}`,
-      {
-        fix: [fix('ASK calendar.agenda to see events, then use an event id')],
-      },
-    );
+    throw new YeaError('not_found', `no event matches ${JSON.stringify(q)}`, {
+      fix: [fix('ASK calendar.agenda to see events, then use an event id')],
+    });
   }
 
   if (m.length > 1) {
@@ -293,7 +289,7 @@ function moveTo(events: Ev[], e: Ev, to: string) {
   const s = Date.parse(to);
 
   if (s < Date.now()) {
-    throw new ParleyError('invalid_params', `\`to\` is in the past (${to})`, {
+    throw new YeaError('invalid_params', `\`to\` is in the past (${to})`, {
       fix: [fix('use a future time', { to: iso(s + 365 * 86400_000) })],
     });
   }
@@ -304,7 +300,7 @@ function moveTo(events: Ev[], e: Ev, to: string) {
     const day = to.slice(0, 10);
     const alts = freeSlots(events, day, dur / 60_000, e.id).slice(0, 3);
 
-    throw new ParleyError('conflict', `${to} overlaps "${clash.title}"`, {
+    throw new YeaError('conflict', `${to} overlaps "${clash.title}"`, {
       fix: alts.map((t) => fix(`use free slot ${t}`, { to: t })),
     });
   }
@@ -318,7 +314,7 @@ function moveOnDay(events: Ev[], e: Ev, day: string) {
   const slots = freeSlots(events, day, dur / 60_000, e.id).slice(0, 3);
 
   if (!slots.length) {
-    throw new ParleyError('not_found', `no free slot on ${day}`, {
+    throw new YeaError('not_found', `no free slot on ${day}`, {
       fix: [
         fix('try another day', {
           day: iso(Date.parse(day) + 86400_000).slice(0, 10),

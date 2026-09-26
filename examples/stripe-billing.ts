@@ -1,23 +1,23 @@
 /**
- * A Parley service in front of the real Stripe API: the full example in the
- * "From REST to Parley" guide (site/guide/service-design.md).
+ * A YEA service in front of the real Stripe API: the full example in the
+ * "From REST to YEA" guide (site/guide/service-design.md).
  *
  * The agent sees three capabilities, not Stripe's endpoints. Each apply()
  * makes the Stripe call, and each revert() makes the call that reverses it.
  *
- *   STRIPE_SECRET_KEY=sk_test_… PARLEY_TRUST=ed25519:… \
+ *   STRIPE_SECRET_KEY=sk_test_… YEA_TRUST=ed25519:… \
  *     node examples/stripe-billing.ts
  */
 import {
   clarify,
   fix,
   money,
-  ParleyError,
   type Plan,
   send,
   service,
   update,
-} from 'parley-protocol';
+  YeaError,
+} from '@yea-protocol/sdk';
 
 const API = 'https://api.stripe.com/v1';
 const amt = (minor: number, cur: string) =>
@@ -140,24 +140,24 @@ type Stripe = ReturnType<typeof connect>;
 
 function teach(status: number, message: string) {
   if (status === 404) {
-    return new ParleyError('not_found', message, {
+    return new YeaError('not_found', message, {
       fix: [fix('ASK billing.customer with a name or email')],
     });
   }
 
   if (status === 429) {
-    return new ParleyError('limit', 'Stripe is rate limiting; retry shortly', {
+    return new YeaError('limit', 'Stripe is rate limiting; retry shortly', {
       retry: 2,
     });
   }
 
   if (status >= 500) {
-    return new ParleyError('unavailable', message, { retry: 5 });
+    return new YeaError('unavailable', message, { retry: 5 });
   }
 
   // Params were validated before any REST call, so a 4xx here means the
   // state changed underneath us.
-  return new ParleyError('conflict', message);
+  return new YeaError('conflict', message);
 }
 
 /**
@@ -183,7 +183,7 @@ async function findCustomers(stripe: Stripe, who: string) {
 
 const label = (c: Customer) => `${c.name} <${c.email}>`;
 const noMatch = (who: string) =>
-  new ParleyError('not_found', `no customer matches ${JSON.stringify(who)}`, {
+  new YeaError('not_found', `no customer matches ${JSON.stringify(who)}`, {
     fix: [fix('try their email address')],
   });
 
@@ -196,7 +196,7 @@ async function findOne(stripe: Stripe, who: string) {
   }
 
   if (m.length > 1) {
-    throw new ParleyError(
+    throw new YeaError(
       'invalid_params',
       `${m.length} customers match ${JSON.stringify(who)}`,
       { fix: m.map((c) => fix(`use ${label(c)}`, { who: c.id })) },
@@ -322,7 +322,7 @@ function refundable(chs: Charge[], c: Customer, payment?: string) {
     return ch;
   }
 
-  throw new ParleyError(
+  throw new YeaError(
     'not_found',
     `no refundable payment${payment ? ` ${payment}` : ''} for ${c.name}`,
     {
@@ -343,7 +343,7 @@ function partial(major: number, left: number, cur: string) {
     return amount;
   }
 
-  throw new ParleyError(
+  throw new YeaError(
     'invalid_params',
     `refund must be between 0.01 and ${amt(left, cur)}`,
     {
@@ -381,7 +381,7 @@ function refunder(stripe: Stripe, c: Customer, ch: Charge) {
       send(c.email, `refund receipt; back on the card in 5–10 days`),
     ],
     cost: money(amount, ch.currency.toUpperCase()),
-    // Parley runs apply() at most once; the key covers a network retry.
+    // YEA runs apply() at most once; the key covers a network retry.
     apply: () =>
       stripe(
         'POST',
@@ -391,10 +391,10 @@ function refunder(stripe: Stripe, c: Customer, ch: Charge) {
           amount: String(amount),
           reason: 'requested_by_customer',
         },
-        `parley-refund-${ch.id}-${ch.amount_refunded}-${amount}`,
+        `yea-refund-${ch.id}-${ch.amount_refunded}-${amount}`,
       ),
     // No revert: Stripe can't reverse a refund, so the plan says
-    // "undo: never" and Parley never commits it automatically.
+    // "undo: never" and YEA never commits it automatically.
   });
 }
 // #endregion refund-plan
@@ -406,7 +406,7 @@ async function cancelPlans(
   const sub = await subscription(stripe, c);
 
   if (!sub) {
-    throw new ParleyError('conflict', `${c.name} has no active subscription`);
+    throw new YeaError('conflict', `${c.name} has no active subscription`);
   }
 
   const { end } = period(sub);
@@ -442,7 +442,7 @@ async function cancelPlans(
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const { listen } = await import('parley-protocol/node');
+  const { listen } = await import('@yea-protocol/sdk/node');
   const key = process.env.STRIPE_SECRET_KEY;
 
   if (!key) {
@@ -451,7 +451,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     );
   }
 
-  const trust = (process.env.PARLEY_TRUST ?? '').split(',').filter(Boolean);
+  const trust = (process.env.YEA_TRUST ?? '').split(',').filter(Boolean);
 
   await listen(stripeBilling({ key, trust }), { port: 7453 });
   console.error('billing (Stripe) on yea://127.0.0.1:7453');

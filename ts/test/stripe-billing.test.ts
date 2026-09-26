@@ -213,7 +213,7 @@ describe("Stripe-backed billing (the guide's full example)", () => {
     expect(call.body).toMatch(
       /^charge=ch_2&amount=\d+&reason=requested_by_customer$/,
     );
-    expect(call.key).toMatch(/^parley-refund-ch_2-0-\d+$/);
+    expect(call.key).toMatch(/^yea-refund-ch_2-0-\d+$/);
     expect(stripe.charges[0].amount_refunded).toBeGreaterThan(0);
   });
 

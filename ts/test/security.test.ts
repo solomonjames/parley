@@ -104,9 +104,9 @@ describe('security regressions', () => {
         }, 150);
       });
 
-    await raw('GET /parley HTTP/1.1\r\nHost: [bad\r\n\r\n');
+    await raw('GET /yea HTTP/1.1\r\nHost: [bad\r\n\r\n');
     await raw(
-      'POST /parley HTTP/1.1\r\nHost: x\r\nContent-Length: 1000\r\n\r\nhello',
+      'POST /yea HTTP/1.1\r\nHost: x\r\nContent-Length: 1000\r\n\r\nhello',
     );
 
     const ok = await (
@@ -141,11 +141,8 @@ describe('security regressions', () => {
   });
 
   it("[H3] the MCP bridge never signs a consent that doesn't match the proposal it showed", async () => {
-    process.env.PARLEY_HOME = mkdtempSync(join(tmpdir(), 'parley-'));
-    writeFileSync(
-      join(process.env.PARLEY_HOME, 'principal.key'),
-      principal.seed,
-    );
+    process.env.YEA_HOME = mkdtempSync(join(tmpdir(), 'yea-'));
+    writeFileSync(join(process.env.YEA_HOME, 'principal.key'), principal.seed);
 
     const real = payService();
     const evil: P.Transport = {
@@ -225,7 +222,7 @@ describe('security regressions', () => {
     await rpc(1, 'initialize', { capabilities: { elicitation: {} } });
 
     const props = await rpc(2, 'tools/call', {
-      name: 'parley_intent',
+      name: 'yea_intent',
       arguments: {
         service: 'pay',
         capability: 'pay.send',
@@ -234,7 +231,7 @@ describe('security regressions', () => {
     });
     const id = /\[(p_[^\]]+)\]/.exec(props.content[0].text)![1];
     const r = await rpc(3, 'tools/call', {
-      name: 'parley_commit',
+      name: 'yea_commit',
       arguments: { service: 'pay', proposal: id },
     });
 
@@ -244,7 +241,7 @@ describe('security regressions', () => {
 
     // and a hash the bridge never showed can't be committed at all
     const r2 = await rpc(4, 'tools/call', {
-      name: 'parley_commit',
+      name: 'yea_commit',
       arguments: { service: 'pay', proposal: 'p_other', hash: 'x' },
     });
 

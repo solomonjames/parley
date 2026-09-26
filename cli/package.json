@@ -1,0 +1,60 @@
+{
+  "name": "@yea-protocol/cli",
+  "version": "0.1.0",
+  "description": "The yea command: try the demo, give your AI tools safe actions, wrap any REST API, and run YEA services.",
+  "type": "module",
+  "bin": {
+    "yea": "bin/yea.js"
+  },
+  "files": [
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "@yea-protocol/sdk": "0.1.0"
+  },
+  "peerDependencies": {
+    "@anthropic-ai/sdk": ">=0.100.0"
+  },
+  "peerDependenciesMeta": {
+    "@anthropic-ai/sdk": {
+      "optional": true
+    }
+  },
+  "mcpName": "io.github.yea-protocol/yea",
+  "keywords": [
+    "ai",
+    "agents",
+    "ai-agents",
+    "llm",
+    "protocol",
+    "mcp",
+    "model-context-protocol",
+    "claude",
+    "delegation",
+    "capabilities",
+    "ed25519",
+    "consent",
+    "undo",
+    "tool-use"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yea-protocol/yea.git",
+    "directory": "cli"
+  },
+  "homepage": "https://yea-protocol.github.io/yea/",
+  "bugs": {
+    "url": "https://github.com/yea-protocol/yea/issues"
+  },
+  "license": "Apache-2.0",
+  "author": "James Solomon",
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  }
+}

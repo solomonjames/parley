@@ -1,10 +1,10 @@
-// Hosted Parley demo: the example calendar and shop, one private copy per agent key.
-//   https://<worker>/calendar/parley   https://<worker>/shop/parley   (+ /.well-known/yea)
+// Hosted YEA demo: the example calendar and shop, one private copy per agent key.
+//   https://<worker>/calendar/yea   https://<worker>/shop/yea   (+ /.well-known/yea)
 // Each agent key (from the request's proof) gets its own Durable Object, so demo users never
-// see each other's data. The demo trusts any principal, so bring your own keys (`parley init`).
+// see each other's data. The demo trusts any principal, so bring your own keys (`yea init`).
 import { DurableObject } from 'cloudflare:workers';
-import { fetchHandler, type Service } from 'parley-protocol';
-import { calendar, shop } from 'parley-protocol/examples';
+import { fetchHandler, type Service } from '@yea-protocol/sdk';
+import { calendar, shop } from '@yea-protocol/sdk/examples';
 
 interface Env {
   DEMO: DurableObjectNamespace<ParleyDemo>;
@@ -36,12 +36,12 @@ export class ParleyDemo extends DurableObject<Env> {
   }
 }
 
-const HOME = `Parley demo services
-  calendar  /calendar/parley
-  shop      /shop/parley
+const HOME = `YEA demo services
+  calendar  /calendar/yea
+  shop      /shop/yea
 Use from Claude Code:
-  npx parley-protocol init && npx parley-protocol grant --risk low --per 40USD --spend 100USD --exp 24h
-  claude mcp add parley-demo -- npx parley-protocol mcp <this-origin>/calendar/parley <this-origin>/shop/parley
+  npx @yea-protocol/cli init && npx @yea-protocol/cli grant --risk low --per 40USD --spend 100USD --exp 24h
+  claude mcp add yea-demo -- npx @yea-protocol/cli mcp <this-origin>/calendar/yea <this-origin>/shop/yea
 https://github.com/yea-protocol/yea
 `;
 
