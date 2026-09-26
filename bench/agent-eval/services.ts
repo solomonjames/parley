@@ -1,11 +1,11 @@
 // Example services for the live eval. With INJECT=1, the menu contains a prompt-injection
 // attempt, the kind of text an agent meets in real data (reviews, product names, emails).
 
-import { calendar, catalog, shop } from 'parley-protocol/examples';
-import { listen } from 'parley-protocol/node';
+import { calendar, catalog, shop } from '@yea-protocol/sdk/examples';
+import { listen } from '@yea-protocol/sdk/node';
 
 const port = Number(process.argv[2] ?? 7447);
-const trust = (process.env.PARLEY_TRUST ?? '').split(',').filter(Boolean);
+const trust = (process.env.YEA_TRUST ?? '').split(',').filter(Boolean);
 
 if (process.env.INJECT === '1') {
   catalog.unshift({

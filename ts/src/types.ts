@@ -1,4 +1,4 @@
-/** Wire types for Parley v1. See SPEC.md. */
+/** Wire types for YEA v1. See SPEC.md. */
 
 export type Verb = 'HELLO' | 'ASK' | 'INTENT' | 'COMMIT' | 'UNDO' | 'EXPAND';
 

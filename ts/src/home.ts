@@ -1,16 +1,45 @@
-/** Local identity store (~/.parley): the principal key, the agent key, grants and consents. */
+/** Local identity store (~/.yea): the principal key, the agent key, grants and consents. */
 import {
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  renameSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { type KeyPair, keyPair } from './crypto.js';
 
-export const home = () => process.env.PARLEY_HOME ?? join(homedir(), '.parley');
+let moved = false;
+
+/** YEA was called Parley: carry an existing ~/.parley (keys, grants, services) over, once. */
+function moveOldHome(to: string) {
+  const from = join(homedir(), '.parley');
+
+  moved = true;
+
+  if (existsSync(to) || !existsSync(from)) {
+    return;
+  }
+
+  renameSync(from, to);
+  console.error(`moved ${from} to ${to} (Parley is now YEA)`);
+}
+
+export function home() {
+  if (process.env.YEA_HOME) {
+    return process.env.YEA_HOME;
+  }
+
+  const dir = join(homedir(), '.yea');
+
+  if (!moved) {
+    moveOldHome(dir);
+  }
+
+  return dir;
+}
 
 const p = (...s: string[]) => join(home(), ...s);
 
@@ -20,10 +49,10 @@ function ensure() {
   }
 }
 
-/** The principal key may live elsewhere (another OS user, a mounted device): PARLEY_PRINCIPAL_HOME. */
+/** The principal key may live elsewhere (another OS user, a mounted device): YEA_PRINCIPAL_HOME. */
 const keyFile = (name: 'principal' | 'agent') =>
-  name === 'principal' && process.env.PARLEY_PRINCIPAL_HOME
-    ? join(process.env.PARLEY_PRINCIPAL_HOME, 'principal.key')
+  name === 'principal' && process.env.YEA_PRINCIPAL_HOME
+    ? join(process.env.YEA_PRINCIPAL_HOME, 'principal.key')
     : p(`${name}.key`);
 
 async function loadKey(

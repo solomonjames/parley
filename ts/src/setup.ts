@@ -1,6 +1,6 @@
 /**
- * `parley install|uninstall`: register the Parley MCP bridge (plus agent instructions) with AI tools, and
- * `parley add/remove/services`: manage the services it exposes (~/.parley/services.json).
+ * `yea install|uninstall`: register the YEA MCP bridge (plus agent instructions) with AI tools, and
+ * `yea add/remove/services`: manage the services it exposes (~/.yea/services.json).
  */
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -10,7 +10,7 @@ import { home } from './home.js';
 
 export const BRIDGE = {
   command: 'npx',
-  args: ['-y', 'parley-protocol', 'mcp'],
+  args: ['-y', '@yea-protocol/cli', 'mcp'],
 };
 
 // ---- services registry ----
@@ -41,17 +41,17 @@ export const removeService = (url: string) =>
   saveServices(listServices().filter((u) => u !== url));
 
 // ---- agent instructions (a marker-fenced block; subagents don't see MCP server instructions) ----
-const START = '<!-- PARLEY_START -->',
-  END = '<!-- PARLEY_END -->';
+const START = '<!-- YEA_START -->',
+  END = '<!-- YEA_END -->';
 
 export const AGENT_BLOCK = `${START}
-## Parley: acting for the user
+## YEA: acting for the user
 
-The Parley tools (parley_ask, parley_intent, parley_commit, parley_undo) act for the user under a policy they signed.
-- Read with \`parley_ask\`. To change anything, call \`parley_intent\`, then read each proposal's effects, cost, risk and undo window before committing.
+The YEA tools (yea_ask, yea_intent, yea_commit, yea_undo) act for the user under a policy they signed.
+- Read with \`yea_ask\`. To change anything, call \`yea_intent\`, then read each proposal's effects, cost, risk and undo window before committing.
 - Use \`auto: true\` for routine, reversible requests the user clearly asked for. Their policy decides whether it commits at once.
 - If a commit returns \`consent_required\`, stop and pass the approval instruction to the user. Never split or restructure a purchase to get under a limit.
-- Commit only what the user asked for. Offer \`parley_undo\` if they change their mind within the undo window.
+- Commit only what the user asked for. Offer \`yea_undo\` if they change their mind within the undo window.
 ${END}
 `;
 
@@ -60,7 +60,7 @@ export function writeBlock(file: string): string {
   const re = new RegExp(`${START}[\\s\\S]*?${END}\\n?`);
   const head =
     !cur && file.endsWith('.mdc')
-      ? "---\ndescription: Using Parley tools on the user's behalf\nalwaysApply: true\n---\n\n"
+      ? "---\ndescription: Using YEA tools on the user's behalf\nalwaysApply: true\n---\n\n"
       : '';
   const next = re.test(cur)
     ? cur.replace(re, AGENT_BLOCK)
@@ -163,19 +163,19 @@ function jsonTarget({
   return {
     name,
     detect,
-    installed: (s) => !!readJson(file(s))[key]?.parley,
+    installed: (s) => !!readJson(file(s))[key]?.yea,
     install: (s) => {
       const f = file(s);
       const cfg = readJson(f);
 
-      cfg[key] = { ...(cfg[key] ?? {}), parley: { ...extra, ...BRIDGE } };
+      cfg[key] = { ...(cfg[key] ?? {}), yea: { ...extra, ...BRIDGE } };
       mkdirSync(dirname(f), { recursive: true });
       writeFileSync(f, `${JSON.stringify(cfg, null, 2)}\n`);
 
       const b = block?.(s);
 
       return [
-        `MCP server "parley" → ${f}`,
+        `MCP server "yea" → ${f}`,
         ...(b ? [`agent instructions → ${writeBlock(b)}`] : []),
       ];
     },
@@ -186,10 +186,10 @@ function jsonTarget({
 
       const servers = cfg[key];
 
-      if (servers?.parley) {
-        delete servers.parley;
+      if (servers?.yea) {
+        delete servers.yea;
         writeFileSync(f, `${JSON.stringify(cfg, null, 2)}\n`);
-        out.push(`removed "parley" from ${f}`);
+        out.push(`removed "yea" from ${f}`);
       }
 
       const b = block?.(s);
@@ -245,8 +245,7 @@ export const CLIENTS: Record<string, Target> = {
         ? join(s.cwd, '.cursor', 'mcp.json')
         : join(homedir(), '.cursor', 'mcp.json'),
     detect: () => existsSync(join(homedir(), '.cursor')),
-    block: (s) =>
-      s.local ? join(s.cwd, '.cursor', 'rules', 'parley.mdc') : '',
+    block: (s) => (s.local ? join(s.cwd, '.cursor', 'rules', 'yea.mdc') : ''),
   }),
   // Windsurf became Devin Desktop; its Cascade agent reads $XDG_CONFIG_HOME/devin/mcp_config.json. Keep the legacy path if that's what exists.
   windsurf: jsonTarget({
@@ -281,7 +280,7 @@ export const CLIENTS: Record<string, Target> = {
     detect: () => existsSync(join(homedir(), '.codex')),
     installed: () =>
       existsSync(join(homedir(), '.codex', 'config.toml')) &&
-      /^\[mcp_servers\.parley\]/m.test(
+      /^\[mcp_servers\.yea\]/m.test(
         readFileSync(join(homedir(), '.codex', 'config.toml'), 'utf8'),
       ),
     install: (s) => {
@@ -289,16 +288,16 @@ export const CLIENTS: Record<string, Target> = {
       const current = existsSync(file) ? readFileSync(file, 'utf8') : '';
       const out: string[] = [];
 
-      if (!/^\[mcp_servers\.parley\]/m.test(current)) {
+      if (!/^\[mcp_servers\.yea\]/m.test(current)) {
         mkdirSync(dirname(file), { recursive: true });
         writeFileSync(
           file,
           current +
-            `${current && !current.endsWith('\n') ? '\n' : ''}\n[mcp_servers.parley]\ncommand = "npx"\nargs = ["-y", "parley-protocol", "mcp"]\n`,
+            `${current && !current.endsWith('\n') ? '\n' : ''}\n[mcp_servers.yea]\ncommand = "npx"\nargs = ["-y", "@yea-protocol/cli", "mcp"]\n`,
         );
       }
 
-      out.push(`MCP server "parley" → ${file}`);
+      out.push(`MCP server "yea" → ${file}`);
       out.push(
         `agent instructions → ${writeBlock(s.local ? join(s.cwd, 'AGENTS.md') : join(homedir(), '.codex', 'AGENTS.md'))}`,
       );
@@ -311,9 +310,9 @@ export const CLIENTS: Record<string, Target> = {
 
       if (existsSync(file)) {
         const cur = readFileSync(file, 'utf8');
-        // Drop the [mcp_servers.parley] table: its header line and every line up to the next table header.
+        // Drop the [mcp_servers.yea] table: its header line and every line up to the next table header.
         const lines = cur.split('\n');
-        const i = lines.findIndex((l) => l.trim() === '[mcp_servers.parley]');
+        const i = lines.findIndex((l) => l.trim() === '[mcp_servers.yea]');
         let next = cur;
 
         if (i >= 0) {
@@ -330,7 +329,7 @@ export const CLIENTS: Record<string, Target> = {
 
         if (next !== cur) {
           writeFileSync(file, next);
-          out.push(`removed [mcp_servers.parley] from ${file}`);
+          out.push(`removed [mcp_servers.yea] from ${file}`);
         }
       }
 

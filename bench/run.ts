@@ -1,4 +1,4 @@
-// Parley vs. a typical REST-wrapper MCP server: the same tasks, over the same data.
+// YEA vs. a typical REST-wrapper MCP server: the same tasks, over the same data.
 // Measures what the model has to read, with a real BPE tokenizer (o200k_base).
 // Both sides return the same information; only the protocol differs.
 // Deterministic: ids, keys and handles come from a seeded PRNG, so every run prints the same numbers.
@@ -21,15 +21,15 @@ globalThis.crypto.getRandomValues = (<T extends ArrayBufferView | null>(
 }) as typeof globalThis.crypto.getRandomValues;
 
 import { writeFileSync } from 'node:fs';
+import { Client, issueGrant, keyPair, local } from '@yea-protocol/sdk';
+import { INSTRUCTIONS, TOOLS as YEA_TOOLS } from '@yea-protocol/sdk/mcp';
 import { encode } from 'gpt-tokenizer/encoding/o200k_base';
-import { Client, issueGrant, keyPair, local } from 'parley-protocol';
-import { INSTRUCTIONS, TOOLS as PARLEY_TOOLS } from 'parley-protocol/mcp';
 import { calendar } from '../examples/calendar.ts';
 import { shop } from '../examples/shop.ts';
 
 const tok = (s: string) => encode(s).length;
 
-// ---------- the Parley side: services behind the MCP bridge's tool surface ----------
+// ---------- the YEA side: services behind the MCP bridge's tool surface ----------
 const principal = await keyPair(),
   agent = await keyPair();
 const grant = await issueGrant({ principal, to: agent.public });
@@ -42,7 +42,7 @@ const sh = new Client(local(shop({ trust: [principal.public] })), {
   grants: [grant],
 });
 const briefs = [(await cal.hello(1500)).lens, (await sh.hello(1500)).lens];
-const parleyDefs = `${JSON.stringify(PARLEY_TOOLS)}\n${INSTRUCTIONS}${briefs.join('\n\n')}`;
+const yeaDefs = `${JSON.stringify(YEA_TOOLS)}\n${INSTRUCTIONS}${briefs.join('\n\n')}`;
 
 // ---------- the REST side: a conventional MCP server (one tool per endpoint, JSON in/out) ----------
 const obj = (props: Record<string, unknown>, required: string[] = []) => ({
@@ -170,7 +170,7 @@ const REST_TOOLS = [
 ];
 const restDefs = JSON.stringify(REST_TOOLS);
 
-// REST payloads are built from the *same* data the Parley services return.
+// REST payloads are built from the *same* data the YEA services return.
 // Rows as the example services return them.
 interface AgendaRow {
   id: string;
@@ -219,7 +219,7 @@ interface Task {
   name: string;
   note?: string;
   rest: (J: (v: unknown) => string) => Run;
-  parley: Run;
+  yea: Run;
 }
 
 const DAY = new Date(Date.now() + 3 * 86400e3).toISOString().slice(0, 10);
@@ -269,10 +269,10 @@ async function tasks(): Promise<Task[]> {
 
     await cal.undo(r.receipt.id); // keep data identical across tasks
 
-    const parley = {
+    const yea = {
       calls: [
         {
-          args: { name: 'parley_intent', arguments: intentArgs },
+          args: { name: 'yea_intent', arguments: intentArgs },
           result: r.lens,
         },
       ],
@@ -302,7 +302,7 @@ async function tasks(): Promise<Task[]> {
           },
         ],
       }),
-      parley,
+      yea,
     });
     out.push({
       name: 'Reschedule a meeting (REST: one outcome-level endpoint)',
@@ -317,7 +317,7 @@ async function tasks(): Promise<Task[]> {
           },
         ],
       }),
-      parley,
+      yea,
     });
   }
 
@@ -384,11 +384,11 @@ async function tasks(): Promise<Task[]> {
           },
         ],
       }),
-      parley: {
+      yea: {
         calls: [
-          { args: { name: 'parley_ask', arguments: askArgs }, result: a.lens },
+          { args: { name: 'yea_ask', arguments: askArgs }, result: a.lens },
           {
-            args: { name: 'parley_intent', arguments: intentArgs },
+            args: { name: 'yea_intent', arguments: intentArgs },
             result: r.lens,
           },
         ],
@@ -411,11 +411,11 @@ async function tasks(): Promise<Task[]> {
           },
         ],
       }),
-      parley: {
+      yea: {
         calls: [
           {
             args: {
-              name: 'parley_ask',
+              name: 'yea_ask',
               arguments: {
                 service: 'shop.example',
                 capability: 'shop.search',
@@ -429,15 +429,15 @@ async function tasks(): Promise<Task[]> {
     });
   }
 
-  // 4. Skim the menu: Parley with an 800-token budget, REST with `limit` set to the same
-  //    number of items Parley returned. Same items both ways; Parley also says what's left.
+  // 4. Skim the menu: YEA with an 800-token budget, REST with `limit` set to the same
+  //    number of items YEA returned. Same items both ways; YEA also says what's left.
   {
     const all = await data<MealRow[]>(sh, 'shop.search', {});
     const a = await sh.ask('shop.search', {}, { budget: 800 });
     const shown = (a as { data: unknown[] }).data.length;
 
     out.push({
-      name: `Skim the menu (first ${shown} items: REST limit=${shown}, Parley budget=800)`,
+      name: `Skim the menu (first ${shown} items: REST limit=${shown}, YEA budget=800)`,
       rest: (J) => ({
         calls: [
           {
@@ -446,11 +446,11 @@ async function tasks(): Promise<Task[]> {
           },
         ],
       }),
-      parley: {
+      yea: {
         calls: [
           {
             args: {
-              name: 'parley_ask',
+              name: 'yea_ask',
               arguments: {
                 service: 'shop.example',
                 capability: 'shop.search',
@@ -500,7 +500,7 @@ const n = (x: number) => x.toLocaleString('en-US');
 const minJ = (v: unknown) => JSON.stringify(v),
   prettyJ = (v: unknown) => JSON.stringify(v, null, 2);
 
-log(`# Parley vs REST-style MCP — token benchmark\n`);
+log(`# YEA vs REST-style MCP — token benchmark\n`);
 log(
   `Tokenizer: o200k_base (gpt-tokenizer). Claude's tokenizer differs; the ratios are what matter. Both sides serve the same data. Ids are seeded, so runs are reproducible.\n`,
 );
@@ -508,13 +508,13 @@ log(
   `**Total input** counts what you pay for: each model turn re-reads the tool definitions plus the conversation so far (calls and results), and there's one final turn to answer.\n`,
 );
 log(
-  `Tool definitions in context every turn: REST MCP **${tok(restDefs)}** tokens (${REST_TOOLS.length} tools) vs Parley **${tok(parleyDefs)}** (${PARLEY_TOOLS.length} generic tools + service briefs).\n`,
+  `Tool definitions in context every turn: REST MCP **${tok(restDefs)}** tokens (${REST_TOOLS.length} tools) vs YEA **${tok(yeaDefs)}** (${YEA_TOOLS.length} generic tools + service briefs).\n`,
 );
 
 const T = await tasks();
 
 log(
-  `| Task | Calls (REST → Parley) | Total input: REST minified JSON | REST pretty JSON | Parley | Saved vs minified | vs pretty |`,
+  `| Task | Calls (REST → YEA) | Total input: REST minified JSON | REST pretty JSON | YEA | Saved vs minified | vs pretty |`,
 );
 log(`|---|---|---|---|---|---|---|`);
 
@@ -525,7 +525,7 @@ let SM = 0,
 for (const t of T) {
   const m = cost(restDefs, t.rest(minJ)),
     pr = cost(restDefs, t.rest(prettyJ)),
-    px = cost(parleyDefs, t.parley);
+    px = cost(yeaDefs, t.yea);
 
   if (!t.name.includes('outcome-level')) {
     SM += m.cumulative;
@@ -542,7 +542,7 @@ log(
   `| **All tasks** (CRUD reschedule row) | | ${n(SM)} | ${n(SP)} | ${n(SX)} | **${pct(SM, SX)}** | ${pct(SP, SX)} |\n`,
 );
 log(
-  `Result tokens read, per task (minified REST → Parley): ${T.map((t) => `${cost(restDefs, t.rest(minJ)).read} → ${cost(parleyDefs, t.parley).read}`).join(' · ')}\n`,
+  `Result tokens read, per task (minified REST → YEA): ${T.map((t) => `${cost(restDefs, t.rest(minJ)).read} → ${cost(yeaDefs, t.yea).read}`).join(' · ')}\n`,
 );
 
 log(`## What the model actually reads\n`);
@@ -556,10 +556,10 @@ log(
     .join('\n\n')}\n\`\`\`\n`,
 );
 log(
-  `### Reschedule, Parley (1 call, auto-commit)\n\n\`\`\`\n${cr.parley.calls.map((c) => c.result).join('\n\n')}\n\`\`\`\n`,
+  `### Reschedule, YEA (1 call, auto-commit)\n\n\`\`\`\n${cr.yea.calls.map((c) => c.result).join('\n\n')}\n\`\`\`\n`,
 );
 log(
-  `What the tokens don't show: the Parley agent acted only because the principal's grant allows low-risk, undoable changes, and it got back exactly what happened with a 24h undo window. In the auto-commit case the *service* chose the slot (the first free one), just like the REST outcome endpoint. An agent that wants to choose omits \`auto\` and gets three proposals instead.`,
+  `What the tokens don't show: the YEA agent acted only because the principal's grant allows low-risk, undoable changes, and it got back exactly what happened with a 24h undo window. In the auto-commit case the *service* chose the slot (the first free one), just like the REST outcome endpoint. An agent that wants to choose omits \`auto\` and gets three proposals instead.`,
 );
 
 writeFileSync(

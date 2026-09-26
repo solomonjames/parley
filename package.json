@@ -1,17 +1,18 @@
 {
-  "name": "parley-monorepo",
+  "name": "yea-monorepo",
   "private": true,
   "type": "module",
   "workspaces": [
     "ts",
+    "cli",
     "examples",
     "bench",
     "site",
     "deploy/demo"
   ],
   "scripts": {
-    "build": "npm run build -w parley-protocol",
-    "test": "npm test -w parley-protocol",
+    "build": "npm run build -w @yea-protocol/sdk",
+    "test": "npm test -w @yea-protocol/sdk",
     "demo": "npm run build && node examples/demo.ts",
     "bench": "npm run build && node bench/run.ts && node bench/estimator.ts",
     "site": "npm run build -w parley-site",

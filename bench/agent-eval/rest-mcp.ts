@@ -1,12 +1,12 @@
 // Control arm: a conventional REST-style MCP server (one tool per endpoint, JSON results)
-// over the SAME example services the Parley arm uses. It holds an unrestricted grant, like an
+// over the SAME example services the YEA arm uses. It holds an unrestricted grant, like an
 // API key: writes happen immediately, with no preview, policy check or undo.
-//   node rest-mcp.ts <calendar url> <shop url>     (reads PARLEY_HOME for the agent key + grant)
+//   node rest-mcp.ts <calendar url> <shop url>     (reads YEA_HOME for the agent key + grant)
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { connect } from 'parley-protocol/node';
+import { connect } from '@yea-protocol/sdk/node';
 
-const home = process.env.PARLEY_HOME!;
+const home = process.env.YEA_HOME!;
 const key = readFileSync(join(home, 'agent.key'), 'utf8').trim();
 const grants = readdirSync(join(home, 'grants')).map((f) =>
   readFileSync(join(home, 'grants', f), 'utf8').trim(),

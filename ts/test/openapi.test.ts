@@ -151,7 +151,7 @@ describe('OpenAPI adapter', async () => {
   it('writes are previewed, then performed on COMMIT only, with upstream auth hidden from the model', async () => {
     const before = calls.length;
     const p = await c.intent('todo_api.createTodo', {
-      title: 'ship parley',
+      title: 'ship yea',
       due: '2030-01-01',
     });
 
@@ -161,7 +161,7 @@ describe('OpenAPI adapter', async () => {
 
     expect(calls.length).toBe(before); // INTENT made no upstream call
     expect(p.lens).toContain('+ create');
-    expect(p.lens).toContain('"title":"ship parley"');
+    expect(p.lens).toContain('"title":"ship yea"');
     expect(p.lens).toContain('undo: never');
     expect(p.lens).not.toContain('secret');
 
@@ -169,11 +169,11 @@ describe('OpenAPI adapter', async () => {
 
     expect(r.kind).toBe('RECEIPT');
     expect(calls.at(-1)).toContain(
-      'POST /todos {"title":"ship parley","due":"2030-01-01"} Bearer secret',
+      'POST /todos {"title":"ship yea","due":"2030-01-01"} Bearer secret',
     );
   });
 
-  it('maps upstream errors to Parley errors', async () => {
+  it('maps upstream errors to YEA errors', async () => {
     const p = await c.intent('todo_api.deleteTodo', { id: 99999 });
 
     if (p.kind !== 'PROPOSALS') {

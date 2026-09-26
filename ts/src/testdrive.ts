@@ -1,5 +1,5 @@
 /**
- * `parley test-drive`: watch a real Claude model use Parley, live, in your terminal.
+ * `yea test-drive`: watch a real Claude model use YEA, live, in your terminal.
  * The example calendar and shop run in-process; the model gets the same four tools as the
  * MCP bridge; anything outside the (throwaway) policy asks YOU to approve it.
  * Needs an Anthropic API key (ANTHROPIC_API_KEY or an `ant auth login` profile).
@@ -57,7 +57,7 @@ interface Usage {
   outTok: number;
 }
 
-/** What one conversation needs: the model, its tools and the Parley tool host behind them. */
+/** What one conversation needs: the model, its tools and the YEA tool host behind them. */
 interface Conversation {
   client: InstanceType<typeof Anthropic>;
   model: string;
@@ -80,11 +80,11 @@ export async function testDrive(
     description: t.description,
     input_schema: t.inputSchema as Anthropic.Beta.BetaTool.InputSchema,
   }));
-  const system = `You are an assistant acting on behalf of the user through Parley services. Your policy (signed by the user): low-risk actions only, up to 40.00 USD per action and 100.00 USD total. Anything beyond it is sent to the user for approval automatically. Never try to work around a limit.\n\n${host.instructions}`;
+  const system = `You are an assistant acting on behalf of the user through YEA services. Your policy (signed by the user): low-risk actions only, up to 40.00 USD per action and 100.00 USD total. Anything beyond it is sent to the user for approval automatically. Never try to work around a limit.\n\n${host.instructions}`;
 
   console.log(
     k(
-      `\nParley test drive · ${model} · two example services, your policy: low risk, ≤ 40 USD per action, ≤ 100 USD total\n`,
+      `\nYEA test drive · ${model} · two example services, your policy: low risk, ≤ 40 USD per action, ≤ 100 USD total\n`,
       c.b,
     ),
   );
@@ -115,22 +115,22 @@ export async function testDrive(
 
   console.log(
     k(
-      `\n${usage.calls} Parley calls · ${usage.toolTokens} tokens of Parley replies (Lens) · model usage ${usage.inTok} in / ${usage.outTok} out`,
+      `\n${usage.calls} YEA calls · ${usage.toolTokens} tokens of YEA replies (Lens) · model usage ${usage.inTok} in / ${usage.outTok} out`,
       c.dim,
     ),
   );
 }
 
-/** The example services, with a throwaway identity and policy so the test drive never touches ~/.parley. */
+/** The example services, with a throwaway identity and policy so the test drive never touches ~/.yea. */
 async function throwawayClients(): Promise<Client[]> {
-  const parleyHome = mkdtempSync(join(tmpdir(), 'parley-test-drive-'));
+  const yeaHome = mkdtempSync(join(tmpdir(), 'yea-test-drive-'));
 
-  process.env.PARLEY_HOME = parleyHome;
+  process.env.YEA_HOME = yeaHome;
 
   const you = await keyPair(),
     agent = await keyPair();
 
-  writeFileSync(join(parleyHome, 'principal.key'), you.seed);
+  writeFileSync(join(yeaHome, 'principal.key'), you.seed);
 
   const grant = await issueGrant({
     principal: you,
@@ -165,7 +165,7 @@ function terminalApprover(rl: Interface): Approver {
   };
 }
 
-/** The agent loop: call the model, run the Parley tools it asks for, repeat until it's done. */
+/** The agent loop: call the model, run the YEA tools it asks for, repeat until it's done. */
 async function converse(
   convo: Conversation,
   prompt: string,
@@ -263,7 +263,7 @@ async function runTools(
     const { service, ...rest } = args;
 
     console.log(
-      `\n${k(`   → ${u.name.replace('parley_', '').toUpperCase()}`, c.cyan)} ${k(`${service} ${JSON.stringify(rest)}`, c.dim)}`,
+      `\n${k(`   → ${u.name.replace('yea_', '').toUpperCase()}`, c.cyan)} ${k(`${service} ${JSON.stringify(rest)}`, c.dim)}`,
     );
 
     const r = await host.call(u.name, args);

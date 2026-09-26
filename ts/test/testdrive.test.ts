@@ -1,4 +1,4 @@
-// Drives `parley test-drive` against a mock Messages API: the loop, tool routing, auto-commit
+// Drives `yea test-drive` against a mock Messages API: the loop, tool routing, auto-commit
 // and the consent path (no TTY → not approved) all run for real; only the model is scripted.
 import { createServer, type IncomingHttpHeaders } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -11,7 +11,7 @@ const script = [
   {
     type: 'tool_use',
     id: 't1',
-    name: 'parley_intent',
+    name: 'yea_intent',
     input: {
       service: 'calendar.example',
       capability: 'calendar.reschedule',
@@ -22,7 +22,7 @@ const script = [
   {
     type: 'tool_use',
     id: 't2',
-    name: 'parley_intent',
+    name: 'yea_intent',
     input: {
       service: 'shop.example',
       capability: 'shop.order',
@@ -38,7 +38,7 @@ const script = [
   {
     type: 'tool_use',
     id: 't3',
-    name: 'parley_commit',
+    name: 'yea_commit',
     input: { service: 'shop.example', proposal: '__FIRST_PROPOSAL__' },
   },
   { type: 'text', text: 'Moved your 1:1. The order needs your approval.' },
@@ -101,7 +101,7 @@ const server = createServer(async (req, res) => {
 await new Promise<void>((r) => server.listen(0, '127.0.0.1', () => r()));
 afterAll(() => server.close());
 
-describe('parley test-drive', () => {
+describe('yea test-drive', () => {
   it('runs a full tool loop against the Messages API with fallbacks on', async () => {
     process.env.ANTHROPIC_API_KEY = 'test';
     process.env.ANTHROPIC_BASE_URL = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -126,10 +126,10 @@ describe('parley test-drive', () => {
       'server-side-fallback-2026-07-01',
     );
     expect(requests[0].body.tools.map((t) => t.name)).toEqual([
-      'parley_ask',
-      'parley_intent',
-      'parley_commit',
-      'parley_undo',
+      'yea_ask',
+      'yea_intent',
+      'yea_commit',
+      'yea_undo',
     ]);
     expect(out).toMatch(/✓ Move "1:1 with Ana"/); // auto-committed within policy
     expect(out).toMatch(/approve this exact action|are asked to approve/); // consent routed to the human

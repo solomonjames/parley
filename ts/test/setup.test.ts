@@ -10,9 +10,9 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { CLIENTS } from '../src/setup.js';
 
-describe('parley install/uninstall targets', () => {
+describe('yea install/uninstall targets', () => {
   it('install then uninstall leaves existing config exactly as it was', () => {
-    const home = mkdtempSync(join(tmpdir(), 'parley-home-'));
+    const home = mkdtempSync(join(tmpdir(), 'yea-home-'));
     const prev = process.env.HOME;
 
     process.env.HOME = home;
@@ -42,7 +42,7 @@ describe('parley install/uninstall targets', () => {
 
       const cfg = JSON.parse(readFileSync(join(home, '.claude.json'), 'utf8'));
 
-      expect(cfg.mcpServers.parley).toMatchObject({
+      expect(cfg.mcpServers.yea).toMatchObject({
         type: 'stdio',
         alwaysLoad: true,
         command: 'npx',
@@ -56,7 +56,7 @@ describe('parley install/uninstall targets', () => {
       CLIENTS['claude-code'].install(scope);
       expect(
         readFileSync(join(home, '.claude', 'CLAUDE.md'), 'utf8').match(
-          /PARLEY_START/g,
+          /YEA_START/g,
         ),
       ).toHaveLength(1);
 

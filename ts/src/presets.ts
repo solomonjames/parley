@@ -1,5 +1,5 @@
 /**
- * Curated OpenAPI presets: `parley openapi --preset github`. Each one picks the operations
+ * Curated OpenAPI presets: `yea openapi --preset github`. Each one picks the operations
  * an agent should have, overrides risk where the default is wrong, projects responses down
  * to what a model needs, and reads credentials from the environment (never shown to the model).
  */
@@ -67,7 +67,7 @@ export const PRESETS: Record<string, Preset> = {
     },
     env: ['GITHUB_TOKEN'],
     headers: (env) => ({
-      'user-agent': 'parley-protocol',
+      'user-agent': '@yea-protocol/sdk',
       accept: 'application/vnd.github+json',
       'x-github-api-version': '2022-11-28',
       ...(env.GITHUB_TOKEN

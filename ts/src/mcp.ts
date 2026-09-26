@@ -1,6 +1,6 @@
 /**
- * MCP bridge: expose Parley services as an MCP server over stdio, so any MCP client
- * (Claude Code, Claude Desktop, Cursor, …) can speak Parley today. Tool results are Lens.
+ * MCP bridge: expose YEA services as an MCP server over stdio, so any MCP client
+ * (Claude Code, Claude Desktop, Cursor, …) can speak YEA today. Tool results are Lens.
  * Consent requests are routed to the human via MCP elicitation when the client supports
  * it; the model itself can never approve.
  */
@@ -137,7 +137,10 @@ function parseMessage(line: string): RpcMessage | undefined {
   }
 }
 
-/** Our own requests to the client (ids `parley-N`) and the matching of their replies. */
+/** Prefix of the ids on our own requests to the client, so their replies can be told apart. */
+const OUR_ID = 'yea-';
+
+/** Our own requests to the client (ids `yea-N`) and the matching of their replies. */
 function outgoingRequests(write: Write) {
   let nextId = 1;
   const waiting = new Map<number, (r: RpcMessage) => void>();
@@ -156,16 +159,16 @@ function outgoingRequests(write: Write) {
         waiting.delete(id);
         resolve(r);
       });
-      write({ jsonrpc: '2.0', id: `parley-${id}`, method, params });
+      write({ jsonrpc: '2.0', id: `${OUR_ID}${id}`, method, params });
     });
 
   /** If `m` is a reply to one of our requests, deliver it and return true. */
   const settle = (m: RpcMessage) => {
-    if (typeof m.id !== 'string' || !m.id.startsWith('parley-') || m.method) {
+    if (typeof m.id !== 'string' || !m.id.startsWith(OUR_ID) || m.method) {
       return false;
     }
 
-    waiting.get(Number(m.id.slice(7)))?.(m);
+    waiting.get(Number(m.id.slice(OUR_ID.length)))?.(m);
 
     return true;
   };
@@ -200,7 +203,7 @@ async function handle(m: RpcMessage, s: Session) {
       return reply({
         protocolVersion: m.params?.protocolVersion ?? '2025-06-18',
         capabilities: { tools: {} },
-        serverInfo: { name: 'parley-bridge', version: VERSION },
+        serverInfo: { name: 'yea-bridge', version: VERSION },
         instructions: s.host.instructions,
       });
     case 'ping':

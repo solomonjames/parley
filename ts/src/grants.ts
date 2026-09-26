@@ -152,7 +152,7 @@ export function consentGrant(opts: {
 }
 
 /**
- * A consent request packed for a human to approve out of band (`parley approve <code>`).
+ * A consent request packed for a human to approve out of band (`yea approve <code>`).
  * `detail` carries the full proposal (as the agent saw it) so the approver can show its
  * effects and re-check the hash, instead of trusting a service-written summary.
  */

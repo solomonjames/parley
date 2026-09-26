@@ -1,4 +1,4 @@
-// A meal-delivery shop that speaks Parley. Shows budgets (a big catalog, fitted to the
+// A meal-delivery shop that speaks YEA. Shows budgets (a big catalog, fitted to the
 // agent's token budget with EXPAND handles), money (cost on every proposal, spend caps
 // in grants) and human consent for anything over the agent's limits.
 import {
@@ -6,9 +6,9 @@ import {
   create,
   fix,
   money,
-  ParleyError,
   type Plan,
   service,
+  YeaError,
 } from '../index.js';
 
 const MENU: [string, string[]][] = [
@@ -154,7 +154,7 @@ function checkout(
     const m = catalog.find((c) => c.sku === it.sku);
 
     if (!m) {
-      throw new ParleyError(
+      throw new YeaError(
         'invalid_params',
         `unknown sku ${JSON.stringify(it.sku)}`,
         { fix: [fix('ASK shop.search to find skus')] },

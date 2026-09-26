@@ -4,10 +4,10 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
-      'parley-protocol/examples': fileURLToPath(
+      '@yea-protocol/sdk/examples': fileURLToPath(
         new URL('./src/examples/index.ts', import.meta.url),
       ),
-      'parley-protocol': fileURLToPath(
+      '@yea-protocol/sdk': fileURLToPath(
         new URL('./src/index.ts', import.meta.url),
       ),
     },

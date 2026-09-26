@@ -1,5 +1,5 @@
 /** Light validation of params against the compact schema (SPEC §4.1.1), producing teaching errors. */
-import { fix, ParleyError } from './errors.js';
+import { fix, YeaError } from './errors.js';
 import type { Fix, ParamSchema } from './types.js';
 
 export function distance(a: string, b: string): number {
@@ -200,7 +200,7 @@ function unknownParams(
   return { problems, fixes };
 }
 
-/** Throws a ParleyError(invalid_params) with fixes if params don't match the schema. */
+/** Throws a YeaError(invalid_params) with fixes if params don't match the schema. */
 export function validateParams(
   schema: ParamSchema | undefined,
   params: Record<string, unknown>,
@@ -226,7 +226,7 @@ export function validateParams(
   problems.push(...unknown.problems);
 
   if (problems.length) {
-    throw new ParleyError(
+    throw new YeaError(
       'invalid_params',
       problems.join('; '),
       unknown.fixes.length ? { fix: unknown.fixes } : {},

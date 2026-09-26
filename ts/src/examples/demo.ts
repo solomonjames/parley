@@ -1,4 +1,4 @@
-// A narrated, end-to-end Parley session over real TCP.  Run:  npm run demo
+// A narrated, end-to-end YEA session over real TCP.  Run:  npm run demo
 // A human (the principal) delegates to an agent with a policy; the agent does real work
 // against two services; one purchase exceeds the policy and needs the human's consent.
 import type { AddressInfo, Server } from 'node:net';
@@ -39,7 +39,7 @@ interface Keys {
   helper: KeyPair;
 }
 
-/** Run the narrated end-to-end demo over real TCP sockets (`parley demo`). */
+/** Run the narrated end-to-end demo over real TCP sockets (`yea demo`). */
 export async function runDemo(): Promise<void> {
   const n = narrator();
 
@@ -55,7 +55,7 @@ export async function runDemo(): Promise<void> {
 
   console.log(
     n.k(
-      '\nParley demo — agents propose, humans set policy, everything is undoable\n',
+      '\nYEA demo — agents propose, humans set policy, everything is undoable\n',
       ANSI.b,
     ),
   );

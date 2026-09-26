@@ -19,12 +19,12 @@ interface RpcMessage {
 }
 
 async function bridge(elicit: boolean) {
-  process.env.PARLEY_HOME = mkdtempSync(join(tmpdir(), 'parley-'));
+  process.env.YEA_HOME = mkdtempSync(join(tmpdir(), 'yea-'));
 
   const principal = await P.keyPair(),
     agent = await P.keyPair();
 
-  writeFileSync(join(process.env.PARLEY_HOME, 'principal.key'), principal.seed);
+  writeFileSync(join(process.env.YEA_HOME, 'principal.key'), principal.seed);
 
   const grant = await P.issueGrant({
     principal,
@@ -95,9 +95,9 @@ describe('MCP bridge', () => {
     const b = await bridge(true);
     const tools = (await b.rpc('tools/list')).result.tools?.map((t) => t.name);
 
-    expect(tools).toContain('parley_commit');
+    expect(tools).toContain('yea_commit');
 
-    const found = await b.tool('parley_ask', {
+    const found = await b.tool('yea_ask', {
       service: 'shop.example',
       capability: 'shop.search',
       params: { tag: 'vegan' },
@@ -106,13 +106,13 @@ describe('MCP bridge', () => {
 
     expect(found.content[0].text).toMatch(/^items\[/);
 
-    const props = await b.tool('parley_intent', {
+    const props = await b.tool('yea_intent', {
       service: 'shop.example',
       capability: 'shop.order',
       params: { items: [{ sku: 'm001', qty: 2 }], deliver: '2030-01-01' },
     });
     const id = /\[(p_[^\]]+)\]/.exec(props.content[0].text)![1];
-    const r = await b.tool('parley_commit', {
+    const r = await b.tool('yea_commit', {
       service: 'shop.example',
       proposal: id,
     });
@@ -124,19 +124,19 @@ describe('MCP bridge', () => {
 
   it('without elicitation, tells the model to have the human approve', async () => {
     const b = await bridge(false);
-    const props = await b.tool('parley_intent', {
+    const props = await b.tool('yea_intent', {
       service: 'shop.example',
       capability: 'shop.order',
       params: { items: [{ sku: 'm001', qty: 2 }], deliver: '2030-01-01' },
     });
     const id = /\[(p_[^\]]+)\]/.exec(props.content[0].text)![1];
-    const r = await b.tool('parley_commit', {
+    const r = await b.tool('yea_commit', {
       service: 'shop.example',
       proposal: id,
     });
 
     expect(r.isError).toBe(true);
-    expect(r.content[0].text).toContain('parley approve');
+    expect(r.content[0].text).toContain('yea approve');
     await b.end();
   });
 });

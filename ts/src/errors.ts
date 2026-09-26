@@ -1,7 +1,7 @@
 import type { ConsentRequest, ErrorCode, Fix } from './types.js';
 
 /** Throw from a handler to send a teaching ERROR reply (SPEC §7). */
-export class ParleyError extends Error {
+export class YeaError extends Error {
   constructor(
     public code: ErrorCode,
     message: string,
@@ -13,7 +13,7 @@ export class ParleyError extends Error {
     } = {},
   ) {
     super(message);
-    this.name = 'ParleyError';
+    this.name = 'YeaError';
   }
 }
 
@@ -24,7 +24,7 @@ export const fix = (say: string, params?: Record<string, unknown>): Fix =>
 export const fail = (
   code: ErrorCode,
   message: string,
-  extra?: ParleyError['extra'],
+  extra?: YeaError['extra'],
 ): never => {
-  throw new ParleyError(code, message, extra);
+  throw new YeaError(code, message, extra);
 };
