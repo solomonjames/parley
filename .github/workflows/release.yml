@@ -15,18 +15,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 22, registry-url: https://registry.npmjs.org }
+        with: { node-version: 22, registry-url: "https://registry.npmjs.org" }
       - run: npm install -g npm@latest
       - run: npm ci && npm run build && npm test
         env: { SKIP_INTEROP: "1" }
-      - run: cd ts && npm pack
+      # Both npm packages share one version: bump ts/ and cli/ (and cli's sdk dependency) together.
+      - run: mkdir npm-dist && npm pack -w @yea-protocol/sdk -w @yea-protocol/cli --pack-destination npm-dist
       - uses: actions/attest-build-provenance@v4
-        with: { subject-path: "ts/parley-protocol-*.tgz" }
-      - run: npm publish ./parley-protocol-*.tgz --provenance --access public
-        working-directory: ts
+        with: { subject-path: "npm-dist/*.tgz" }
+      # The SDK first: the CLI depends on it.
+      - run: |
+          npm publish npm-dist/yea-protocol-sdk-*.tgz --provenance --access public
+          npm publish npm-dist/yea-protocol-cli-*.tgz --provenance --access public
         env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
       - uses: actions/upload-artifact@v4
-        with: { name: npm, path: "ts/parley-protocol-*.tgz" }
+        with: { name: npm, path: "npm-dist/*.tgz" }
   pypi:
     runs-on: ubuntu-latest
     environment: pypi

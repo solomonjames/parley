@@ -1,15 +1,15 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
   "name": "io.github.yea-protocol/yea",
-  "title": "Parley",
+  "title": "YEA",
   "description": "Agent actions with previewed effects, a signed spend/risk policy, human consent, undo and budgets.",
   "websiteUrl": "https://yea-protocol.github.io/yea/",
-  "repository": { "url": "https://github.com/yea-protocol/yea", "source": "github", "subfolder": "ts" },
+  "repository": { "url": "https://github.com/yea-protocol/yea", "source": "github", "subfolder": "cli" },
   "version": "0.1.0",
   "packages": [
     {
       "registryType": "npm",
-      "identifier": "parley-protocol",
+      "identifier": "@yea-protocol/cli",
       "version": "0.1.0",
       "transport": { "type": "stdio" },
       "packageArguments": [{ "type": "positional", "value": "mcp" }]

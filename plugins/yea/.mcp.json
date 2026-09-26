@@ -1,0 +1,5 @@
+{
+  "mcpServers": {
+    "yea": { "type": "stdio", "command": "npx", "args": ["-y", "@yea-protocol/cli", "mcp"], "alwaysLoad": true }
+  }
+}
