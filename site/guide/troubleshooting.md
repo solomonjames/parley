@@ -17,7 +17,7 @@ It checks your node version, keys, grants, services and AI-tool registration, an
 
 ## The tools are there, but there are no capabilities
 
-The bridge serves the services in `parley services`. Add one with `parley add <url>`, or start the examples with `parley examples` and add `parley://127.0.0.1:7447` and `parley://127.0.0.1:7449`.
+The bridge serves the services in `parley services`. Add one with `parley add <url>`, or start the examples with `parley examples` and add `yea://127.0.0.1:7447` and `yea://127.0.0.1:7449`.
 
 ## `unauthorized`
 

@@ -21,4 +21,4 @@ Past findings and their fixes are listed in [docs/design.md](docs/design.md#secu
 - Keep the **principal key** where agents can't read it: another OS user, another machine,
   or a phone (`PARLEY_PRINCIPAL_HOME`). An agent that can read it can sign its own consent.
 - Use short-lived grants (`exp`), and pair `per` with `spend`.
-- Run Parley over an authenticated transport (`parleys://`, `https://`).
+- Run Parley over an authenticated transport (`yeas://`, `https://`).

@@ -17,7 +17,7 @@ describe('transports', async () => {
   const agent = await P.keyPair();
   const grant = await P.issueGrant({ principal, to: agent.public });
 
-  it('TCP (parley://) with multiplexed requests', async () => {
+  it('TCP (yea://) with multiplexed requests', async () => {
     const server = await listen(calendar({ trust: [principal.public] }), {
       port: 0,
     });
@@ -25,7 +25,7 @@ describe('transports', async () => {
     closers.push(() => server.close());
 
     const port = (server.address() as AddressInfo).port;
-    const c = await connect(`parley://127.0.0.1:${port}`, {
+    const c = await connect(`yea://127.0.0.1:${port}`, {
       key: agent.seed,
       grants: [grant],
     });
@@ -58,13 +58,13 @@ describe('transports', async () => {
 
     const port = (server.address() as AddressInfo).port;
     const disc = await (
-      await fetch(`http://127.0.0.1:${port}/.well-known/parley`)
+      await fetch(`http://127.0.0.1:${port}/.well-known/yea`)
     ).json();
 
     expect(disc.kind).toBe('BRIEF');
-    expect(disc.endpoint).toBe('/parley');
+    expect(disc.endpoint).toBe('/yea');
 
-    const c = await connect(`http://127.0.0.1:${port}/parley`, {
+    const c = await connect(`http://127.0.0.1:${port}/yea`, {
       key: agent.seed,
       grants: [grant],
     });
@@ -84,7 +84,7 @@ describe('transports', async () => {
     expect(
       (
         (await svc.handle({
-          parley: 1,
+          yea: 1,
           id: 'x',
           verb: 'PATCH',
         })) as P.ErrorReply

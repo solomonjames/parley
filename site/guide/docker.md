@@ -33,7 +33,7 @@ docker run --rm -p 7447:7447 -e PARLEY_TRUST="$(parley whoami | awk '/principal/
   ghcr.io/yea-protocol/yea openapi --preset github --host 0.0.0.0
 ```
 
-Then point your AI tool at it: `parley add parley://127.0.0.1:7447`.
+Then point your AI tool at it: `parley add yea://127.0.0.1:7447`.
 
 ## The example services
 

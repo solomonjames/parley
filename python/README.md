@@ -38,7 +38,7 @@ from parley import connect, consent_grant, generate_key, issue_grant
 
 principal, agent = generate_key(), generate_key()   # normally: the human's key, and the agent's
 g = issue_grant(principal, agent.public, [{"svc": ["cal.example"]}, {"per": {"max": 5000, "currency": "USD"}}])
-async with await connect("parley://127.0.0.1:7447", key=agent, grants=[g]) as c:
+async with await connect("yea://127.0.0.1:7447", key=agent, grants=[g]) as c:
     props = await c.intent("calendar.move", {"event": "e2", "to": "2026-09-24T15:00:00Z"})
     print(props.lens)                          # what the model reads
     r = await c.commit(props.proposals[0])     # signs the proof automatically
@@ -54,7 +54,7 @@ somewhere the agent can trigger it (SPEC §6.6).
 
 API names mirror `ts/src` in snake_case (`issue_grant`, `verify_grant`, `consent_grant`,
 `lean`, `lens`, `fit`, `Plan.expires_in`/`undo_window`). `examples/serve.py` runs the shared
-example calendar on `parley://127.0.0.1:7457` and `http://127.0.0.1:8457/parley`.
+example calendar on `yea://127.0.0.1:7457` and `http://127.0.0.1:8457/yea`.
 
 The CLI (`parley`), the MCP bridge for Claude Code, and the OpenAPI adapter ship with the
 TypeScript package: `npx parley-protocol --help`. See the

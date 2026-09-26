@@ -343,7 +343,7 @@ async function askHuman(o: {
   }
 
   const shown = lens({
-    parley: 1,
+    yea: 1,
     id: '-',
     re: '-',
     kind: 'PROPOSALS',

@@ -167,7 +167,7 @@
     "name": "brief",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "BRIEF",
@@ -218,7 +218,7 @@
     "name": "proposals",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "PROPOSALS",
@@ -343,7 +343,7 @@
     "name": "proposals: all attributes shared",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "PROPOSALS",
@@ -408,7 +408,7 @@
     "name": "proposals: some attributes shared",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "PROPOSALS",
@@ -482,7 +482,7 @@
     "name": "auto receipt shows effects",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "RECEIPT",
@@ -519,7 +519,7 @@
     "name": "brief without summaries",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "BRIEF",
@@ -540,7 +540,7 @@
     "name": "one proposal",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "PROPOSALS",
@@ -579,7 +579,7 @@
     "name": "clarify",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "CLARIFY",
@@ -605,7 +605,7 @@
     "name": "receipt",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "RECEIPT",
@@ -644,7 +644,7 @@
     "name": "receipt replay irreversible",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "RECEIPT",
@@ -666,7 +666,7 @@
     "name": "undo receipt",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "RECEIPT",
@@ -696,7 +696,7 @@
     "name": "answer with more",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "ANSWER",
@@ -723,7 +723,7 @@
     "name": "error full",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "ERROR",
@@ -755,7 +755,7 @@
     "name": "error consent",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "ERROR",
@@ -777,7 +777,7 @@
     "name": "event",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "EVENT",
@@ -790,7 +790,7 @@
     "name": "event plain",
     "type": "reply",
     "input": {
-      "parley": 1,
+      "yea": 1,
       "id": "s1",
       "re": "c1",
       "kind": "EVENT",

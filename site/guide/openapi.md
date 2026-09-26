@@ -29,7 +29,7 @@ parley openapi <spec.json|url> [--base <url>] [--header "K: V"] [--id <service i
 | `--header` | A header sent on every upstream call, such as credentials. Repeatable. Never shown to the model |
 | `--id` | The service id, which proofs are bound to. Defaults to the API's host |
 | `--prefix` | The capability name prefix. Defaults to a slug of the API's title |
-| `--port` | The `parley://` port (7447) |
+| `--port` | The `yea://` port (7447) |
 | `--http` | Also serve the HTTP bridge on this port, at `/parley` |
 
 Writes are authorized for the principals in `PARLEY_TRUST`, or your own principal key if that's unset.

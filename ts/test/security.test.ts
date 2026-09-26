@@ -110,12 +110,12 @@ describe('security regressions', () => {
     );
 
     const ok = await (
-      await fetch(`http://127.0.0.1:${port}/.well-known/parley`)
+      await fetch(`http://127.0.0.1:${port}/.well-known/yea`)
     ).json();
 
     expect(ok.kind).toBe('BRIEF');
 
-    const big = await fetch(`http://127.0.0.1:${port}/parley`, {
+    const big = await fetch(`http://127.0.0.1:${port}/yea`, {
       method: 'POST',
       body: 'x'.repeat((1 << 20) + 10),
     });
@@ -306,7 +306,7 @@ describe('security regressions', () => {
     const svc = payService();
     const t = Date.now();
     const r = await svc.handle({
-      parley: 1,
+      yea: 1,
       id: 'x',
       verb: 'ASK',
       capability: 'a'.repeat(300_000),
@@ -384,13 +384,13 @@ describe('security regressions', () => {
     await new Promise((r) => s.once('connect', r));
     s.write(
       JSON.stringify({
-        parley: 1,
+        yea: 1,
         id: 'big',
         verb: 'ASK',
         capability: 'x'.repeat((1 << 20) + 5),
       }) +
         '\n' +
-        JSON.stringify({ parley: 1, id: 'ok', verb: 'HELLO' }) +
+        JSON.stringify({ yea: 1, id: 'ok', verb: 'HELLO' }) +
         '\n',
     );
 

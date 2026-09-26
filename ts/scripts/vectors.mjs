@@ -582,7 +582,7 @@ const lensCases = values.map(([name, input]) => ({
   input,
   lens: P.lean(input),
 }));
-const r = (x) => ({ parley: 1, id: 's1', re: 'c1', ...x });
+const r = (x) => ({ yea: 1, id: 's1', re: 'c1', ...x });
 const replies = [
   [
     'brief',

@@ -69,8 +69,8 @@ throw new ParleyError("conflict", `${to} overlaps "Design review"`, {
 import { listen, serveHttp } from "parley-protocol/node";
 import { fetchHandler } from "parley-protocol";
 
-await listen(shop);                          // parley://127.0.0.1:7447 (pass tls options for parleys://)
-await serveHttp(shop, { port: 8080 });       // POST /parley, GET /.well-known/parley
+await listen(shop);                          // yea://127.0.0.1:7447 (pass tls options for yeas://)
+await serveHttp(shop, { port: 8080 });       // POST /parley, GET /.well-known/yea
 export default { fetch: fetchHandler(shop) } // Cloudflare Workers, Bun, Deno
 ```
 

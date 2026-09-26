@@ -31,7 +31,7 @@ const ANSI = {
 const day = (n: number) =>
   new Date(Date.now() + n * 86400e3).toISOString().slice(0, 10);
 const url = (srv: Server) =>
-  `parley://127.0.0.1:${(srv.address() as AddressInfo).port}`;
+  `yea://127.0.0.1:${(srv.address() as AddressInfo).port}`;
 
 interface Keys {
   james: KeyPair;

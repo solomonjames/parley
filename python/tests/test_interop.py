@@ -107,7 +107,7 @@ def assert_same_lens(replies):
 @pytest.mark.parametrize("transport", ["tcp", "http"])
 def test_calendar_flow(ts_servers, transport):
     tcp, http = PORTS["calendar"]
-    url = f"parley://127.0.0.1:{tcp}" if transport == "tcp" else f"http://127.0.0.1:{http}/parley"
+    url = f"yea://127.0.0.1:{tcp}" if transport == "tcp" else f"http://127.0.0.1:{http}/yea"
     g = issue_grant(PRINCIPAL, AGENT.public, [{"svc": ["calendar.example"]}, {"can": ["calendar.*"]}])
 
     async def go():
@@ -146,7 +146,7 @@ def test_shop_consent_flow(ts_servers):
     deliver = (date.today() + timedelta(days=2)).isoformat()
 
     async def go():
-        async with await connect(f"parley://127.0.0.1:{tcp}", key=AGENT, grants=[g]) as c:
+        async with await connect(f"yea://127.0.0.1:{tcp}", key=AGENT, grants=[g]) as c:
             props = await c.intent("shop.order", {"items": [{"sku": "m002", "qty": 4}], "deliver": deliver})
             assert props.kind == "PROPOSALS", props.lens
             p = props.proposals[0]

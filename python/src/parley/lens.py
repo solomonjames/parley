@@ -299,7 +299,7 @@ _RENDERERS = {
 def lens(reply: dict) -> str:
     """Render a reply frame. Ignores any service-supplied ``lens`` field."""
     render = _RENDERERS.get(reply.get("kind", ""))
-    lines = render(reply) if render else [lean({k: v for k, v in reply.items() if k not in ("parley", "id", "re")})]
+    lines = render(reply) if render else [lean({k: v for k, v in reply.items() if k not in ("yea", "id", "re")})]
     lines.extend(more_line(m) for m in reply.get("more") or [])
     return "\n".join(lines)
 

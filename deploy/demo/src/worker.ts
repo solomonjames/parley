@@ -1,5 +1,5 @@
 // Hosted Parley demo: the example calendar and shop, one private copy per agent key.
-//   https://<worker>/calendar/parley   https://<worker>/shop/parley   (+ /.well-known/parley)
+//   https://<worker>/calendar/parley   https://<worker>/shop/parley   (+ /.well-known/yea)
 // Each agent key (from the request's proof) gets its own Durable Object, so demo users never
 // see each other's data. The demo trusts any principal, so bring your own keys (`parley init`).
 import { DurableObject } from 'cloudflare:workers';
@@ -28,7 +28,7 @@ export class ParleyDemo extends DurableObject<Env> {
     if (!h) {
       const svc: Service = SERVICES[name]();
 
-      h = fetchHandler(svc, { path: `/${name}/parley` });
+      h = fetchHandler(svc, { path: `/${name}/yea` });
       this.handlers.set(name, h);
     }
 
