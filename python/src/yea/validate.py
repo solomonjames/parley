@@ -9,7 +9,7 @@ import re
 from typing import Any
 
 from ._json import compact
-from .errors import ParleyError, fix
+from .errors import YeaError, fix
 
 _DATE = re.compile(r"\d{4}-\d{2}-\d{2}")
 _DATETIME = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})")
@@ -76,7 +76,7 @@ def _js_string(v: Any) -> str:
 
 
 def validate_params(schema: dict | None, params: dict, path: str = "") -> None:
-    """Raise ParleyError(invalid_params) with fixes if ``params`` don't match ``schema``."""
+    """Raise YeaError(invalid_params) with fixes if ``params`` don't match ``schema``."""
     if not schema:
         return
     problems: list[str] = []
@@ -104,14 +104,14 @@ def validate_params(schema: dict | None, params: dict, path: str = "") -> None:
                         continue
                     try:
                         validate_params(type_[0], item, f"{path}{name}.{i}.")
-                    except ParleyError as e:
+                    except YeaError as e:
                         problems.append(e.message)
         elif not isinstance(v, dict):
             problems.append(f"`{path}{name}` must be an object")
         else:
             try:
                 validate_params(type_, v, f"{path}{name}.")
-            except ParleyError as e:
+            except YeaError as e:
                 problems.append(e.message)
     for k in params:
         if k in names:
@@ -121,4 +121,4 @@ def validate_params(schema: dict | None, params: dict, path: str = "") -> None:
         if near and params.get(near) is None:
             fixes.append(fix(f"rename `{k}` to `{near}`", {k: None, near: params[k]}))
     if problems:
-        raise ParleyError("invalid_params", "; ".join(problems), fix=fixes or None)
+        raise YeaError("invalid_params", "; ".join(problems), fix=fixes or None)

@@ -5,7 +5,7 @@ import json
 import pytest
 from conftest import CONFORMANCE
 
-from parley import canonical, decode_grant, est, key_from_seed, lens, lean, proposal_hash, sign_proof, verify_grant
+from yea import canonical, decode_grant, est, key_from_seed, lens, lean, proposal_hash, sign_proof, verify_grant
 
 
 def vectors(name):

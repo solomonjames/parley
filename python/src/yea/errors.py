@@ -20,7 +20,7 @@ CODES = frozenset(
 )
 
 
-class ParleyError(Exception):
+class YeaError(Exception):
     """Raise from a handler to reply with ``ERROR`` (SPEC §7)."""
 
     def __init__(

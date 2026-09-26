@@ -2,8 +2,8 @@ import math
 
 import pytest
 
-from parley import CanonicalError, b64url_decode, b64url_encode, canonical, compact, proposal_hash
-from parley._json import js_number
+from yea import CanonicalError, b64url_decode, b64url_encode, canonical, compact, proposal_hash
+from yea._json import js_number
 
 
 def test_canonical_sorts_and_strips_whitespace():

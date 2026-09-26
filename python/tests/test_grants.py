@@ -1,9 +1,9 @@
 import pytest
 
-from parley import (
+from yea import (
     GrantContext, consent_code, consent_grant, decode_consent_code, decode_grant, issue_grant, key_from_seed, sign_proof, verify_grant, verify_proof,
 )
-from parley.keys import KeyPair
+from yea.keys import KeyPair
 
 ALICE = key_from_seed(bytes(32))
 AGENT = key_from_seed(bytes([1]) * 32)
@@ -153,7 +153,7 @@ def test_generate_is_random():
 
 
 def test_consent_code_detail_and_approver_checks():
-    from parley import check_consent, proposal_hash
+    from yea import check_consent, proposal_hash
 
     p = {"id": "p1", "capability": "calendar.move", "summary": "s", "effects": [{"op": "charge", "target": "card"}],
          "cost": {"amount": 500, "currency": "USD"}, "risk": "low", "undo": None, "expires": NOW + 60, "data": {"x": 1.5}}

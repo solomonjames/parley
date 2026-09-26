@@ -41,7 +41,7 @@ jobs:
       - run: uv run --python ${{ matrix.python }} pytest -q
         working-directory: python
         env:
-          PARLEY_REQUIRE_INTEROP: "1"   # fail instead of skipping if node/ts/dist is missing
+          YEA_REQUIRE_INTEROP: "1"   # fail instead of skipping if node/ts/dist is missing
   site:
     runs-on: ubuntu-latest
     steps:
